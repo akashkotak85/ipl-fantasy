@@ -430,8 +430,10 @@ export default function App(){
       DB.get("bracket"),DB.get("manmatches"),DB.get("maintenance"),DB.get("ptsadj"),DB.get("lockedm"),
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride")
     ]);
-    if(u)setUsers(u);
-    const freshAP=ap||{};setAllPicks(freshAP);
+    // Only update users state if we have data — don't overwrite a verified fresh read
+    if(u&&Object.keys(u).length>0)setUsers(u);
+    const freshAP=ap||{};
+    setAllPicks(freshAP);
     if(em)setMyPicks(freshAP[em]||{});
     const extraMs=mn||[];
     let base=BASE_MATCHES.map(m=>({...m}));
@@ -575,15 +577,25 @@ export default function App(){
     const eErr=validateEmail(authEmail);if(eErr)errs.email=eErr;
     if(!authPw)errs.pw="Password is required";
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
-    // Always fetch fresh from DB — never rely on stale in-memory users state
-    const u2=await DB.get("u")||{};
-    if(!u2[authEmail]){setAuthErrors({email:"No account found for this email. Please create an account."});setAuthLoading(false);return;}
-    const stored=await DB.get("pw_"+authEmail);
-    if(!stored||stored!==authPw){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
-    setUsers(u2);
-    await doSignIn(authEmail,u2[authEmail]);
+    try{
+      const u2=await DB.get("u")||{};
+      const storedPw=await DB.get("pw_"+authEmail);
+      if(!u2[authEmail]||!storedPw){
+        setAuthErrors({email:"No account found for this email. Please create an account."});
+        setAuthLoading(false);return;
+      }
+      if(storedPw!==authPw){
+        setAuthErrors({pw:"Incorrect password."});
+        setAuthLoading(false);return;
+      }
+      setUsers(u2);
+      await doSignIn(authEmail,u2[authEmail]);
+    }catch(e){
+      setAuthErrors({email:"Something went wrong. Please try again."});
+    }
     setAuthLoading(false);
   }
+
   async function doRegister(){
     setAuthLoading(true);
     const errs={};
@@ -592,15 +604,28 @@ export default function App(){
     const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;
     if(authPw!==authPw2)errs.pw2="Passwords do not match";
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
-    // Always fetch fresh from DB before checking duplicates
-    const u2=await DB.get("u")||{};
-    if(u2[authEmail]){setAuthErrors({email:"An account already exists for this email. Please sign in."});setAuthLoading(false);return;}
-    const ex={email:authEmail,name:authName.trim(),joined:new Date().toISOString()};
-    const nu={...u2,[authEmail]:ex};
-    await DB.set("u",nu);
-    await DB.set("pw_"+authEmail,authPw);
-    setUsers(nu);
-    await doSignIn(authEmail,ex,true);
+    try{
+      const u2=await DB.get("u")||{};
+      if(u2[authEmail]){
+        setAuthErrors({email:"An account already exists for this email. Please sign in."});
+        setAuthLoading(false);return;
+      }
+      const ex={email:authEmail,name:authName.trim(),joined:new Date().toISOString()};
+      const nu={...u2,[authEmail]:ex};
+      // Write user record and password BEFORE calling doSignIn
+      await DB.set("u",nu);
+      await DB.set("pw_"+authEmail,authPw);
+      // Verify the write succeeded by reading back
+      const verify=await DB.get("u")||{};
+      if(!verify[authEmail]){
+        setAuthErrors({email:"Registration failed — please try again."});
+        setAuthLoading(false);return;
+      }
+      setUsers(verify);
+      await doSignIn(authEmail,verify[authEmail],true);
+    }catch(e){
+      setAuthErrors({email:"Registration failed. Please try again."});
+    }
     setAuthLoading(false);
   }
   async function doForgotPw(){
@@ -620,16 +645,18 @@ export default function App(){
     setAuthLoading(false);
   }
   async function doSignIn(em,ex,isNew=false){
-    // Clear previous user state
+    // Clear all previous user-specific state first
     setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);
-    const freshAP=await reloadShared(em);
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
     await persistSession(em);
-    setMyPicks(freshAP[em]||{});
+    // Load shared app state (allPicks, matches, etc.) — pass em so it sets myPicks correctly
+    await reloadShared(em);
+    // Load user-specific overrides on top
     const sp=await DB.get("sp")||{};setSpk(sp);setMySp(sp[em]||"");
     const t4=await DB.get("t4")||{};setT4pk(t4);setMyT4(t4[em]||[]);
     const bp=await DB.get("bp")||{};setBpk(bp);
-    if(isNew){setSc("onboard");setObStep(0);}else{setSc("home");toast2("Welcome back, "+ex.name+"!","ok");}
+    if(isNew){setSc("onboard");setObStep(0);}
+    else{setSc("home");toast2("Welcome back, "+ex.name+"!","ok");}
   }
   function logout(){
     localStorage.removeItem(SESSION_KEY);
