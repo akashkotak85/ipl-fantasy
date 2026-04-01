@@ -119,7 +119,7 @@ const DB={
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const cutoff=m=>{const d=new Date(m.date+"T"+m.time+":00+05:30");return new Date(d-45*60*1000);};
-const isLiveNow=m=>{const now=Date.now();const start=new Date(m.date+"T"+m.time+":00+05:30").getTime();return now>=start&&now<=start+4*60*60*1000;};
+const isLiveNow=m=>{const now=Date.now();const start=new Date(m.date+"T"+m.time+":00+05:30").getTime();return now>=start-5*60*1000&&now<=start+5*60*60*1000;};
 const locked=(m,lockedMatches={})=>!!(m.result||lockedMatches[m.id]||new Date()>=cutoff(m));
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
@@ -575,10 +575,12 @@ export default function App(){
     const eErr=validateEmail(authEmail);if(eErr)errs.email=eErr;
     if(!authPw)errs.pw="Password is required";
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
+    // Always fetch fresh from DB — never rely on stale in-memory users state
     const u2=await DB.get("u")||{};
-    if(!u2[authEmail]){setAuthErrors({email:"No account found. Please create an account first."});setAuthLoading(false);return;}
+    if(!u2[authEmail]){setAuthErrors({email:"No account found for this email. Please create an account."});setAuthLoading(false);return;}
     const stored=await DB.get("pw_"+authEmail);
     if(!stored||stored!==authPw){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
+    setUsers(u2);
     await doSignIn(authEmail,u2[authEmail]);
     setAuthLoading(false);
   }
@@ -590,10 +592,13 @@ export default function App(){
     const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;
     if(authPw!==authPw2)errs.pw2="Passwords do not match";
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
+    // Always fetch fresh from DB before checking duplicates
     const u2=await DB.get("u")||{};
-    if(u2[authEmail]){setAuthErrors({email:"An account with this email already exists. Please log in."});setAuthLoading(false);return;}
+    if(u2[authEmail]){setAuthErrors({email:"An account already exists for this email. Please sign in."});setAuthLoading(false);return;}
     const ex={email:authEmail,name:authName.trim(),joined:new Date().toISOString()};
-    const nu={...u2,[authEmail]:ex};await DB.set("u",nu);await DB.set("pw_"+authEmail,authPw);
+    const nu={...u2,[authEmail]:ex};
+    await DB.set("u",nu);
+    await DB.set("pw_"+authEmail,authPw);
     setUsers(nu);
     await doSignIn(authEmail,ex,true);
     setAuthLoading(false);
@@ -629,7 +634,11 @@ export default function App(){
   function logout(){
     localStorage.removeItem(SESSION_KEY);
     setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);
-    setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setAuthMode("login");
+    // FIX: fully clear all auth form fields so next user sees a blank form
+    setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");
+    setAuthErrors({});setAuthMode("login");setShowPw(false);setShowPw2(false);
+    // Clear user-specific cached state to prevent bleed-over
+    setUsers({});setAllPicks({});setSpk({});setT4pk({});setBpk({});
     setSc("login");toast2("Logged out");
   }
 
@@ -847,7 +856,12 @@ export default function App(){
       <p style={{color:"#FFE57F",fontSize:11,letterSpacing:3,marginTop:4,textTransform:"uppercase"}}>TATA IPL 2026</p>
       {/* mode tabs */}
       <div style={{display:"flex",gap:0,marginTop:20,background:"rgba(255,255,255,.1)",borderRadius:12,padding:3}}>
-        {[["login","Sign In"],["register","Create Account"],["forgot","Forgot Password"]].map(([m,l])=><button key={m} onClick={()=>{setAuthMode(m);setAuthErrors({});setForgotSent(false);}} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",transition:"all .2s",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}
+        {[["login","Sign In"],["register","Create Account"],["forgot","Forgot Password"]].map(([m,l])=><button key={m} onClick={()=>{
+          setAuthMode(m);
+          // FIX: clear all fields and errors when switching tabs
+          setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");
+          setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotSent(false);
+        }} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",transition:"all .2s",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}
       </div>
     </div>
     <div style={{padding:"24px 24px",display:"flex",flexDirection:"column",gap:14}}>
@@ -1126,7 +1140,7 @@ export default function App(){
         <div style={{display:"flex",gap:6}}>{maintenance&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:700}}>🔒 Locked</span>}<span style={{background:"#dcfce7",color:"#166534",fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:600}}>Active</span></div>
       </div>
       <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0",flexWrap:"wrap"}}>
-        {[["results","📊 Results"],["users","👥 Users"],["matches","➕ Matches"],["analytics","📈 Stats"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)} style={{minWidth:"30%",fontSize:9}}>{l}</button>)}
+        {[["results","📊 Results"],["users","👥 Users"],["players","🏏 Players"],["matches","➕ Matches"],["analytics","📈 Stats"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)} style={{minWidth:"25%",fontSize:9}}>{l}</button>)}
       </div>
 
       {/* RESULTS */}
