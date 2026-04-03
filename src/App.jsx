@@ -179,7 +179,7 @@ async function claudeCallRaw(prompt,useSearch=false,timeoutMs=15000){
   try{
     const body={model:"claude-sonnet-4-20250514",max_tokens:800,messages:[{role:"user",content:prompt}]};
     if(useSearch)body.tools=[{type:"web_search_20250305",name:"web_search"}];
-    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const r=await fetch("https:///api/claude/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const err=await r.text().catch(()=>"");throw new Error("HTTP "+r.status+": "+err.slice(0,120));}
     const d=await r.json();
