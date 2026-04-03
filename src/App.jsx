@@ -578,39 +578,7 @@ export default function App(){
     });
   },[user,ms]);
 
-  useEffect(()=>{
-    const run=async()=>{
-      const now=Date.now();if(now-lastF<600000)return;
-      // Only fetch matches that ended more than 4.5 hours ago
-      const cands=ms.filter(m=>{
-        if(m.result||isTBD(m))return false;
-        const s=parseMatchDate(m.date,m.time);
-        return s&&now>s.getTime()+4.5*60*60*1000;
-      });
-      if(!cands.length){setPendingResultIds([]);return;}
-      setPendingResultIds(cands.map(m=>m.id));
-      setFetching(true);setFetchErr("");
-      const r=await fetchResults(cands);
-      if(!r.ok){setFetching(false);setFetchErr(r.error);toast2("⚠️ Result fetch failed: "+r.error,"error");return;}
-      const res=r.data;
-      if(res.length){
-        const saved={};
-        const nm=ms.map(m=>{const rv=res.find(x=>x.id===m.id);if(rv){saved[m.id]={result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};return{...m,result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};}return m;});
-        setMs(nm);await DB.set("rm",{...((await DB.get("rm"))||{}),...saved});
-        const freshAP=(await DB.get("ap"))||{};setAllPicks(freshAP);
-        let ubq={...bqs};
-        for(const rv of res){const m=nm.find(x=>x.id===rv.id);const q=ubq[m?.id];if(m&&q&&!q.answer&&!q.loading&&!q.failed){const br=await checkBonus(q.question,q.optA,q.optB,{toss:rv.toss,win:rv.win,motm:rv.motm},m.home,m.away);if(br.ok)ubq={...ubq,[m.id]:{...q,answer:br.data}};}}
-        setBqs(ubq);await DB.set("bq",ubq);
-        const cu=await DB.get("u")||{};const rawCh=chat;const newCh=capChat([...rawCh]);
-        res.forEach(rv=>{const m=nm.find(x=>x.id===rv.id);if(!m)return;const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[rv.id];return p&&p.toss===rv.toss&&p.win===rv.win&&motmMatch(p.motm,rv.motm);}).map(([em])=>cu[encodeEmail(em)]?.name||em);newCh.push({id:Date.now()+rv.id,email:"__sys__",name:"IPL Bot",text:"Result: "+m.home+" vs "+m.away+"\nWinner: "+rv.win+" · POTM: "+rv.motm+(perfs.length?"\n🎯 Perfect: "+perfs.join(", "):"\nNo perfect picks"),ts:Date.now(),sys:true});});
-        setChat(newCh);await DB.set("ch",newCh);
-        toast2(res.length+" result(s) fetched!","ok");
-        setPendingResultIds(prev=>prev.filter(id=>!res.find(rv=>rv.id===id)));
-      }
-      setLastF(now);setFetching(false);setFetchErr("");
-    };
-    run();const id=setInterval(run,600000);return()=>clearInterval(id);
-  },[ms,lastF]);
+  // Auto result fetch disabled — admin enters results manually
 
   useEffect(()=>{
     const leagueDone=ms.filter(m=>!isTBD(m)&&m.result).length;if(leagueDone<60)return;
@@ -650,11 +618,16 @@ export default function App(){
     const scores={};
     Object.values(users).forEach(u=>{
       const ek=encodeEmail(u.email);
-      const up=allPicks[ek]||{},st=calcScore(up,ms,doubleMatch);
-      const sp2=(spk[ek]&&sw&&spk[ek]===sw)?PTS.season:0;
-      const ut4=t4pk[ek]||[];
-      const t4p=sw&&ut4.includes(sw)?PTS.top4:0;
-      scores[u.email]={pts:st.pts+sp2+t4p+calcBonusPts(ek,bpk,bqs,ms)+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks)};
+      // picks stored under encoded key
+      const up=allPicks[ek]||allPicks[u.email]||{};
+      const st=calcScore(up,ms,doubleMatch);
+      // sp and t4 stored under encoded key
+      const userSp=spk[ek]||spk[u.email];
+      const userT4=t4pk[ek]||t4pk[u.email]||[];
+      const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
+      const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
+      const bp=calcBonusPts(ek,bpk,bqs,ms)||calcBonusPts(u.email,bpk,bqs,ms);
+      scores[u.email]={pts:st.pts+sp2+t4p+bp+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};
     });
     return scores;
   },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,bpk,bqs,manualPtsAdj,matchPtsOverride]);
@@ -1111,7 +1084,7 @@ export default function App(){
     {hdr}
     {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14,flexShrink:0}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
     {bc.length>0&&sc==="home"&&!pinnedBc&&(()=>{const lt=bc[bc.length-1];return <div style={{background:"#FFF9E6",borderBottom:"1px solid #FDE68A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setBcSeenTs(Date.now())}><span style={{color:"#B8860B",fontSize:14,flexShrink:0}}>📢</span><p style={{color:"#92400E",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lt.msg}</p>{unbc>0&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:12,flexShrink:0}}>{unbc} new</span>}</div>;})()}
-    {fetchErr&&sc==="home"&&<ApiErr msg={"Result fetch failed: "+fetchErr} onRetry={manualFetch}/>}
+    {fetchErr&&sc==="home"&&isAdmin&&<ApiErr msg={"Result fetch failed: "+fetchErr} onRetry={manualFetch}/>}
     <div style={{background:"#fff",padding:"8px 16px",display:"flex",borderBottom:"1px solid #e2e8f0"}}>
       {[["🎯","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak],["⚡","Bonus",PTS.bonus]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<4?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:12,margin:0}}>{p}<span style={{fontSize:9,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:9,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
     </div>
