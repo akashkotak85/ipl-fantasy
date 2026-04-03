@@ -132,8 +132,16 @@ const DB={
     try{
       const{db,dbMod}=await firebaseReady;
       const sk=PFX+encodeKey(k);
-      if(v===null||v===undefined){await dbMod.remove(dbMod.ref(db,sk));}
-      else{await dbMod.set(dbMod.ref(db,sk),v);}
+      // Deep encode object keys that contain emails
+      const encodeObj=o=>{
+        if(o===null||o===undefined||typeof o!=="object"||Array.isArray(o))return o;
+        const r={};
+        Object.keys(o).forEach(key=>{r[encodeKey(key)]=encodeObj(o[key]);});
+        return r;
+      };
+      const ev=typeof v==="object"&&v!==null&&!Array.isArray(v)?encodeObj(v):v;
+      if(ev===null||ev===undefined){await dbMod.remove(dbMod.ref(db,sk));}
+      else{await dbMod.set(dbMod.ref(db,sk),ev);}
     }catch(e){console.error("DB.set error:",e);}
   }
 };
@@ -147,6 +155,7 @@ async function sha256(str){
 // ─── VALIDATION ───────────────────────────────────────────────────────────────
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail=e=>(e||"").trim().toLowerCase();
+const encodeEmail=e=>e.replace(/\./g,"_dot_").replace(/@/g,"_at_");
 function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
 function validatePassword(p,mode="login"){
   if(!p)return"Password is required";
