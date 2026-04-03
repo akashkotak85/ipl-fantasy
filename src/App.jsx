@@ -206,7 +206,12 @@ function parseMatchDate(date,time){
 }
 const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-45*60*1000):new Date(0);};
 const isLiveNow=m=>false;
-const locked=(m,lm={})=>!!(m.result||lm[m.id]||new Date()>=cutoff(m));
+const locked=(m,lm={})=>{
+  if(m.result)return true;
+  if(lm[m.id]==="unlocked")return false;
+  if(lm[m.id]==="locked")return true;
+  return new Date()>=cutoff(m);
+};
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
 const motmMatch=(a,b)=>!!(a&&b&&a.trim().toLowerCase()===b.trim().toLowerCase());
@@ -419,26 +424,7 @@ function PotmDropdown({homeTeam,awayTeam,value,onChange}){
   </div>;
 }
 
-function LiveScoreWidget({m}){
-  const[score,setScore]=useState(null);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const ivRef=useRef();
-  const doFetch=useCallback(async()=>{
-    setLoading(true);setErr("");
-    const r=await fetchLiveScore(m);
-    if(r.ok){setScore(r.data);setErr("");}
-    else{setScore(null);setErr(r.error);}
-    setLoading(false);
-  },[m.id]);
-  useEffect(()=>{doFetch();ivRef.current=setInterval(doFetch,120000);return()=>clearInterval(ivRef.current);},[m.id]);
-  if(loading)return <div className="live-score-box"><div style={{display:"flex",alignItems:"center",gap:6}}><span className="live-dot"/><span style={{color:"#ef4444",fontSize:11,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>LIVE</span><span style={{color:"#94a3b8",fontSize:11}}>Fetching score…</span></div></div>;
-  if(err)return <div className="live-score-box"><div style={{display:"flex",alignItems:"center",gap:8}}><span className="live-dot"/><span style={{color:"#94a3b8",fontSize:11,flex:1}}>Score unavailable — {err}</span><button onClick={doFetch} style={{background:"none",border:"none",color:"#FF822A",fontSize:11,cursor:"pointer",fontWeight:700}}>Retry</button></div></div>;
-  if(!score?.live)return null;
-  return <div className="live-score-box">
-    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span className="live-dot"/><span style={{color:"#ef4444",fontSize:11,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,textTransform:"uppercase"}}>Live Score</span></div>
-    {score.inn1&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{color:"#94a3b8",fontSize:11,minWidth:36}}>{m.home}</span><span style={{color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>{score.inn1}</span></div>}
-    {score.inn2&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{color:"#94a3b8",fontSize:11,minWidth:36}}>{m.away}</span><span style={{color:"#fff",fontSize:16,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>{score.inn2}</span></div>}
-    {score.status&&<div style={{background:"rgba(239,68,68,.15)",borderRadius:6,padding:"4px 8px",marginTop:4}}><span style={{color:"#FF822A",fontSize:11,fontWeight:600}}>{score.status}</span></div>}
-  </div>;
-}
+function LiveScoreWidget({m}){return null;}
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
@@ -562,33 +548,45 @@ export default function App(){
     return()=>Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));
   },[reminders,ms]);
 
-  const todayMatchKey=useMemo(()=>ms.filter(m=>isToday(m)&&!isTBD(m)).map(m=>m.id).join(","),[ms]);
   useEffect(()=>{
-    if(!user||!todayMatchKey)return;
-    const toGen=ms.filter(m=>isToday(m)&&!bqs[m.id]&&!isTBD(m));
+    if(!user)return;
+    // Only generate for today's matches that don't already have a question
+    const toGen=ms.filter(m=>{
+      if(isTBD(m)||m.result)return false;
+      if(!isToday(m))return false;
+      const existing=bqs[m.id];
+      // Skip if already generated (even if failed — don't retry on same day)
+      if(existing&&!existing.loading)return false;
+      if(existing?.loading)return false;
+      return true;
+    });
     if(!toGen.length)return;
     toGen.forEach(async m=>{
-      setBqs(prev=>{if(prev[m.id])return prev;return{...prev,[m.id]:{loading:true}};});
+      // Mark as loading immediately to prevent duplicate calls
+      setBqs(prev=>{
+        if(prev[m.id])return prev;
+        return{...prev,[m.id]:{loading:true}};
+      });
       setBonusGenErr(prev=>({...prev,[m.id]:""}));
-      let result=null;
-      for(let attempt=0;attempt<3;attempt++){
-        const r=await genBonus(m);
-        if(r.ok&&r.data){result=r.data;break;}
-        if(attempt<2)await new Promise(res=>setTimeout(res,5000));
-      }
+      const r=await genBonus(m);
       setBqs(prev=>{
         if(prev[m.id]?.answer!=null)return prev;
-        const upd={...prev,[m.id]:result?{...result,loading:false,answer:null}:{loading:false,failed:true}};
+        const upd={...prev,[m.id]:r.ok&&r.data?{...r.data,loading:false,answer:null}:{loading:false,failed:true}};
         DB.set("bq",upd);return upd;
       });
-      if(!result)setBonusGenErr(prev=>({...prev,[m.id]:"Could not generate bonus question"}));
+      if(!r.ok)setBonusGenErr(prev=>({...prev,[m.id]:"Could not generate bonus question"}));
     });
-  },[user,todayMatchKey]);
+  },[user,ms]);
 
   useEffect(()=>{
     const run=async()=>{
       const now=Date.now();if(now-lastF<600000)return;
-      const cands=ms.filter(m=>{if(m.result||isTBD(m))return false;const s=parseMatchDate(m.date,m.time);return s&&now>s.getTime()+3*60*60*1000;});
+      // Only fetch matches that ended more than 4.5 hours ago
+      const cands=ms.filter(m=>{
+        if(m.result||isTBD(m))return false;
+        const s=parseMatchDate(m.date,m.time);
+        return s&&now>s.getTime()+4.5*60*60*1000;
+      });
       if(!cands.length){setPendingResultIds([]);return;}
       setPendingResultIds(cands.map(m=>m.id));
       setFetching(true);setFetchErr("");
@@ -604,7 +602,7 @@ export default function App(){
         for(const rv of res){const m=nm.find(x=>x.id===rv.id);const q=ubq[m?.id];if(m&&q&&!q.answer&&!q.loading&&!q.failed){const br=await checkBonus(q.question,q.optA,q.optB,{toss:rv.toss,win:rv.win,motm:rv.motm},m.home,m.away);if(br.ok)ubq={...ubq,[m.id]:{...q,answer:br.data}};}}
         setBqs(ubq);await DB.set("bq",ubq);
         const cu=await DB.get("u")||{};const rawCh=chat;const newCh=capChat([...rawCh]);
-        res.forEach(rv=>{const m=nm.find(x=>x.id===rv.id);if(!m)return;const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[rv.id];return p&&p.toss===rv.toss&&p.win===rv.win&&motmMatch(p.motm,rv.motm);}).map(([em])=>cu[em]?.name||em);newCh.push({id:Date.now()+rv.id,email:"__sys__",name:"IPL Bot",text:"Result: "+m.home+" vs "+m.away+"\nWinner: "+rv.win+" · POTM: "+rv.motm+(perfs.length?"\n🎯 Perfect: "+perfs.join(", "):"\nNo perfect picks"),ts:Date.now(),sys:true});});
+        res.forEach(rv=>{const m=nm.find(x=>x.id===rv.id);if(!m)return;const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[rv.id];return p&&p.toss===rv.toss&&p.win===rv.win&&motmMatch(p.motm,rv.motm);}).map(([em])=>cu[encodeEmail(em)]?.name||em);newCh.push({id:Date.now()+rv.id,email:"__sys__",name:"IPL Bot",text:"Result: "+m.home+" vs "+m.away+"\nWinner: "+rv.win+" · POTM: "+rv.motm+(perfs.length?"\n🎯 Perfect: "+perfs.join(", "):"\nNo perfect picks"),ts:Date.now(),sys:true});});
         setChat(newCh);await DB.set("ch",newCh);
         toast2(res.length+" result(s) fetched!","ok");
         setPendingResultIds(prev=>prev.filter(id=>!res.find(rv=>rv.id===id)));
@@ -645,14 +643,18 @@ export default function App(){
   function getMatchOverride(em){return Object.values(matchPtsOverride[em]||{}).reduce((a,b)=>a+b,0);}
 
   const myS=calcScore(myPicks,ms,doubleMatch);
-  const myPts=myS.pts+((mySp&&sw&&mySp===sw)?PTS.season:0)+t4pts(myT4)+calcBonusPts(email,bpk,bqs,ms)+getManualAdj(email)+getMatchOverride(email);
+  const myEk=encodeEmail(email||"");
+  const myPts=myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&(myT4||[]).includes(sw))?PTS.top4:0)+calcBonusPts(myEk,bpk,bqs,ms)+getManualAdj(email)+getMatchOverride(email);
 
   const lbScores=useMemo(()=>{
     const scores={};
     Object.values(users).forEach(u=>{
-      const up=allPicks[u.email]||{},st=calcScore(up,ms,doubleMatch);
-      const sp2=(spk[u.email]&&sw&&spk[u.email]===sw)?PTS.season:0;
-      scores[u.email]={pts:st.pts+sp2+t4pts(t4pk[u.email])+calcBonusPts(u.email,bpk,bqs,ms)+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks)};
+      const ek=encodeEmail(u.email);
+      const up=allPicks[ek]||{},st=calcScore(up,ms,doubleMatch);
+      const sp2=(spk[ek]&&sw&&spk[ek]===sw)?PTS.season:0;
+      const ut4=t4pk[ek]||[];
+      const t4p=sw&&ut4.includes(sw)?PTS.top4:0;
+      scores[u.email]={pts:st.pts+sp2+t4p+calcBonusPts(ek,bpk,bqs,ms)+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks)};
     });
     return scores;
   },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,bpk,bqs,manualPtsAdj,matchPtsOverride]);
@@ -865,7 +867,14 @@ export default function App(){
     await DB.set("manmatches",[...existing,nm]);setMs(prev=>[...prev,nm]);
     setManMatchForm({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});toast2("Match added!","ok");
   }
-  async function toggleMatchLock(mid){const upd={...lockedMatches,[mid]:!lockedMatches[mid]};setLockedMatches(upd);await DB.set("lockedm",upd);toast2(upd[mid]?"Match locked":"Match unlocked");}
+  async function toggleMatchLock(mid){
+    const cur=lockedMatches[mid];
+    const next=cur==="locked"?"unlocked":cur==="unlocked"?null:"locked";
+    const upd={...lockedMatches,[mid]:next};
+    if(next===null)delete upd[mid];
+    setLockedMatches(upd);await DB.set("lockedm",upd);
+    toast2(next==="locked"?"🔒 Match force-locked":next==="unlocked"?"🔓 Match force-unlocked":"↩️ Match back to auto");
+  }
   async function adjustPts(em,delta){const cur=manualPtsAdj[em]||0;const upd={...manualPtsAdj,[em]:cur+delta};setManualPtsAdj(upd);await DB.set("ptsadj",upd);toast2((delta>0?"+":"")+delta+" pts to "+users[em]?.name,"ok");}
   async function setMatchPts(em,mid,delta){const cur=((matchPtsOverride[em]||{})[mid])||0;const upd={...matchPtsOverride,[em]:{...(matchPtsOverride[em]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts for "+users[em]?.name+" M"+mid,"ok");}
   async function setSeasonWinner(t){setSw(t);await DB.set("sw",t);toast2("Champion set: "+t,"ok");}
@@ -1380,10 +1389,12 @@ export default function App(){
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,10).map(m=><div key={m.id} className="ctrl-row">
-            <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div>
-            <Toggle on={!!lockedMatches[m.id]} onChange={()=>toggleMatchLock(m.id)}/>
-          </div>)}
+          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,10).map(m=>{const lstate=lockedMatches[m.id];return <div key={m.id} className="ctrl-row">
+            <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time} · {lstate==="locked"?"🔒 Force locked":lstate==="unlocked"?"🔓 Force unlocked":"⚙️ Auto"}</p></div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"5px 10px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f8faff",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button>
+            </div>
+          </div>;})}
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">💬 MUTE INDIVIDUAL USERS</p>
