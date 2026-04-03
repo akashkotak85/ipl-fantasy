@@ -1147,9 +1147,23 @@ export default function App(){
     </div>}
 
     {sc==="picks"&&!am&&<div style={{padding:"16px"}}>
-      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"14px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"14px 16px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>MY PICKS</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:2}}>{Object.keys(myPicks).length} predictions · {myS.acc}% accurate</p></div>
         <p className="C" style={{color:"#FFE57F",fontSize:26,fontWeight:800,margin:0}}>{myPts}</p>
+      </div>
+      {/* Season picks — champion + top 4 */}
+      <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+        <p className="st">MY SEASON PICKS</p>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"linear-gradient(135deg,#1D428A10,#2a5bbf10)",border:"1px solid #dbeafe",borderRadius:10,padding:"10px 14px",flex:1}}>
+            <span style={{fontSize:10,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>🏆 My Champion</span>
+            {mySp?<div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}><TLogo t={mySp} sz={36}/><div><p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0}}>{mySp}</p><p style={{color:sw?(mySp===sw?"#15803d":"#dc2626"):"#94a3b8",fontSize:11,fontWeight:600,margin:0}}>{sw?(mySp===sw?"✅ Correct! +200pts":"❌ Wrong"):"Pending"}</p></div></div>:<p style={{color:"#94a3b8",fontSize:12,margin:"4px 0 0"}}>Not set</p>}
+          </div>
+        </div>
+        <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}>
+          <span style={{fontSize:10,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>🏅 My Playoff Top 4</span>
+          {myT4&&myT4.length>0?<div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:10,padding:"6px 10px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:12,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={24}/><span className="C" style={{color:"#1D428A",fontSize:13,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:12}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:"6px 0 0"}}>Not set</p>}
+        </div>
       </div>
       <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#92400E",display:"flex",gap:8,alignItems:"center"}}><span>🔒</span><span>Picks lock 45 mins before each match. Predict from the Today tab.</span></div>
       {ms.filter(m=>myPicks[m.id]).length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><p style={{fontSize:36}}>📋</p><p style={{color:"#94a3b8",marginTop:12}}>No predictions yet. Head to the Today tab to start!</p></div>}
