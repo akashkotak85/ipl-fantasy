@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/claude.js": {
-      "runtime": "nodejs20.x"
+      "memory": 512,
+      "maxDuration": 30
     }
   },
   "rewrites": [
