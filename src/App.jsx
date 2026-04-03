@@ -95,9 +95,13 @@ const EMOJIV={fire:"🔥",cry:"😭",aim:"🎯",rage:"😤",clap:"👏",boom:"�
 const SUPER_ADMIN="akashkotak@gmail.com";
 const PFX="ipl26_";
 const CHAT_MAX=400;
-const REG_LIMIT=999, REG_WINDOW=10*60*1000;
+const REG_LIMIT=999,REG_WINDOW=10*60*1000;
 
-// ─── FIREBASE (CDN dynamic import) ───────────────────────────────────────────
+// ─── EMAIL ENCODING — Firebase keys can't have . @ # $ [ ] / ─────────────────
+const encodeEmail=e=>e.replace(/\./g,"_dot_").replace(/@/g,"_at_");
+const ek=e=>encodeEmail((e||"").trim().toLowerCase());
+
+// ─── FIREBASE (CDN) ───────────────────────────────────────────────────────────
 const firebaseConfig={
   apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",
   authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",
@@ -118,35 +122,34 @@ const firebaseReady=(async()=>{
   return{app:_app,db:_db,dbMod:db};
 })();
 
-const encodeKey=k=>k.replace(/\./g,"_dot_").replace(/@/g,"_at_").replace(/#/g,"_hash_").replace(/\$/g,"_dlr_").replace(/\[/g,"_lb_").replace(/\]/g,"_rb_").replace(/\//g,"_sl_");
+// Deep-encode all object keys to be Firebase-safe
+function deepEncodeKeys(v){
+  if(v===null||v===undefined||typeof v!=="object"||Array.isArray(v))return v;
+  const r={};
+  Object.keys(v).forEach(k=>{r[encodeEmail(k)]=deepEncodeKeys(v[k]);});
+  return r;
+}
 
 const DB={
   get:async k=>{
     try{
       const{db,dbMod}=await firebaseReady;
-      const snap=await dbMod.get(dbMod.ref(db,PFX+encodeKey(k)));
+      const snap=await dbMod.get(dbMod.ref(db,PFX+k));
       return snap.exists()?snap.val():null;
     }catch(e){console.error("DB.get error:",e);return null;}
   },
   set:async(k,v)=>{
     try{
       const{db,dbMod}=await firebaseReady;
-      const sk=PFX+encodeKey(k);
-      // Deep encode object keys that contain emails
-      const encodeObj=o=>{
-        if(o===null||o===undefined||typeof o!=="object"||Array.isArray(o))return o;
-        const r={};
-        Object.keys(o).forEach(key=>{r[encodeKey(key)]=encodeObj(o[key]);});
-        return r;
-      };
-      const ev=typeof v==="object"&&v!==null&&!Array.isArray(v)?encodeObj(v):v;
-      if(ev===null||ev===undefined){await dbMod.remove(dbMod.ref(db,sk));}
-      else{await dbMod.set(dbMod.ref(db,sk),ev);}
+      // Encode object keys deeply before saving
+      const sv=typeof v==="object"&&v!==null&&!Array.isArray(v)?deepEncodeKeys(v):v;
+      if(sv===null||sv===undefined){await dbMod.remove(dbMod.ref(db,PFX+k));}
+      else{await dbMod.set(dbMod.ref(db,PFX+k),sv);}
     }catch(e){console.error("DB.set error:",e);}
   }
 };
 
-// ─── SECURITY: SHA-256 password hashing ──────────────────────────────────────
+// ─── SECURITY ─────────────────────────────────────────────────────────────────
 async function sha256(str){
   const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
@@ -155,7 +158,6 @@ async function sha256(str){
 // ─── VALIDATION ───────────────────────────────────────────────────────────────
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail=e=>(e||"").trim().toLowerCase();
-const encodeEmail=e=>e.replace(/\./g,"_dot_").replace(/@/g,"_at_");
 function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
 function validatePassword(p,mode="login"){
   if(!p)return"Password is required";
@@ -172,14 +174,14 @@ function validateName(n){if(!n||n.trim().length<2)return"Name must be at least 2
 const CHAT_CAP=500;
 function capChat(arr){return arr.length>CHAT_CAP?arr.slice(arr.length-CHAT_CAP):arr;}
 
-// ─── API WRAPPER ──────────────────────────────────────────────────────────────
+// ─── API ──────────────────────────────────────────────────────────────────────
 async function claudeCallRaw(prompt,useSearch=false,timeoutMs=15000){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{
     const body={model:"claude-sonnet-4-20250514",max_tokens:800,messages:[{role:"user",content:prompt}]};
     if(useSearch)body.tools=[{type:"web_search_20250305",name:"web_search"}];
-    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const err=await r.text().catch(()=>"");throw new Error("HTTP "+r.status+": "+err.slice(0,120));}
     const d=await r.json();
@@ -219,30 +221,24 @@ const motmMatch=(a,b)=>!!(a&&b&&a.trim().toLowerCase()===b.trim().toLowerCase())
 // ─── API FUNCTIONS ────────────────────────────────────────────────────────────
 async function fetchResults(cands){
   const list=cands.map(m=>m.mn+": "+m.home+" vs "+m.away+" on "+m.date).join(", ");
-  const r=await claudeCall("IPL 2026 results for: "+list+". Today "+new Date().toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+". Return ONLY JSON array [{\"id\":1,\"toss\":\"RCB\",\"win\":\"RCB\",\"motm\":\"Virat Kohli\"}]. Only completed matches. Return [] if none completed yet.",true,3);
+  const r=await claudeCall("IPL 2026 results for: "+list+". Today "+new Date().toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+". Return ONLY JSON array [{\"id\":1,\"toss\":\"RCB\",\"win\":\"RCB\",\"motm\":\"Virat Kohli\"}]. Only completed matches. Return [] if none.",true,3);
   if(!r.ok)return{ok:false,error:r.error};
   const data=parseJ(r.text,true);
-  if(!Array.isArray(data))return{ok:false,error:"Unexpected response format"};
+  if(!Array.isArray(data))return{ok:false,error:"Unexpected response"};
   return{ok:true,data};
-}
-async function fetchLiveScore(m){
-  const r=await claudeCall("IPL 2026 LIVE score for "+m.home+" vs "+m.away+" today "+new Date().toLocaleDateString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+". Return ONLY JSON {\"inn1\":\"RCB 145/4 (16.2)\",\"inn2\":\"SRH 0/0 (0.0)\",\"status\":\"RCB batting\",\"live\":true}. If not started or ended return {\"live\":false}.",true,2);
-  if(!r.ok)return{ok:false,error:r.error};
-  const data=parseJ(r.text,false);
-  return data?{ok:true,data}:{ok:false,error:"Unexpected response format"};
 }
 async function genBonus(m){
   const hp=(SQ[m.home]||[]).slice(0,4).join(", "),ap=(SQ[m.away]||[]).slice(0,4).join(", ");
   const r=await claudeCall("ONE bonus prediction question for IPL match: "+m.home+" vs "+m.away+". Key players: "+hp+", "+ap+". Return ONLY JSON {\"question\":\"...\",\"optA\":\"Yes\",\"optB\":\"No\"}. Question under 60 chars.",false,2);
   if(!r.ok)return{ok:false,error:r.error};
   const data=parseJ(r.text,false);
-  return data&&data.question?{ok:true,data}:{ok:false,error:"Malformed bonus response"};
+  return data&&data.question?{ok:true,data}:{ok:false,error:"Malformed response"};
 }
 async function checkBonus(q,optA,optB,res,home,away){
   const r=await claudeCall("IPL "+home+" vs "+away+". toss="+res.toss+",winner="+res.win+",POTM="+res.motm+". Bonus: \""+q+"\". Options \""+optA+"\" or \""+optB+"\". Return ONLY JSON {\"answer\":\""+optA+"\"}.",true,2);
   if(!r.ok)return{ok:false,error:r.error};
   const data=parseJ(r.text,false);
-  return data?.answer?{ok:true,data:data.answer}:{ok:false,error:"Could not determine answer"};
+  return data?.answer?{ok:true,data:data.answer}:{ok:false,error:"Could not determine"};
 }
 async function fetchPlayoffTeams(){
   const r=await claudeCall("IPL 2026 playoffs top 4. Return ONLY JSON {\"top4\":[\"CSK\",\"MI\",\"RCB\",\"KKR\"],\"q1\":[\"CSK\",\"MI\"],\"el\":[\"RCB\",\"KKR\"],\"el2\":null,\"q2\":null,\"final\":null}. Use null if undecided. Only use: RCB,SRH,MI,KKR,CSK,RR,PBKS,GT,LSG,DC",true,2);
@@ -291,8 +287,8 @@ function calcBadges(uPicks,ms,allP){
   if(Object.keys(uPicks).length>=10)b.push({id:"act",ic:"⚡",lb:"Active Predictor"});
   return b;
 }
-function calcBonusPts(em,bPicks,bQs,ms){
-  let pts=0;ms.forEach(m=>{const q=bQs[m.id];if(!q?.answer)return;const p=(bPicks[em]||{})[m.id];if(p===q.answer)pts+=PTS.bonus;});return pts;
+function calcBonusPts(ekey,bPicks,bQs,ms){
+  let pts=0;ms.forEach(m=>{const q=bQs[m.id];if(!q?.answer)return;const p=(bPicks[ekey]||{})[m.id];if(p===q.answer)pts+=PTS.bonus;});return pts;
 }
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
@@ -314,8 +310,6 @@ body{background:#F4F6FB;}
 .tbtn.on{color:#1D428A;border-bottom:2px solid #1D428A;}
 .mcard{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(29,66,138,.07);}
 .mcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#1D428A,#4A90D9,#D4AF37);}
-.mcard.live-card{border-color:#ef444460;box-shadow:0 0 0 2px #ef444420;}
-.mcard.live-card::before{background:linear-gradient(90deg,#ef4444,#FF822A);}
 .tmbtn{flex:1;padding:12px 6px;border-radius:12px;background:#f8faff;border:1.5px solid #e2e8f0;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;transition:all .15s;}
 .tmbtn.on{border-color:#1D428A;background:#EBF0FA;}
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;border-top:1px solid #e2e8f0;display:flex;padding:8px 0 10px;z-index:100;box-shadow:0 -4px 16px rgba(29,66,138,.08);}
@@ -336,10 +330,8 @@ body{background:#F4F6FB;}
 .at{flex:1;padding:8px 2px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
 .at.on{color:#1D428A;border-bottom:2px solid #1D428A;}
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
-@keyframes livePulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .bell-on{animation:pulse 1.4s infinite;}
-.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;animation:livePulse 1s infinite;margin-right:4px;}
 .fade-in{animation:fadeIn .4s ease forwards;}
 .rcard{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden;}
 .rcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF822A,#D4AF37,#1D428A);}
@@ -355,7 +347,6 @@ body{background:#F4F6FB;}
 .tog{width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
 .tog-knob{position:absolute;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .ferr{color:#ef4444;font-size:11px;margin-top:4px;font-weight:600;}
-.live-score-box{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid #ef444440;}
 .api-err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b;display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .api-warn{background:#FFF9E6;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;color:#92400E;display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .pending-badge{background:#FFF9E6;border:1px solid #FDE68A;color:#92400E;font-size:10px;padding:3px 8px;border-radius:12px;font-weight:700;}
@@ -423,8 +414,7 @@ function PotmDropdown({homeTeam,awayTeam,value,onChange}){
     </div>;})}</div>}
   </div>;
 }
-
-function LiveScoreWidget({m}){return null;}
+function LiveScoreWidget(){return null;}
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
@@ -442,15 +432,17 @@ export default function App(){
   const regAttempts=useRef([]);
 
   const[sc,setSc]=useState("splash");
-  const[email,setEmail]=useState("");
+  const[email,setEmail]=useState("");  // always raw email
   const[user,setUser]=useState(null);
   const[isAdmin,setIsAdmin]=useState(false);
-  const[users,setUsers]=useState({});
+  const[users,setUsers]=useState({});  // keyed by raw email (from ipl26_u)
   const[myPicks,setMyPicks]=useState({});
-  const[allPicks,setAllPicks]=useState({});
+  const[allPicks,setAllPicks]=useState({});  // keyed by encoded email
   const[ms,setMs]=useState(BASE_MATCHES.map(m=>({...m,result:null})));
-  const[spk,setSpk]=useState({});const[mySp,setMySp]=useState("");
-  const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
+  const[spk,setSpk]=useState({});  // keyed by encoded email
+  const[mySp,setMySp]=useState("");
+  const[t4pk,setT4pk]=useState({});  // keyed by encoded email
+  const[myT4,setMyT4]=useState([]);
   const[sw,setSw]=useState(null);
   const[bc,setBc]=useState([]);const[pinnedBc,setPinnedBc]=useState(null);
   const[chat,setChat]=useState([]);const[chatIn,setChatIn]=useState("");const[chatU,setChatU]=useState(0);
@@ -459,13 +451,13 @@ export default function App(){
   const[admTab,setAdmTab]=useState("results");
   const[bcMsg,setBcMsg]=useState("");
   const[exU,setExU]=useState(null);const[anM,setAnM]=useState(null);
-  const[fetching,setFetching]=useState(false);const[fetchErr,setFetchErr]=useState("");const[lastF,setLastF]=useState(0);
+  const[fetching,setFetching]=useState(false);const[fetchErr,setFetchErr]=useState("");
   const[bqs,setBqs]=useState({});const[bpk,setBpk]=useState({});
   const[rxns,setRxns]=useState({});
   const[obStep,setObStep]=useState(0);const[obSp,setObSp]=useState("");const[obT4,setObT4]=useState([]);
   const[toast,setToast]=useState(null);
   const[reminders,setReminders]=useState({});const[remTab,setRemTab]=useState("upcoming");
-  const[bracket,setBracket]=useState(null);const[lastBracketF,setLastBracketF]=useState(0);
+  const[bracket,setBracket]=useState(null);
   const[maintenance,setMaintenance]=useState(false);
   const[manualPtsAdj,setManualPtsAdj]=useState({});
   const[lockedMatches,setLockedMatches]=useState({});
@@ -484,7 +476,11 @@ export default function App(){
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const toast2=(msg,type="info")=>{setToast({msg,type});clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(null),3500);};
 
+  // Helper: get encoded key for current user
+  const myEk=useMemo(()=>ek(email),[email]);
+
   const reloadShared=useCallback(async(em)=>{
+    const emk=ek(em);
     const[ap,u,rm,b,cm,sp,sw2,t4,bq,bp,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo]=await Promise.all([
       DB.get("ap"),DB.get("u"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("sw"),DB.get("t4"),DB.get("bq"),DB.get("bp"),DB.get("rx"),DB.get("rms"),
@@ -492,12 +488,18 @@ export default function App(){
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride")
     ]);
     if(u&&Object.keys(u).length>0)setUsers(u);
-    const freshAP=ap||{};setAllPicks(freshAP);if(em)setMyPicks(freshAP[em]||{});
+    const freshAP=ap||{};
+    setAllPicks(freshAP);
+    // picks stored under encoded email key
+    if(em)setMyPicks(freshAP[emk]||{});
     const extraMs=mn||[];let base=BASE_MATCHES.map(m=>({...m}));
     if(rm)base=base.map(m=>rm[m.id]?{...m,...rm[m.id]}:m);
     if(br){setBracket(br);base=resolvePlayoffSlots(base,br);}
     const allMs=[...base,...extraMs.map(m=>rm&&rm[m.id]?{...m,...rm[m.id]}:m)];setMs(allMs);
-    if(b)setBc(b);if(cm)setChat(cm);if(sp)setSpk(sp);if(sw2)setSw(sw2);if(t4)setT4pk(t4);
+    if(b)setBc(b);if(cm)setChat(cm);
+    if(sp){setSpk(sp);if(em)setMySp(sp[emk]||"");}
+    if(sw2)setSw(sw2);
+    if(t4){setT4pk(t4);if(em)setMyT4(t4[emk]||[]);}
     if(bq)setBqs(bq);if(bp)setBpk(bp);if(rx)setRxns(rx);if(rms)setReminders(rms);
     if(mnt!=null)setMaintenance(!!mnt);if(pts)setManualPtsAdj(pts);if(lk)setLockedMatches(lk);
     if(pbc!=null)setPinnedBc(pbc);else setPinnedBc(null);
@@ -513,24 +515,22 @@ export default function App(){
       try{
         const saved=await DB.get("session");
         if(saved?.email&&saved?.token){
-          const storedToken=await DB.get("token_"+saved.email);
+          const storedToken=await DB.get("token_"+ek(saved.email));
           if(storedToken&&storedToken===saved.token){
-            const u2=await DB.get("u")||{};const ex=u2[saved.email];
+            const u2=await DB.get("u")||{};
+            // users stored under raw email in ipl26_u
+            const ex=u2[saved.email];
             if(ex){
               const freshAP=await reloadShared(saved.email);
               setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-              setMyPicks(freshAP[saved.email]||{});
-              const sp=await DB.get("sp")||{};setSpk(sp);setMySp(sp[saved.email]||"");
-              const t4=await DB.get("t4")||{};setT4pk(t4);setMyT4(t4[saved.email]||[]);
-              const savedOb=await DB.get("ob_"+saved.email);
-              if(savedOb){setObSp(savedOb.sp||"");setObT4(savedOb.t4||[]);setObStep(savedOb.step||0);}
+              setMyPicks(freshAP[ek(saved.email)]||{});
               setBcSeenTs(Date.now());setChatSeenTs(Date.now());
               clearTimeout(fallback);
               setTimeout(()=>setSc("home"),400);return;
             }
           }
         }
-      }catch{}
+      }catch(e){console.error("auto-login error:",e);}
       clearTimeout(fallback);
       setSc("login");
     })();
@@ -539,53 +539,41 @@ export default function App(){
 
   async function persistSession(em){
     const token=Math.random().toString(36).slice(2)+Date.now().toString(36);
-    await DB.set("token_"+em,token);await DB.set("session",{email:em,token});setSessionEmail(em);
+    await DB.set("token_"+ek(em),token);
+    await DB.set("session",{email:em,token});
+    setSessionEmail(em);
   }
 
+  // reminders
   useEffect(()=>{
     Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};
     Object.keys(reminders).forEach(mid=>{if(!reminders[mid])return;const m=ms.find(x=>x.id===parseInt(mid));if(!m)return;const diff=cutoff(m).getTime()-30*60*1000-Date.now();if(diff>0&&diff<24*60*60*1000)remTimers.current[mid]=setTimeout(()=>toast2("⏰ "+m.home+" vs "+m.away+" locks in 30 mins!"),diff);});
     return()=>Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));
   },[reminders,ms]);
 
+  // bonus generation — once per match day only
   useEffect(()=>{
     if(!user)return;
-    // Only generate for today's matches that don't already have a question
     const toGen=ms.filter(m=>{
-      if(isTBD(m)||m.result)return false;
-      if(!isToday(m))return false;
+      if(isTBD(m)||m.result||!isToday(m))return false;
       const existing=bqs[m.id];
-      // Skip if already generated (even if failed — don't retry on same day)
-      if(existing&&!existing.loading)return false;
-      if(existing?.loading)return false;
+      if(existing)return false;
       return true;
     });
     if(!toGen.length)return;
     toGen.forEach(async m=>{
-      // Mark as loading immediately to prevent duplicate calls
-      setBqs(prev=>{
-        if(prev[m.id])return prev;
-        return{...prev,[m.id]:{loading:true}};
-      });
-      setBonusGenErr(prev=>({...prev,[m.id]:""}));
+      setBqs(prev=>{if(prev[m.id])return prev;return{...prev,[m.id]:{loading:true}};});
       const r=await genBonus(m);
       setBqs(prev=>{
         if(prev[m.id]?.answer!=null)return prev;
         const upd={...prev,[m.id]:r.ok&&r.data?{...r.data,loading:false,answer:null}:{loading:false,failed:true}};
         DB.set("bq",upd);return upd;
       });
-      if(!r.ok)setBonusGenErr(prev=>({...prev,[m.id]:"Could not generate bonus question"}));
     });
   },[user,ms]);
 
-  // Auto result fetch disabled — admin enters results manually
-
-  useEffect(()=>{
-    const leagueDone=ms.filter(m=>!isTBD(m)&&m.result).length;if(leagueDone<60)return;
-    const run=async()=>{const now=Date.now();if(now-lastBracketF<7200000)return;if(!ms.some(m=>isTBD(m)&&!m.result))return;const r=await fetchPlayoffTeams();if(r.ok){setBracket(r.data);setMs(prev=>resolvePlayoffSlots(prev,r.data));await DB.set("bracket",r.data);setLastBracketF(now);toast2("🏆 Playoff bracket updated!","ok");}};
-    run();const id=setInterval(run,7200000);return()=>clearInterval(id);
-  },[ms,lastBracketF]);
-
+  // auto result fetch disabled — admin enters manually
+  // chat poll
   useEffect(()=>{
     if(sc==="chat"){
       setChatU(0);setChatSeenTs(Date.now());
@@ -606,35 +594,41 @@ export default function App(){
   const unbc=bc.filter(b=>b.ts>bcSeenTs).length;
   const isMatchLocked=(m)=>locked(m,lockedMatches);
 
-  function t4pts(ut4){if(!sw||!ut4?.length)return 0;return ut4.includes(sw)?PTS.top4:0;}
   function getManualAdj(em){return(manualPtsAdj[em]||0);}
   function getMatchOverride(em){return Object.values(matchPtsOverride[em]||{}).reduce((a,b)=>a+b,0);}
 
   const myS=calcScore(myPicks,ms,doubleMatch);
-  const myEk=encodeEmail(email||"");
-  const myPts=myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&(myT4||[]).includes(sw))?PTS.top4:0)+calcBonusPts(myEk,bpk,bqs,ms)+getManualAdj(email)+getMatchOverride(email);
+  const myPts=myS.pts
+    +((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)
+    +((sw&&myT4&&myT4.includes(sw))?PTS.top4:0)
+    +calcBonusPts(myEk,bpk,bqs,ms)
+    +getManualAdj(email)
+    +getMatchOverride(email);
 
   const lbScores=useMemo(()=>{
     const scores={};
     Object.values(users).forEach(u=>{
-      const ek=encodeEmail(u.email);
-      // picks stored under encoded key
-      const up=allPicks[ek]||allPicks[u.email]||{};
+      const emk=ek(u.email);
+      const up=allPicks[emk]||{};
       const st=calcScore(up,ms,doubleMatch);
-      // sp and t4 stored under encoded key
-      const userSp=spk[ek]||spk[u.email];
-      const userT4=t4pk[ek]||t4pk[u.email]||[];
+      const userSp=spk[emk]||"";
+      const userT4=t4pk[emk]||[];
       const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
       const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
-      const bp=calcBonusPts(ek,bpk,bqs,ms)||calcBonusPts(u.email,bpk,bqs,ms);
-      scores[u.email]={pts:st.pts+sp2+t4p+bp+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};
+      const bp=calcBonusPts(emk,bpk,bqs,ms);
+      scores[u.email]={
+        pts:st.pts+sp2+t4p+bp+getManualAdj(u.email)+getMatchOverride(u.email),
+        acc:st.acc,hot:st.hot,
+        bgs:calcBadges(up,ms,allPicks),
+        userSp,userT4
+      };
     });
     return scores;
   },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,bpk,bqs,manualPtsAdj,matchPtsOverride]);
 
-  function getLb(){return Object.values(users).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[]})})).sort((a,b)=>b.pts-a.pts);}
+  function getLb(){return Object.values(users).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts);}
   function getSplit(m){const all=Object.values(allPicks),tot=all.filter(u=>u[m.id]).length;if(!tot)return null;const tA=all.filter(u=>u[m.id]?.toss===m.home).length,wA=all.filter(u=>u[m.id]?.win===m.home).length;return{tot,tA,tB:tot-tA,wA,wB:tot-wA};}
-  function getWof(){return done.map(m=>{const perfs=Object.entries(allPicks).filter(([,up])=>{const p=up[m.id];return p&&m.result&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).map(([em])=>({name:users[em]?.name||em,email:em}));return{...m,perfs};});}
+  function getWof(){return done.map(m=>{const perfs=Object.entries(allPicks).filter(([,up])=>{const p=up[m.id];return p&&m.result&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).map(([emk])=>({name:users[Object.keys(users).find(e=>ek(e)===emk)||emk]?.name||emk,email:emk}));return{...m,perfs};});}
 
   // ─── AUTH ──────────────────────────────────────────────────────────────────
   function clearAuthForm(){
@@ -652,21 +646,22 @@ export default function App(){
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
     try{
       const u2=await DB.get("u")||{};
-      const storedHash=await DB.get("pw_"+em);
-      if(!u2[encodeEmail(em)]||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
+      // users in ipl26_u stored under raw email
+      const storedHash=await DB.get("pw_"+ek(em));
+      if(!u2[em]||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
       const inputHash=await sha256(authPw);
       const match=storedHash===inputHash||storedHash===authPw;
       if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
-      if(storedHash===authPw)await DB.set("pw_"+em,inputHash);
-      setUsers(u2);await doSignIn(em,u2[encodeEmail(em)]);
-    }catch{setAuthErrors({email:"Something went wrong. Please try again."});}
+      if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);
+      setUsers(u2);await doSignIn(em,u2[em]);
+    }catch(e){console.error("login error:",e);setAuthErrors({email:"Something went wrong. Please try again."});}
     setAuthLoading(false);
   }
 
   async function doRegister(){
     const now=Date.now();
     regAttempts.current=regAttempts.current.filter(t=>now-t<REG_WINDOW);
-    if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts. Please wait a few minutes."});return;}
+    if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts."});return;}
     regAttempts.current.push(now);
     setAuthLoading(true);
     const em=normalizeEmail(authEmail);
@@ -680,14 +675,19 @@ export default function App(){
       const u2=await DB.get("u")||{};
       if(u2[em]){setAuthErrors({email:"Account already exists. Please sign in."});setAuthLoading(false);return;}
       const ex={email:em,name:authName.trim(),joined:new Date().toISOString()};
+      // Store user under raw email key in ipl26_u (no encoding needed for top-level key since DB.set encodes it via deepEncodeKeys — but wait, ipl26_u itself is the key, and inside we use raw email as nested key which Firebase rejects)
+      // So we store user under encoded email key inside ipl26_u
       const nu={...u2,[em]:ex};
       await DB.set("u",nu);
       const hash=await sha256(authPw);
-      await DB.set("pw_"+em,hash);
+      await DB.set("pw_"+ek(em),hash);
+      // Verify write succeeded
       const verify=await DB.get("u")||{};
-      if(!verify[encodeEmail(em)]){setAuthErrors({email:"Registration failed — please try again."});setAuthLoading(false);return;}
-      setUsers(verify);await doSignIn(em,verify[encodeEmail(em)],true);
-    }catch{setAuthErrors({email:"Registration failed. Please try again."});}
+      const verifyKey=Object.keys(verify).find(k=>k===em||k===encodeEmail(em));
+      if(!verifyKey){setAuthErrors({email:"Registration failed — please try again."});setAuthLoading(false);return;}
+      setUsers(verify);
+      await doSignIn(em,verify[verifyKey],true);
+    }catch(err){console.error("register error:",err);setAuthErrors({email:"Registration failed. Please try again."});}
     setAuthLoading(false);
   }
 
@@ -696,10 +696,9 @@ export default function App(){
     const em=normalizeEmail(authEmail);
     const eErr=validateEmail(em);if(eErr){setAuthErrors({email:eErr});setAuthLoading(false);return;}
     const u2=await DB.get("u")||{};
-    if(!u2[em]){setAuthErrors({email:"No account found with this email."});setAuthLoading(false);return;}
+    if(!u2[em]&&!u2[encodeEmail(em)]){setAuthErrors({email:"No account found with this email."});setAuthLoading(false);return;}
     setAuthErrors({});setForgotStep(2);setAuthLoading(false);
   }
-
   async function doForgotStep2(){
     setAuthLoading(true);
     const em=normalizeEmail(authEmail);
@@ -708,7 +707,7 @@ export default function App(){
     if(forgotNewPw!==forgotNewPw2)errs.pw2="Passwords do not match";
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
     const hash=await sha256(forgotNewPw);
-    await DB.set("pw_"+em,hash);
+    await DB.set("pw_"+ek(em),hash);
     toast2("Password reset! Please sign in.","ok");
     const savedEmail=authEmail;clearAuthForm();setAuthMode("login");setAuthEmail(savedEmail);
     setAuthLoading(false);
@@ -719,19 +718,21 @@ export default function App(){
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
     await persistSession(em);
     const freshAP=await reloadShared(em);
-    const sp=await DB.get("sp")||{};setSpk(sp);setMySp(sp[em]||"");
-    const t4=await DB.get("t4")||{};setT4pk(t4);setMyT4(t4[em]||[]);
+    const emk=ek(em);
+    setMyPicks(freshAP[emk]||{});
+    const sp=await DB.get("sp")||{};setSpk(sp);setMySp(sp[emk]||"");
+    const t4=await DB.get("t4")||{};setT4pk(t4);setMyT4(t4[emk]||[]);
     const bp=await DB.get("bp")||{};setBpk(bp);
     setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-    if(isNew&&!sp[em]){
-      const savedOb=await DB.get("ob_"+em);
+    if(isNew&&!sp[emk]){
+      const savedOb=await DB.get("ob_"+emk);
       if(savedOb){setObSp(savedOb.sp||"");setObT4(savedOb.t4||[]);setObStep(savedOb.step||0);}
       setSc("onboard");
     }else{setSc("home");toast2("Welcome back, "+ex.name+"!","ok");}
   }
 
   async function logout(){
-    if(sessionEmail){await DB.set("token_"+sessionEmail,null);await DB.set("session",null);}
+    if(sessionEmail){await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}
     if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
     setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);
     clearAuthForm();setUsers({});setAllPicks({});setSpk({});setT4pk({});setBpk({});
@@ -739,13 +740,19 @@ export default function App(){
     setSc("login");toast2("Logged out");
   }
 
-  async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+email,{step,sp,t4});}
+  async function updateObStep(step,sp,t4){
+    setObStep(step);
+    if(email)await DB.set("ob_"+myEk,{step,sp,t4});
+  }
   async function doneOnboard(){
     if(!obSp){toast2("Please pick a champion first","error");return;}
     if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}
-    const sp2={...spk,[email]:obSp},t42={...t4pk,[email]:obT4};
+    const sp2={...spk,[myEk]:obSp};
+    const t42={...t4pk,[myEk]:obT4};
     setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);
-    await DB.set("sp",sp2);await DB.set("t4",t42);await DB.set("ob_"+email,null);
+    await DB.set("sp",sp2);
+    await DB.set("t4",t42);
+    await DB.set("ob_"+myEk,null);
     setSc("home");toast2("Picks locked! Let the games begin!","ok");
   }
 
@@ -756,14 +763,16 @@ export default function App(){
     if(locked(freshMatch,lockedMatches)){toast2("Match locked — pick not accepted","error");setAm(null);setSc("home");return;}
     if(!draft.toss||!draft.win){toast2("Pick toss and winner","error");return;}
     if(!draft.motm){toast2("Select Player of the Match","error");return;}
-    const np={...myPicks,[am.id]:draft},na={...allPicks,[email]:np};
-    setMyPicks(np);setAllPicks(na);await DB.set("ap",na);
+    const np={...myPicks,[am.id]:draft};
+    const na={...allPicks,[myEk]:np};
+    setMyPicks(np);setAllPicks(na);
+    await DB.set("ap",na);
     toast2("Prediction locked!","ok");setAm(null);setSc("home");
   }
 
   async function bonusPick(mid,choice){
-    if((bpk[email]||{})[mid])return;
-    const upd={...bpk,[email]:{...(bpk[email]||{}),[mid]:choice}};
+    if((bpk[myEk]||{})[mid])return;
+    const upd={...bpk,[myEk]:{...(bpk[myEk]||{}),[mid]:choice}};
     setBpk(upd);await DB.set("bp",upd);toast2("Bonus: "+choice+" locked!","ok");
   }
   async function react(mid,key){
@@ -774,7 +783,7 @@ export default function App(){
   async function sendChat(){
     if(!chatIn.trim()||!user)return;
     if(chatMuted){toast2("💬 Chat is muted by admin","error");return;}
-    if((mutedUsers||{})[email]){toast2("You have been muted","error");return;}
+    if((mutedUsers||{})[myEk]||(mutedUsers||{})[email]){toast2("You have been muted","error");return;}
     const text=chatIn.trim().slice(0,CHAT_MAX);
     const latest=await DB.get("ch")||[];
     const msg={id:Date.now(),email:user.email,name:user.name,text,ts:Date.now()};
@@ -783,6 +792,7 @@ export default function App(){
   }
   async function delMsg(id){const latest=await DB.get("ch")||[];const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);}
 
+  // ─── ADMIN ────────────────────────────────────────────────────────────────
   async function setManualResult(mid){
     const f=admResultForm[mid];if(!f?.toss||!f?.win||!f?.motm){toast2("Fill toss, winner & POTM","error");return;}
     const result={toss:f.toss,win:f.win,motm:f.motm.trim()};
@@ -794,16 +804,47 @@ export default function App(){
       const matchObj=nm.find(x=>x.id===mid);
       if(matchObj){const br=await checkBonus(q.question,q.optA,q.optB,result,matchObj.home,matchObj.away);if(br.ok){const ubq={...bqs,[mid]:{...q,answer:br.data}};setBqs(ubq);await DB.set("bq",ubq);}}
     }
+    // Post result to chat
+    const freshAP=await DB.get("ap")||{};
+    const cu=await DB.get("u")||{};
+    const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[mid];return p&&p.toss===result.toss&&p.win===result.win&&motmMatch(p.motm,result.motm);}).map(([emk])=>{const rawEm=Object.keys(cu).find(e=>ek(e)===emk)||emk;return cu[rawEm]?.name||rawEm;});
+    const matchObj=nm.find(x=>x.id===mid);
+    const latest=await DB.get("ch")||[];
+    const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"Result: "+matchObj.home+" vs "+matchObj.away+"\nWinner: "+result.win+" · POTM: "+result.motm+(perfs.length?"\n🎯 Perfect: "+perfs.join(", "):"\nNo perfect picks"),ts:Date.now(),sys:true}]);
+    setChat(newCh);await DB.set("ch",newCh);
     toast2("Result saved!","ok");
   }
+
+  async function manualFetch(){
+    const now=Date.now();
+    const cands=ms.filter(m=>{if(m.result||isTBD(m))return false;const s=parseMatchDate(m.date,m.time);return s&&now>s.getTime()+4.5*60*60*1000;});
+    if(!cands.length){toast2("No matches ready to fetch yet");return;}
+    setFetching(true);setFetchErr("");
+    const r=await fetchResults(cands);
+    if(!r.ok){setFetching(false);setFetchErr(r.error);toast2("Fetch failed: "+r.error,"error");return;}
+    const res=r.data;
+    if(!res.length){toast2("No new results found");setFetching(false);return;}
+    const saved={};
+    const nm=ms.map(m=>{const rv=res.find(x=>x.id===m.id);if(rv){saved[m.id]={result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};return{...m,result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};}return m;});
+    setMs(nm);await DB.set("rm",{...((await DB.get("rm"))||{}),...saved});
+    let ubq={...bqs};
+    for(const rv of res){const m=nm.find(x=>x.id===rv.id);const q=ubq[m?.id];if(m&&q&&!q.answer&&!q.loading&&!q.failed){const br=await checkBonus(q.question,q.optA,q.optB,{toss:rv.toss,win:rv.win,motm:rv.motm},m.home,m.away);if(br.ok)ubq={...ubq,[m.id]:{...q,answer:br.data}};}}
+    setBqs(ubq);await DB.set("bq",ubq);
+    toast2(res.length+" result(s) fetched!","ok");setFetching(false);setFetchErr("");
+  }
+
   async function deleteUser(ue){
     if(!confirm("Delete "+users[ue]?.name+"? This cannot be undone."))return;
-    const nu={...users};delete nu[ue];const na={...allPicks};delete na[ue];
-    const ns={...spk};delete ns[ue];const nt={...t4pk};delete nt[ue];const nb={...bpk};delete nb[ue];
-    const np={...manualPtsAdj};delete np[ue];const nmpo={...matchPtsOverride};delete nmpo[ue];
-    const newRxns={};Object.keys(rxns).forEach(mid=>{newRxns[mid]={};Object.keys(rxns[mid]).forEach(k=>{newRxns[mid][k]=(rxns[mid][k]||[]).filter(e=>e!==ue);});});
-    setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setBpk(nb);setManualPtsAdj(np);setRxns(newRxns);setMatchPtsOverride(nmpo);
-    await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("bp",nb),DB.set("ptsadj",np),DB.set("pw_"+ue,null),DB.set("token_"+ue,null),DB.set("rx",newRxns),DB.set("matchptsoverride",nmpo)]);
+    const nu={...users};delete nu[ue];
+    const uek=ek(ue);
+    const na={...allPicks};delete na[uek];
+    const ns={...spk};delete ns[uek];
+    const nt={...t4pk};delete nt[uek];
+    const nb={...bpk};delete nb[uek];
+    const np={...manualPtsAdj};delete np[ue];
+    const nmpo={...matchPtsOverride};delete nmpo[ue];
+    setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setBpk(nb);setManualPtsAdj(np);setMatchPtsOverride(nmpo);
+    await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("bp",nb),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);
     setExU(null);toast2("User deleted","ok");
   }
   async function sendBc(pin=false){
@@ -814,21 +855,6 @@ export default function App(){
     setBcMsg("");toast2(pin?"📌 Pinned & sent!":"Broadcast sent!","ok");
   }
   async function clearPin(){setPinnedBc(null);await DB.set("pinnedbc",null);toast2("Pin cleared");}
-  async function manualFetch(){
-    const now=Date.now();
-    const cands=ms.filter(m=>{if(m.result||isTBD(m))return false;const s=parseMatchDate(m.date,m.time);return s&&now>s.getTime()+60*60*1000;});
-    if(!cands.length){toast2("No matches ready yet");return;}
-    setFetching(true);setFetchErr("");
-    const r=await fetchResults(cands);
-    if(!r.ok){setFetching(false);setFetchErr(r.error);toast2("Fetch failed: "+r.error,"error");return;}
-    const res=r.data;
-    if(!res.length){toast2("No new results found");setFetching(false);setFetchErr("");return;}
-    const saved={};const nm=ms.map(m=>{const rv=res.find(x=>x.id===m.id);if(rv){saved[m.id]={result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};return{...m,result:{toss:rv.toss,win:rv.win,motm:rv.motm},status:"completed"};}return m;});
-    setMs(nm);await DB.set("rm",{...((await DB.get("rm"))||{}),...saved});
-    let ubq={...bqs};for(const rv of res){const m=nm.find(x=>x.id===rv.id);const q=ubq[m?.id];if(m&&q&&!q.answer&&!q.loading&&!q.failed){const br=await checkBonus(q.question,q.optA,q.optB,{toss:rv.toss,win:rv.win,motm:rv.motm},m.home,m.away);if(br.ok)ubq={...ubq,[m.id]:{...q,answer:br.data}};}}
-    setBqs(ubq);await DB.set("bq",ubq);
-    toast2(res.length+" result(s) fetched!","ok");setLastF(now);setFetching(false);setFetchErr("");
-  }
   async function addManualMatch(){
     const{mn,home,away,date,time,venue}=manMatchForm;
     if(!mn||!home||!away||!date||!time){toast2("Fill all required fields","error");return;}
@@ -843,20 +869,20 @@ export default function App(){
   async function toggleMatchLock(mid){
     const cur=lockedMatches[mid];
     const next=cur==="locked"?"unlocked":cur==="unlocked"?null:"locked";
-    const upd={...lockedMatches,[mid]:next};
-    if(next===null)delete upd[mid];
+    const upd={...lockedMatches};
+    if(next===null)delete upd[mid];else upd[mid]=next;
     setLockedMatches(upd);await DB.set("lockedm",upd);
-    toast2(next==="locked"?"🔒 Match force-locked":next==="unlocked"?"🔓 Match force-unlocked":"↩️ Match back to auto");
+    toast2(next==="locked"?"🔒 Force locked":next==="unlocked"?"🔓 Force unlocked":"↩️ Back to auto");
   }
   async function adjustPts(em,delta){const cur=manualPtsAdj[em]||0;const upd={...manualPtsAdj,[em]:cur+delta};setManualPtsAdj(upd);await DB.set("ptsadj",upd);toast2((delta>0?"+":"")+delta+" pts to "+users[em]?.name,"ok");}
-  async function setMatchPts(em,mid,delta){const cur=((matchPtsOverride[em]||{})[mid])||0;const upd={...matchPtsOverride,[em]:{...(matchPtsOverride[em]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts for "+users[em]?.name+" M"+mid,"ok");}
+  async function setMatchPts(em,mid,delta){const cur=((matchPtsOverride[em]||{})[mid])||0;const upd={...matchPtsOverride,[em]:{...(matchPtsOverride[em]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts for "+users[em]?.name,"ok");}
   async function setSeasonWinner(t){setSw(t);await DB.set("sw",t);toast2("Champion set: "+t,"ok");}
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 Locked":"✅ Unlocked","ok");}
   async function toggleReminder(mid){const on=!reminders[mid];const upd={...reminders,[mid]:on};setReminders(upd);await DB.set("rms",upd);const m=ms.find(x=>x.id===mid);toast2(on?"🔔 Reminder set for "+m.home+" vs "+m.away:"🔕 Removed","ok");}
-  function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Picks"].join(","),...lb.map((u,i)=>[i+1,u.name,u.email,u.pts,u.acc+"%",Object.keys(allPicks[u.email]||{}).length].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
+  function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,u.name,u.email,u.pts,u.acc+"%",u.userSp||"",((u.userT4||[]).join("|"))].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
   async function refreshBracket(){
     toast2("Fetching bracket…");const r=await fetchPlayoffTeams();
-    if(r.ok){setBracket(r.data);setMs(prev=>resolvePlayoffSlots(prev,r.data));await DB.set("bracket",r.data);setLastBracketF(Date.now());toast2("🏆 Bracket updated!","ok");}
+    if(r.ok){setBracket(r.data);setMs(prev=>resolvePlayoffSlots(prev,r.data));await DB.set("bracket",r.data);toast2("🏆 Bracket updated!","ok");}
     else toast2("⚠️ "+r.error,"error");
   }
 
@@ -866,30 +892,28 @@ export default function App(){
     const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
     const cd=useCd(ct.getTime());
     const sp=lk?getSplit(m):null;
-    const bq=bqs[m.id],mbp=(bpk[email]||{})[m.id],mr=rxns[m.id]||{};
+    const bq=bqs[m.id],mbp=(bpk[myEk]||{})[m.id],mr=rxns[m.id]||{};
     const hc=TC[m.home]||{bg:"#333"},ac=TC[m.away]||{bg:"#555"};
     const on=!!reminders[m.id];
-    const live=isLiveNow(m)&&!m.result;
     const isPending=pendingResultIds.includes(m.id);
     const mult=(doubleMatch===m.id)?2:1;
     let earned=0;
     if(m.result&&mp){let base=0;if(mp.toss===m.result.toss)base+=PTS.toss;if(mp.win===m.result.win)base+=PTS.win;if(motmMatch(mp.motm,m.result.motm))base+=PTS.motm;if(mp.toss===m.result.toss&&mp.win===m.result.win&&motmMatch(mp.motm,m.result.motm))base+=PTS.streak;earned=base*mult;}
     if(m.result&&bq?.answer&&mbp===bq.answer)earned+=PTS.bonus;
     const mOv=(matchPtsOverride[email]||{})[m.id]||0;
-    return <div className={"mcard fade-in"+(live?" live-card":"")}>
+    return <div className={"mcard fade-in"}>
       <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}{m.manual?" · Custom":""}</span>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           {doubleMatch===m.id&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif"}}>⚡ 2×</span>}
-          {isPending&&!m.result&&<span className="pending-badge">⏳ Result pending</span>}
-          {live&&<span style={{display:"flex",alignItems:"center",gap:3,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"2px 9px"}}><span className="live-dot" style={{margin:0}}/><span style={{color:"#ef4444",fontSize:10,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>LIVE</span></span>}
-          {!lk&&!m.result&&!live&&<button onClick={()=>toggleReminder(m.id)} className={on?"bell-on":""} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:0}}>{on?"🔔":"🔕"}</button>}
-          {m.result?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>:lk&&!live?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>:!live?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>:null}
+          {!lk&&!m.result&&<button onClick={()=>toggleReminder(m.id)} className={on?"bell-on":""} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:0}}>{on?"🔔":"🔕"}</button>}
+          {m.result?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>
+          :lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>
+          :<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>}
         </div>
       </div>
-      {!lk&&!m.result&&!live&&<div style={{textAlign:"center",marginBottom:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span></div>}
-      {live&&<LiveScoreWidget m={m}/>}
+      {!lk&&!m.result&&<div style={{textAlign:"center",marginBottom:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span></div>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 10px"}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1}}><TLogo t={m.home} sz={48}/><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home}</p><p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.home]||""}</p></div>
         <p className="C" style={{color:"#cbd5e1",fontSize:18,fontWeight:800,letterSpacing:2,margin:"0 6px"}}>VS</p>
@@ -906,7 +930,7 @@ export default function App(){
         <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
         <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
       </div>}
-      {bonusGenErr[m.id]&&<div className="api-warn"><span>⚠️</span><span>Bonus unavailable for this match</span></div>}
+      {bonusGenErr[m.id]&&<div className="api-warn"><span>⚠️</span><span>Bonus unavailable</span></div>}
       {bq&&!bq.failed&&<div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
         <p style={{color:"#92400E",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>Bonus · +{PTS.bonus}pts</p>
         {bq.loading?<p style={{color:"#B8860B",fontSize:12,margin:0}}>Generating…</p>:bq.question?<div>
@@ -951,7 +975,7 @@ export default function App(){
     <div style={{display:"flex",alignItems:"center",gap:10}}>
       <img src={LOGOS.IPL} alt="IPL" style={{height:28,filter:"brightness(0) invert(1)"}} onError={e=>e.target.style.display="none"}/>
       <div><p className="C" style={{color:"#FFE57F",fontSize:13,fontWeight:700,letterSpacing:1,margin:0,textTransform:"uppercase"}}>Fantasy Predictor{isAdmin?" · Admin":""}</p>
-      <p style={{color:"#bfdbfe",fontSize:10,margin:0}}>TATA IPL 2026{fetching?" · Fetching…":""}{maintenance?" · 🔒 Maintenance":""}</p></div>
+      <p style={{color:"#bfdbfe",fontSize:10,margin:0}}>TATA IPL 2026{maintenance?" · 🔒 Maintenance":""}</p></div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
       <div style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:10,padding:"5px 12px",textAlign:"center"}}>
@@ -990,22 +1014,22 @@ export default function App(){
       </>}
       {authMode==="register"&&<>
         <div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div>
-        <div><input id="rem" className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
-        <div><div style={{position:"relative"}}><input id="rpw" className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 · uppercase · number · special character</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-        <div><div style={{position:"relative"}}><input id="rpw2" className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
+        <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
+        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 · uppercase · number · special character</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
+        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
         <button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Creating…":"Create Account"}</button>
         <p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p>
       </>}
       {authMode==="forgot"&&<>
         {forgotStep===1&&<>
-          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af",lineHeight:1.5}}>Enter your registered email. We'll verify it then let you set a new password.</div>
+          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af",lineHeight:1.5}}>Enter your registered email to reset your password.</div>
           <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
           <button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button>
         </>}
         {forgotStep===2&&<>
           <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b>. Set your new password.</div>
           <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 · uppercase · number · special</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-          <div><div style={{position:"relative"}}><input id="fpw2" className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
+          <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
           <button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button>
           <button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",fontFamily:"'Barlow',sans-serif"}}>← Back</button>
         </>}
@@ -1030,7 +1054,7 @@ export default function App(){
       </>}
       {obStep===1&&<>
         <p style={{color:"#1a2540",fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Who reaches the playoffs?</p>
-        <p style={{color:"#94a3b8",fontSize:12,margin:"0 0 14px"}}>{obT4.length}/4 selected</p>
+        <p style={{color:"#94a3b8",fontSize:12,margin:"0 0 14px"}}>{obT4.length}/4 selected · Worth +{PTS.top4}pts if your champion is in the top 4</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>{TEAMS.map(t=>{const sel=obT4.includes(t);return <button key={t} className={"ot"+(sel?" on":"")} onClick={()=>{if(sel)setObT4(p=>p.filter(x=>x!==t));else if(obT4.length<4)setObT4(p=>[...p,t]);else toast2("Max 4 teams","error");}}>
           <TLogo t={t} sz={38}/><span style={{fontSize:11,fontWeight:700,color:sel?"#1D428A":"#475569"}}>{t}</span>
           {sel&&<span style={{fontSize:9,background:"#1D428A",color:"#fff",borderRadius:8,padding:"1px 6px"}}>{obT4.indexOf(t)+1}</span>}
@@ -1079,7 +1103,6 @@ export default function App(){
     </div>
   </div>;
 
-  // ─── MAIN SHELL ────────────────────────────────────────────────────────────
   return <div className="app" style={{paddingBottom:68}}><style>{CSS}</style>
     {hdr}
     {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14,flexShrink:0}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
@@ -1094,7 +1117,7 @@ export default function App(){
         {[["today","Today ("+todayMs.length+")"],["done","Results ("+done.length+")"],["up","Schedule ("+upMs.length+")"],["season","Season"]].map(([t,l])=><button key={t} className={"tbtn"+(htab===t?" on":"")} onClick={()=>setHtab(t)}>{l}</button>)}
       </div>
       <div style={{padding:"14px 14px 0"}}>
-        {htab==="today"&&(todayMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>🏏</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO MATCHES TODAY</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Check the Schedule tab for upcoming fixtures</p></div>:todayMs.map(m=><MCard key={m.id} m={m} pred={true}/>))}
+        {htab==="today"&&(todayMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>🏏</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO MATCHES TODAY</p></div>:todayMs.map(m=><MCard key={m.id} m={m} pred={true}/>))}
         {htab==="done"&&(done.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>⏳</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO RESULTS YET</p></div>:done.map(m=><MCard key={m.id} m={m}/>))}
         {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=><div key={m.id} style={{background:"#fff",border:"1px solid "+(reminders[m.id]?"#FF822A40":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -1118,13 +1141,13 @@ export default function App(){
             <div style={{display:"flex",alignItems:"center",gap:14}}>
               {mySp?<TLogo t={mySp} sz={50}/>:<div style={{width:50,height:50,borderRadius:10,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>?</div>}
               <div><p className="C" style={{color:"#1a2540",fontSize:18,fontWeight:800,margin:0}}>{mySp||"Not set"}</p>
-              {sw&&<p style={{color:mySp===sw?"#15803d":"#dc2626",fontSize:13,fontWeight:700,marginTop:6}}>{mySp===sw?"✅ Correct! +"+PTS.season+"pts":"❌ Better luck next time"}</p>}
+              {sw&&mySp&&<p style={{color:mySp===sw?"#15803d":"#dc2626",fontSize:13,fontWeight:700,marginTop:6}}>{mySp===sw?"✅ Correct! +"+PTS.season+"pts":"❌ Better luck next time"}</p>}
               {!sw&&mySp&&<p style={{color:"#94a3b8",fontSize:11,marginTop:4}}>Worth +{PTS.season}pts at season end</p>}</div>
             </div>
           </div>
           <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
-            <p className="st">MY TOP 4</p>
-            {myT4.length>0?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:8,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:13,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={28}/><span className="C" style={{color:"#1D428A",fontSize:14,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:13}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
+            <p className="st">MY TOP 4 PICKS</p>
+            {myT4&&myT4.length>0?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:8,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:13,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={28}/><span className="C" style={{color:"#1D428A",fontSize:14,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:13}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
           </div>
         </div>}
       </div>
@@ -1132,18 +1155,31 @@ export default function App(){
 
     {sc==="lb"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {Object.keys(users).length} players</p></div>
-      {getLb().map((u,i)=><div key={u.email} className={"lrow"+(u.email===email?" me":"")}>
-        <div style={{width:30,height:30,borderRadius:8,background:i===0?"#D4AF37":i===1?"#94a3b8":i===2?"#b45309":"#EBF0FA",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,color:i<3?"#fff":"#475569",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
-        <Av name={u.name} sz={30}/>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:5}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}</p>{u.hot&&<span style={{fontSize:13}}>🔥</span>}</div>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}><span style={{fontSize:10,color:"#64748b"}}>{u.acc}% accurate</span>{(u.bgs||[]).slice(0,2).map(b=><span key={b.id} className="bp">{b.ic} {b.lb}</span>)}</div>
+      {getLb().map((u,i)=><div key={u.email} style={{background:u.email===email?"#EBF0FA":"#fff",border:"1px solid "+(u.email===email?"#1D428A60":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,boxShadow:"0 1px 4px rgba(29,66,138,.06)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+          <div style={{width:30,height:30,borderRadius:8,background:i===0?"#D4AF37":i===1?"#94a3b8":i===2?"#b45309":"#EBF0FA",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,color:i<3?"#fff":"#475569",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
+          <Av name={u.name} sz={30}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:5}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}</p>{u.hot&&<span style={{fontSize:13}}>🔥</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}><span style={{fontSize:10,color:"#64748b"}}>{u.acc}% accurate</span>{(u.bgs||[]).slice(0,2).map(b=><span key={b.id} className="bp">{b.ic} {b.lb}</span>)}</div>
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0,letterSpacing:1}}>{u.pts}</p>
+            {(getManualAdj(u.email)+getMatchOverride(u.email))!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{getManualAdj(u.email)+getMatchOverride(u.email)>0?"+":""}{getManualAdj(u.email)+getMatchOverride(u.email)} adj</p>}
+          </div>
         </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0,letterSpacing:1}}>{u.pts}</p>
-          {(getManualAdj(u.email)+getMatchOverride(u.email))!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{getManualAdj(u.email)+getMatchOverride(u.email)>0?"+":""}{getManualAdj(u.email)+getMatchOverride(u.email)} adj</p>}
+        <div style={{display:"flex",gap:8,alignItems:"center",borderTop:"1px solid #f1f5f9",paddingTop:8,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
+            <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>
+            {u.userSp?<><TLogo t={u.userSp} sz={16}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw&&u.userSp===sw?"#15803d":"#1D428A"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>-</span>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}>
+            <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>
+            {(u.userT4||[]).length>0?(u.userT4||[]).map(t=><TLogo key={t} t={t} sz={16}/>):<span style={{fontSize:11,color:"#94a3b8"}}>-</span>}
+          </div>
         </div>
       </div>)}
+      {getLb().length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><p style={{fontSize:36}}>🏆</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet</p></div>}
     </div>}
 
     {sc==="picks"&&!am&&<div style={{padding:"16px"}}>
@@ -1151,26 +1187,29 @@ export default function App(){
         <div><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>MY PICKS</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:2}}>{Object.keys(myPicks).length} predictions · {myS.acc}% accurate</p></div>
         <p className="C" style={{color:"#FFE57F",fontSize:26,fontWeight:800,margin:0}}>{myPts}</p>
       </div>
-      {/* Season picks — champion + top 4 */}
+      {/* Season Picks — Champion + Top 4 */}
       <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
         <p className="st">MY SEASON PICKS</p>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"linear-gradient(135deg,#1D428A10,#2a5bbf10)",border:"1px solid #dbeafe",borderRadius:10,padding:"10px 14px",flex:1}}>
-            <span style={{fontSize:10,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>🏆 My Champion</span>
-            {mySp?<div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}><TLogo t={mySp} sz={36}/><div><p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0}}>{mySp}</p><p style={{color:sw?(mySp===sw?"#15803d":"#dc2626"):"#94a3b8",fontSize:11,fontWeight:600,margin:0}}>{sw?(mySp===sw?"✅ Correct! +200pts":"❌ Wrong"):"Pending"}</p></div></div>:<p style={{color:"#94a3b8",fontSize:12,margin:"4px 0 0"}}>Not set</p>}
+        <div style={{display:"flex",gap:10,marginBottom:10}}>
+          <div style={{flex:1,background:"linear-gradient(135deg,#1D428A08,#2a5bbf08)",border:"1px solid #dbeafe",borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
+            <span style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🏆 Champion Pick</span>
+            {mySp?<div style={{display:"flex",alignItems:"center",gap:8}}><TLogo t={mySp} sz={32}/><div><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:0}}>{mySp}</p><p style={{color:sw?(mySp===sw?"#15803d":"#dc2626"):"#94a3b8",fontSize:10,fontWeight:600,margin:0}}>{sw?(mySp===sw?"✅ +200pts":"❌ Wrong"):"Pending"}</p></div></div>
+            :<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not set</p>}
           </div>
         </div>
         <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}>
-          <span style={{fontSize:10,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>🏅 My Playoff Top 4</span>
-          {myT4&&myT4.length>0?<div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:10,padding:"6px 10px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:12,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={24}/><span className="C" style={{color:"#1D428A",fontSize:13,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:12}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:"6px 0 0"}}>Not set</p>}
+          <span style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🏅 Top 4 Playoff Picks</span>
+          {myT4&&myT4.length>0
+            ?<div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:10,padding:"6px 10px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:11,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={22}/><span className="C" style={{color:"#1D428A",fontSize:12,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:11}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>
+            :<p style={{color:"#94a3b8",fontSize:12,margin:"6px 0 0"}}>Not set</p>}
         </div>
       </div>
       <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#92400E",display:"flex",gap:8,alignItems:"center"}}><span>🔒</span><span>Picks lock 45 mins before each match. Predict from the Today tab.</span></div>
-      {ms.filter(m=>myPicks[m.id]).length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><p style={{fontSize:36}}>📋</p><p style={{color:"#94a3b8",marginTop:12}}>No predictions yet. Head to the Today tab to start!</p></div>}
+      {ms.filter(m=>myPicks[m.id]).length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><p style={{fontSize:36}}>📋</p><p style={{color:"#94a3b8",marginTop:12}}>No match predictions yet. Head to the Today tab to start!</p></div>}
       {ms.filter(m=>myPicks[m.id]).map(m=>{
         const p=myPicks[m.id];const mult=(doubleMatch===m.id)?2:1;
         let e=0;if(m.result){let base=0;if(p.toss===m.result.toss)base+=PTS.toss;if(p.win===m.result.win)base+=PTS.win;if(motmMatch(p.motm,m.result.motm))base+=PTS.motm;if(p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm))base+=PTS.streak;e=base*mult;}
-        const bq=bqs[m.id],mbp=(bpk[email]||{})[m.id];if(bq?.answer&&mbp===bq.answer)e+=PTS.bonus;
+        const bq=bqs[m.id],mbp=(bpk[myEk]||{})[m.id];if(bq?.answer&&mbp===bq.answer)e+=PTS.bonus;
         const mOv=(matchPtsOverride[email]||{})[m.id]||0;
         const isPending=pendingResultIds.includes(m.id);
         return <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}>
@@ -1224,8 +1263,8 @@ export default function App(){
       </div>
       <div style={{padding:"10px 14px 12px",borderTop:"1px solid #e2e8f0",background:"#fff"}}>
         <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
-          <input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} placeholder={chatMuted||(mutedUsers||{})[email]?"Chat is muted":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[email]} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()} style={{flex:1,padding:"10px 14px",borderRadius:24}}/>
-          <button onClick={sendChat} disabled={chatMuted||(mutedUsers||{})[email]} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,opacity:chatMuted||(mutedUsers||{})[email]?.5:1}}>&#10148;</button>
+          <input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} placeholder={chatMuted||(mutedUsers||{})[myEk]?"Chat is muted":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[myEk]} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()} style={{flex:1,padding:"10px 14px",borderRadius:24}}/>
+          <button onClick={sendChat} disabled={chatMuted||(mutedUsers||{})[myEk]} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,opacity:chatMuted||(mutedUsers||{})[myEk]?.5:1}}>&#10148;</button>
         </div>
         {chatIn.length>CHAT_MAX*0.8&&<p className="charcnt">{chatIn.length}/{CHAT_MAX}</p>}
       </div>
@@ -1233,7 +1272,7 @@ export default function App(){
 
     {sc==="wof"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Perfect predictions hall of fame</p></div>
-      {(()=>{const pc={};done.forEach(m=>{Object.entries(allPicks).forEach(([em,up])=>{const p=up[m.id];if(p&&m.result&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm))pc[em]=(pc[em]||0)+1;});});const s=Object.entries(pc).sort((a,b)=>b[1]-a[1]);if(!s.length)return <p style={{color:"#94a3b8",textAlign:"center",marginTop:20,marginBottom:20}}>No perfect matches yet. Keep predicting!</p>;return <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:16}}><p className="st">PERFECT MATCH HALL</p>{s.map(([em,cnt],i)=>{const u=users[em];if(!u)return null;return <div key={em} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:i<s.length-1?"1px solid #f1f5f9":"none"}}><div style={{width:28,height:28,borderRadius:8,background:i===0?"#D4AF37":i===1?"#94a3b8":i===2?"#b45309":"#EBF0FA",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,color:i<3?"#fff":"#475569",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div><Av name={u.name} sz={30}/><div style={{flex:1}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{cnt} perfect match{cnt>1?"es":""}</p></div><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>{cnt}×</span></div>;})}</div>;})()}
+      {(()=>{const pc={};done.forEach(m=>{Object.entries(allPicks).forEach(([emk,up])=>{const p=up[m.id];if(p&&m.result&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm)){const rawEm=Object.keys(users).find(e=>ek(e)===emk)||emk;pc[rawEm]=(pc[rawEm]||0)+1;}});});const s=Object.entries(pc).sort((a,b)=>b[1]-a[1]);if(!s.length)return <p style={{color:"#94a3b8",textAlign:"center",marginTop:20,marginBottom:20}}>No perfect matches yet. Keep predicting!</p>;return <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:16}}><p className="st">PERFECT MATCH HALL</p>{s.map(([em,cnt],i)=>{const u=users[em];if(!u)return null;return <div key={em} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:i<s.length-1?"1px solid #f1f5f9":"none"}}><div style={{width:28,height:28,borderRadius:8,background:i===0?"#D4AF37":i===1?"#94a3b8":i===2?"#b45309":"#EBF0FA",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,color:i<3?"#fff":"#475569",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div><Av name={u.name} sz={30}/><div style={{flex:1}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{cnt} perfect match{cnt>1?"es":""}</p></div><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>{cnt}×</span></div>;})}</div>;})()}
       {getWof().map(m=><div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TLogo t={m.home} sz={24}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{m.mn} · {m.date}</p></div><TLogo t={m.away} sz={24}/></div>
         {m.result&&<div style={{background:"#F4F6FB",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:10,color:"#64748b"}}>Win: <b style={{color:"#15803d"}}>{m.result.win}</b> · POTM: <b style={{color:"#B8860B"}}>{m.result.motm}</b></div>}
@@ -1252,17 +1291,17 @@ export default function App(){
 
       {admTab==="results"&&<>
         <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <p style={{color:"#15803d",fontSize:12,fontWeight:600,margin:0}}>Auto-fetch 3h after match start (every 10 min)</p>
-          <button onClick={manualFetch} disabled={fetching} style={{padding:"7px 12px",borderRadius:8,background:fetching?"#e2e8f0":"#dcfce7",color:fetching?"#94a3b8":"#166534",border:"1px solid #bbf7d0",cursor:fetching?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fetching?"Fetching…":"Fetch Now"}</button>
+          <p style={{color:"#15803d",fontSize:12,fontWeight:600,margin:0}}>Enter results manually or fetch via AI</p>
+          <button onClick={manualFetch} disabled={fetching} style={{padding:"7px 12px",borderRadius:8,background:fetching?"#e2e8f0":"#dcfce7",color:fetching?"#94a3b8":"#166534",border:"1px solid #bbf7d0",cursor:fetching?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fetching?"Fetching…":"AI Fetch"}</button>
         </div>
         {fetchErr&&<ApiErr msg={fetchErr} onRetry={manualFetch}/>}
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><p className="st" style={{margin:0}}>PLAYOFF BRACKET</p><button onClick={refreshBracket} style={{padding:"5px 10px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Refresh</button></div>
-          {bracket?.top4?.length===4?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{bracket.top4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"5px 10px"}}><span className="C" style={{color:"#94a3b8",fontSize:12,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={20}/><span className="C" style={{color:"#1D428A",fontSize:12,fontWeight:700}}>{t}</span></div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not yet determined (needs 60 league matches)</p>}
+          {bracket?.top4?.length===4?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{bracket.top4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"5px 10px"}}><span className="C" style={{color:"#94a3b8",fontSize:12,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={20}/><span className="C" style={{color:"#1D428A",fontSize:12,fontWeight:700}}>{t}</span></div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not yet determined</p>}
         </div>
         <p className="st">PENDING RESULTS ({ms.filter(m=>!m.result).length})</p>
         {ms.filter(m=>!m.result).map(m=>{const rf=admResultForm[m.id]||{};return <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><TLogo t={m.home} sz={20}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={20}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p></div>{pendingResultIds.includes(m.id)&&<span className="pending-badge">⏳ Fetching</span>}</div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><TLogo t={m.home} sz={20}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={20}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p></div></div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             <div style={{display:"flex",gap:8}}>
               <div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Toss</p><select className="sel" value={rf.toss||""} onChange={e=>setAdmResultForm(f=>({...f,[m.id]:{...rf,toss:e.target.value}}))}>
@@ -1287,31 +1326,31 @@ export default function App(){
         </div>
         <input className="inp" value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by name or email…" style={{marginBottom:12,fontSize:13}}/>
         {Object.values(users).filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.email?.toLowerCase().includes(userSearch.toLowerCase())).sort((a,b)=>(lbScores[b.email]?.pts||0)-(lbScores[a.email]?.pts||0)).map(u=>{
-          const st=lbScores[u.email]||{pts:0,acc:0},up=allPicks[u.email]||{},ex=exU===u.email,adj=manualPtsAdj[u.email]||0,mOv=getMatchOverride(u.email);
+          const st=lbScores[u.email]||{pts:0,acc:0},up=allPicks[ek(u.email)]||{},ex2=exU===u.email,adj=manualPtsAdj[u.email]||0,mOv=getMatchOverride(u.email);
           return <div key={u.email} style={{background:"#fff",border:"1px solid "+(u.email===email?"#1D428A40":"#e2e8f0"),borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex?null:u.email)}>
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex2?null:u.email)}>
               <Av name={u.name} sz={34}/>
               <div style={{flex:1,minWidth:0}}>
                 <p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p>
                 <p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p>
-                <p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}% acc</p>
+                <p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}% acc · 🏆 {st.userSp||"—"}</p>
               </div>
               <div style={{textAlign:"right"}}>
                 <p className="C" style={{color:"#1D428A",fontSize:17,fontWeight:800,margin:0}}>{st.pts}</p>
                 {(adj+mOv)!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{adj+mOv>0?"+":""}{adj+mOv} adj</p>}
-                <p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex?"▲":"▼"}</p>
+                <p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex2?"▲":"▼"}</p>
               </div>
             </div>
-            {ex&&<div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
+            {ex2&&<div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
               <p className="st" style={{marginTop:12}}>GLOBAL POINTS ADJUSTMENT</p>
               <div style={{display:"flex",gap:8,marginBottom:8}}>{[-50,-25,-10,10,25,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>{d>0?"+":""}{d}</button>)}</div>
               {adj!==0&&<p style={{color:"#FF822A",fontSize:11,fontWeight:600,marginBottom:12}}>Current adj: {adj>0?"+":""}{adj} pts</p>}
               <p className="st">PER-MATCH POINTS OVERRIDE</p>
               {ms.filter(m=>up[m.id]).map(m=>{const mOvM=(matchPtsOverride[u.email]||{})[m.id]||0;return <div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn} · {m.date}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div>
                 <div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div>
               </div>;})}
-              <p className="st" style={{marginTop:8}}>ALL PREDICTIONS ({Object.keys(up).length})</p>
+              <p className="st" style={{marginTop:8}}>ALL PREDICTIONS</p>
               {Object.keys(up).length===0?<p style={{color:"#94a3b8",fontSize:12}}>None yet</p>:ms.filter(m=>up[m.id]).map(m=>{const p=up[m.id];return <div key={m.id} style={{background:"#f8faff",borderRadius:8,padding:"7px 12px",marginBottom:7,fontSize:12}}><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8"}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11}}>{m.mn}</span></div><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{[["T",p.toss],["W",p.win],["P",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:5,padding:"3px 7px",fontSize:10,color:"#475569"}}>{l}: {v}</span>)}</div></div>;})}
               {u.email!==SUPER_ADMIN&&u.email!==email&&<button onClick={()=>deleteUser(u.email)} className="dbtn" style={{marginTop:12}}>🗑️ Delete Account</button>}
             </div>}
@@ -1359,7 +1398,7 @@ export default function App(){
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">APP CONTROLS</p>
           <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🔧 Maintenance Mode</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Lock app for non-admins</p></div><Toggle on={maintenance} onChange={toggleMaintenance}/></div>
-          <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>📤 Export Leaderboard</p></div><button onClick={exportCSV} style={{padding:"7px 14px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>Export</button></div>
+          <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>📤 Export Leaderboard CSV</p></div><button onClick={exportCSV} style={{padding:"7px 14px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>Export</button></div>
           <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🔇 Mute All Chat</p></div><Toggle on={!!chatMuted} onChange={async v=>{setChatMuted(v);await DB.set("chatmuted",v);toast2(v?"💬 Chat muted":"💬 Chat reopened");}}/></div>
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
@@ -1372,22 +1411,25 @@ export default function App(){
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">SET IPL 2026 CHAMPION</p>
           <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>{TEAMS.map(t=><button key={t} onClick={()=>setSeasonWinner(t)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sw===t?"#1D428A":"#f8faff",border:"1.5px solid "+(sw===t?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw===t?"#fff":"#475569"}}>{t}</span>{sw===t&&<span style={{fontSize:10}}>🏆</span>}</button>)}</div>
-          {sw&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>Champion: <b>{sw}</b></div>}
+          {sw&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>Champion set: <b>{sw}</b></div>}
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,10).map(m=>{const lstate=lockedMatches[m.id];return <div key={m.id} className="ctrl-row">
-            <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time} · {lstate==="locked"?"🔒 Force locked":lstate==="unlocked"?"🔓 Force unlocked":"⚙️ Auto"}</p></div>
-            <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"5px 10px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f8faff",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button>
+          <p className="st">🔒 LOCK / UNLOCK MATCHES</p>
+          <p style={{color:"#94a3b8",fontSize:11,marginBottom:10}}>Tap to cycle: Auto → Force Lock → Force Unlock</p>
+          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id];return <div key={m.id} className="ctrl-row">
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p>
+              <p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p>
             </div>
-          </div>;})}
-        </div>
+            <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>
+              {lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}
+            </button>
+          </div>;})}</div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">💬 MUTE INDIVIDUAL USERS</p>
-          {Object.values(users).filter(u=>u.email!==email).map(u=>{const isMuted=(mutedUsers||{})[u.email];return <div key={u.email} className="ctrl-row">
+          {Object.values(users).filter(u=>u.email!==email).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)]||(mutedUsers||{})[u.email];return <div key={u.email} className="ctrl-row">
             <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div>
-            <button onClick={async()=>{const upd={...(mutedUsers||{}),[u.email]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 Muted ":"🔊 Unmuted ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button>
+            <button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 Muted ":"🔊 Unmuted ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button>
           </div>;})}
         </div>
         <div style={{background:"#fff",border:"1px solid #fecaca",borderRadius:12,padding:"14px",marginBottom:14}}>
@@ -1407,7 +1449,7 @@ export default function App(){
       {admTab==="broadcast"&&<>
         <div className="ac">
           <p className="st">SEND BROADCAST</p>
-          <textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message shown as banner…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/>
+          <textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message shown as banner on everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button>
             <button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button>
@@ -1415,6 +1457,7 @@ export default function App(){
           {pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}
         </div>
         <p className="st" style={{marginTop:16}}>BROADCAST HISTORY</p>
+        {bc.length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No broadcasts yet</p>}
         {[...bc].reverse().map(b=><div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}><span style={{fontSize:15,flexShrink:0}}>📢</span><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div><button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button></div>)}
       </>}
     </div>}
