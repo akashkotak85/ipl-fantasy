@@ -1,7 +1,3 @@
-// ─── FIREBASE (npm imports — replaces CDN dynamic loading) ───────────────────
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getDatabase, ref, get, set, remove } from "firebase/database";
-
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
@@ -112,20 +108,29 @@ const firebaseConfig={
   appId:"1:973930153403:web:872ce26072b07e1adf309e"
 };
 
-const _fbApp=getApps().length?getApp():initializeApp(firebaseConfig);
-const _db=getDatabase(_fbApp);
-
-function _ref(key){return ref(_db,PFX+key);}
+const firebaseReady = (async()=>{
+  const[app,db]=await Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
+  ]);
+  const _app=app.getApps().length?app.getApp():app.initializeApp(firebaseConfig);
+  const _db=db.getDatabase(_app);
+  return{app:_app,db:_db,dbMod:db};
+})();
 
 const DB={
   get:async k=>{
-    try{const snap=await get(_ref(k));return snap.exists()?snap.val():null;}
-    catch{return null;}
+    try{
+      const{db,dbMod}=await firebaseReady;
+      const snap=await dbMod.get(dbMod.ref(db,PFX+k));
+      return snap.exists()?snap.val():null;
+    }catch{return null;}
   },
   set:async(k,v)=>{
     try{
-      if(v===null||v===undefined){await remove(_ref(k));}
-      else{await set(_ref(k),v);}
+      const{db,dbMod}=await firebaseReady;
+      if(v===null||v===undefined){await dbMod.remove(dbMod.ref(db,PFX+k));}
+      else{await dbMod.set(dbMod.ref(db,PFX+k),v);}
     }catch{}
   }
 };
