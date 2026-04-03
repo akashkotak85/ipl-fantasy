@@ -118,19 +118,22 @@ const firebaseReady=(async()=>{
   return{app:_app,db:_db,dbMod:db};
 })();
 
+const encodeKey=k=>k.replace(/\./g,"_dot_").replace(/@/g,"_at_").replace(/#/g,"_hash_").replace(/\$/g,"_dlr_").replace(/\[/g,"_lb_").replace(/\]/g,"_rb_").replace(/\//g,"_sl_");
+
 const DB={
   get:async k=>{
     try{
       const{db,dbMod}=await firebaseReady;
-      const snap=await dbMod.get(dbMod.ref(db,PFX+k));
+      const snap=await dbMod.get(dbMod.ref(db,PFX+encodeKey(k)));
       return snap.exists()?snap.val():null;
     }catch(e){console.error("DB.get error:",e);return null;}
   },
   set:async(k,v)=>{
     try{
       const{db,dbMod}=await firebaseReady;
-      if(v===null||v===undefined){await dbMod.remove(dbMod.ref(db,PFX+k));}
-      else{await dbMod.set(dbMod.ref(db,PFX+k),v);}
+      const sk=PFX+encodeKey(k);
+      if(v===null||v===undefined){await dbMod.remove(dbMod.ref(db,sk));}
+      else{await dbMod.set(dbMod.ref(db,sk),v);}
     }catch(e){console.error("DB.set error:",e);}
   }
 };
