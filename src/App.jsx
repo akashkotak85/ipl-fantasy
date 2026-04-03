@@ -1,3 +1,7 @@
+// ─── FIREBASE (npm imports — replaces CDN dynamic loading) ───────────────────
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getDatabase, ref, get, set, remove } from "firebase/database";
+
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
@@ -95,7 +99,7 @@ const EMOJIV={fire:"🔥",cry:"😭",aim:"🎯",rage:"😤",clap:"👏",boom:"�
 const SUPER_ADMIN="akashkotak@gmail.com";
 const PFX="ipl26_";
 const CHAT_MAX=400;
-const REG_LIMIT=3, REG_WINDOW=10*60*1000;
+const REG_LIMIT=999, REG_WINDOW=10*60*1000;
 
 // ─── FIREBASE INIT ────────────────────────────────────────────────────────────
 const firebaseConfig={
@@ -108,29 +112,20 @@ const firebaseConfig={
   appId:"1:973930153403:web:872ce26072b07e1adf309e"
 };
 
-const firebaseReady = (async()=>{
-  const[app,db]=await Promise.all([
-    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
-  ]);
-  const _app=app.getApps().length?app.getApp():app.initializeApp(firebaseConfig);
-  const _db=db.getDatabase(_app);
-  return{app:_app,db:_db,dbMod:db};
-})();
+const _fbApp=getApps().length?getApp():initializeApp(firebaseConfig);
+const _db=getDatabase(_fbApp);
+
+function _ref(key){return ref(_db,PFX+key);}
 
 const DB={
   get:async k=>{
-    try{
-      const{db,dbMod}=await firebaseReady;
-      const snap=await dbMod.get(dbMod.ref(db,PFX+k));
-      return snap.exists()?snap.val():null;
-    }catch{return null;}
+    try{const snap=await get(_ref(k));return snap.exists()?snap.val():null;}
+    catch{return null;}
   },
   set:async(k,v)=>{
     try{
-      const{db,dbMod}=await firebaseReady;
-      if(v===null||v===undefined){await dbMod.remove(dbMod.ref(db,PFX+k));}
-      else{await dbMod.set(dbMod.ref(db,PFX+k),v);}
+      if(v===null||v===undefined){await remove(_ref(k));}
+      else{await set(_ref(k),v);}
     }catch{}
   }
 };
@@ -167,7 +162,7 @@ async function claudeCallRaw(prompt,useSearch=false,timeoutMs=15000){
   try{
     const body={model:"claude-sonnet-4-20250514",max_tokens:800,messages:[{role:"user",content:prompt}]};
     if(useSearch)body.tools=[{type:"web_search_20250305",name:"web_search"}];
-    const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const err=await r.text().catch(()=>"");throw new Error("HTTP "+r.status+": "+err.slice(0,120));}
     const d=await r.json();
