@@ -678,12 +678,12 @@ export default function App(){
     try{
       const u2=await DB.get("u")||{};
       const storedHash=await DB.get("pw_"+em);
-      if(!u2[em]||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
+      if(!u2[encodeEmail(em)]||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
       const inputHash=await sha256(authPw);
       const match=storedHash===inputHash||storedHash===authPw;
       if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
       if(storedHash===authPw)await DB.set("pw_"+em,inputHash);
-      setUsers(u2);await doSignIn(em,u2[em]);
+      setUsers(u2);await doSignIn(em,u2[encodeEmail(em)]);
     }catch{setAuthErrors({email:"Something went wrong. Please try again."});}
     setAuthLoading(false);
   }
@@ -710,8 +710,8 @@ export default function App(){
       const hash=await sha256(authPw);
       await DB.set("pw_"+em,hash);
       const verify=await DB.get("u")||{};
-      if(!verify[em]){setAuthErrors({email:"Registration failed — please try again."});setAuthLoading(false);return;}
-      setUsers(verify);await doSignIn(em,verify[em],true);
+      if(!verify[encodeEmail(em)]){setAuthErrors({email:"Registration failed — please try again."});setAuthLoading(false);return;}
+      setUsers(verify);await doSignIn(em,verify[encodeEmail(em)],true);
     }catch{setAuthErrors({email:"Registration failed. Please try again."});}
     setAuthLoading(false);
   }
