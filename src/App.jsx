@@ -470,10 +470,40 @@ export default function App(){
   const[sessionEmail,setSessionEmail]=useState(null);
   const[chatSeenTs,setChatSeenTs]=useState(()=>Date.now());
   const[bcSeenTs,setBcSeenTs]=useState(0);
+  const[onlineUsers,setOnlineUsers]=useState({});
+
+  // Online presence — ping every 30s, expire after 90s
+  useEffect(()=>{
+    if(!email||!user)return;
+    const ping=async()=>{
+      const now=Date.now();
+      const ou=await DB.get("online")||{};
+      ou[ek(email)]={name:user.name,ts:now};
+      // Clean up stale (>90s)
+      Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});
+      await DB.set("online",ou);
+      setOnlineUsers(ou);
+    };
+    ping();
+    const id=setInterval(ping,30000);
+    return()=>{clearInterval(id);};
+  },[email,user]);
+
+  // Poll online users every 15s
+  useEffect(()=>{
+    if(!user)return;
+    const poll=async()=>{
+      const ou=await DB.get("online")||{};
+      const now=Date.now();
+      Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});
+      setOnlineUsers(ou);
+    };
+    const id=setInterval(poll,15000);
+    return()=>clearInterval(id);
+  },[user]);
+
   const[pendingResultIds,setPendingResultIds]=useState([]);
   const[bonusGenErr,setBonusGenErr]=useState({});
-
-  const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const toast2=(msg,type="info")=>{setToast({msg,type});clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(null),3500);};
 
   // Helper: get encoded key for current user
@@ -577,7 +607,11 @@ export default function App(){
   useEffect(()=>{
     if(sc==="chat"){
       setChatU(0);setChatSeenTs(Date.now());
-      const poll=async()=>{const[c,u2]=await Promise.all([DB.get("ch"),DB.get("u")]);if(c)setChat(c);if(u2)setUsers(u2);};
+      const poll=async()=>{
+        const[c,u2,ou]=await Promise.all([DB.get("ch"),DB.get("u"),DB.get("online")]);
+        if(c)setChat(c);if(u2)setUsers(u2);
+        if(ou){const now=Date.now();Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});setOnlineUsers(ou);}
+      };
       poll();if(pollRef.current)clearInterval(pollRef.current);
       pollRef.current=setInterval(poll,8000);
     }else{if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}}
@@ -646,14 +680,15 @@ export default function App(){
     if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
     try{
       const u2=await DB.get("u")||{};
-      // users in ipl26_u stored under raw email
       const storedHash=await DB.get("pw_"+ek(em));
-      if(!u2[em]||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
+      // Look up user by raw email OR encoded email key
+      const userEntry=u2[em]||u2[ek(em)];
+      if(!userEntry||storedHash===null||storedHash===undefined){setAuthErrors({email:"No account found. Please create an account."});setAuthLoading(false);return;}
       const inputHash=await sha256(authPw);
       const match=storedHash===inputHash||storedHash===authPw;
       if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
       if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);
-      setUsers(u2);await doSignIn(em,u2[em]);
+      setUsers(u2);await doSignIn(em,userEntry);
     }catch(e){console.error("login error:",e);setAuthErrors({email:"Something went wrong. Please try again."});}
     setAuthLoading(false);
   }
@@ -732,10 +767,17 @@ export default function App(){
   }
 
   async function logout(){
-    if(sessionEmail){await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}
+    if(sessionEmail){
+      await DB.set("token_"+ek(sessionEmail),null);
+      await DB.set("session",null);
+      // Remove from online presence
+      const ou=await DB.get("online")||{};
+      delete ou[ek(sessionEmail)];
+      await DB.set("online",ou);
+    }
     if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
     setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);
-    clearAuthForm();setUsers({});setAllPicks({});setSpk({});setT4pk({});setBpk({});
+    clearAuthForm();setUsers({});setAllPicks({});setSpk({});setT4pk({});setBpk({});setOnlineUsers({});
     setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);
     setSc("login");toast2("Logged out");
   }
@@ -835,16 +877,29 @@ export default function App(){
 
   async function deleteUser(ue){
     if(!confirm("Delete "+users[ue]?.name+"? This cannot be undone."))return;
-    const nu={...users};delete nu[ue];
     const uek=ek(ue);
-    const na={...allPicks};delete na[uek];
-    const ns={...spk};delete ns[uek];
-    const nt={...t4pk};delete nt[uek];
-    const nb={...bpk};delete nb[uek];
+    // Remove from users object — try both raw and encoded key
+    const nu={...users};
+    delete nu[ue];delete nu[uek];
+    const na={...allPicks};delete na[uek];delete na[ue];
+    const ns={...spk};delete ns[uek];delete ns[ue];
+    const nt={...t4pk};delete nt[uek];delete nt[ue];
+    const nb={...bpk};delete nb[uek];delete nb[ue];
     const np={...manualPtsAdj};delete np[ue];
     const nmpo={...matchPtsOverride};delete nmpo[ue];
     setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setBpk(nb);setManualPtsAdj(np);setMatchPtsOverride(nmpo);
-    await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("bp",nb),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);
+    await Promise.all([
+      DB.set("u",nu),
+      DB.set("ap",na),
+      DB.set("sp",ns),
+      DB.set("t4",nt),
+      DB.set("bp",nb),
+      DB.set("ptsadj",np),
+      DB.set("pw_"+uek,null),
+      DB.set("token_"+uek,null),
+      DB.set("session",null),
+      DB.set("matchptsoverride",nmpo)
+    ]);
     setExU(null);toast2("User deleted","ok");
   }
   async function sendBc(pin=false){
@@ -1248,9 +1303,20 @@ export default function App(){
     </div>}
 
     {sc==="chat"&&<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 134px)"}}>
-      <div style={{padding:"10px 16px",borderBottom:"1px solid #e2e8f0",background:"#fff",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,letterSpacing:1,margin:0}}>GROUP CHAT</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 0"}}>{Object.keys(users).length} players{chatMuted?" · 🔇 Muted":""}</p></div>
-        <div style={{display:"flex",gap:5}}>{Object.values(users).slice(0,4).map(u=><Av key={u.email} name={u.name} sz={24}/>)}</div>
+      <div style={{padding:"10px 16px",borderBottom:"1px solid #e2e8f0",background:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,letterSpacing:1,margin:0}}>GROUP CHAT</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 0"}}>{Object.keys(users).length} players · {Object.keys(onlineUsers).length} online{chatMuted?" · 🔇 Muted":""}</p></div>
+        </div>
+        {/* Online users */}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {Object.values(users).map(u=>{
+            const isOnline=!!(onlineUsers[ek(u.email)]);
+            return <div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:isOnline?"#f0fdf4":"#f8faff",border:"1px solid "+(isOnline?"#bbf7d0":"#e2e8f0"),borderRadius:20,padding:"3px 8px"}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:isOnline?"#22c55e":"#94a3b8",flexShrink:0}}/>
+              <span style={{fontSize:10,fontWeight:600,color:isOnline?"#15803d":"#94a3b8"}}>{u.name.split(" ")[0]}</span>
+            </div>;
+          })}
+        </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"14px",display:"flex",flexDirection:"column",gap:10,background:"#F4F6FB"}}>
         {chat.length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><span style={{fontSize:36}}>💬</span><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700,letterSpacing:1,marginTop:12}}>NO MESSAGES YET</p></div>}
