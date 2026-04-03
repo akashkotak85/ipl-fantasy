@@ -179,7 +179,7 @@ async function claudeCallRaw(prompt,useSearch=false,timeoutMs=15000){
   try{
     const body={model:"claude-sonnet-4-20250514",max_tokens:800,messages:[{role:"user",content:prompt}]};
     if(useSearch)body.tools=[{type:"web_search_20250305",name:"web_search"}];
-    const r=await fetch("https:///api/claude/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:ctrl.signal});
     clearTimeout(tid);
     if(!r.ok){const err=await r.text().catch(()=>"");throw new Error("HTTP "+r.status+": "+err.slice(0,120));}
     const d=await r.json();
@@ -205,7 +205,7 @@ function parseMatchDate(date,time){
   try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00+05:30");return isNaN(d.getTime())?null:d;}catch{return null;}
 }
 const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-45*60*1000):new Date(0);};
-const isLiveNow=m=>{const s=parseMatchDate(m.date,m.time);if(!s)return false;const n=Date.now();return n>=s.getTime()-5*60*1000&&n<=s.getTime()+5*60*60*1000;};
+const isLiveNow=m=>false;
 const locked=(m,lm={})=>!!(m.result||lm[m.id]||new Date()>=cutoff(m));
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
