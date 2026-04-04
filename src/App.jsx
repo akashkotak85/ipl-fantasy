@@ -1290,8 +1290,53 @@ export default function App(){
       {/* ANALYTICS TAB */}
       {admTab==="analytics"&&<>{(()=>{const mwp=ms.filter(m=>Object.values(allPicks).some(u=>u[m.id]||u[String(m.id)]));if(!mwp.length)return <div style={{textAlign:"center",padding:"40px 16px"}}><p style={{fontSize:36}}>📊</p><p style={{color:"#94a3b8",marginTop:12}}>No picks yet</p></div>;return mwp.map(m=>{const allArr=Object.values(allPicks);const tot=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;const sp2=tot?{tot,tA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,tB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,wA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length,wB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length}:null;const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};return <div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}><div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{sp2?.tot||0} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>{io&&sp2&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp2.tA} cB={sp2.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp2.wA} cB={sp2.wB} clA={hc.bg} clB={ac.bg}/></div>}</div>;});})()}</>}
 
-      {/* CONTROLS TAB */}
-      {admTab==="controls"&&<div>
+      {/* DEBUG TOOL */}
+      {admTab==="controls"&&<div style={{background:"#fff",border:"2px solid #FF822A",borderRadius:12,padding:"14px",marginBottom:14}}>
+        <p className="st" style={{color:"#FF822A",borderColor:"#fed7aa"}}>🔍 DEBUG: FIREBASE KEY INSPECTOR</p>
+        <p style={{color:"#94a3b8",fontSize:11,marginBottom:10}}>Shows raw keys in Firebase for sp and t4 to diagnose encoding issues.</p>
+        <button onClick={async()=>{
+          const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
+          const info=[];
+          info.push("=== SP (champion picks) ===");
+          if(sp)Object.keys(sp).forEach(k=>info.push("KEY: ["+k+"] → VALUE: "+sp[k]));
+          else info.push("(empty)");
+          info.push("=== T4 (top4 picks) ===");
+          if(t4)Object.keys(t4).forEach(k=>info.push("KEY: ["+k+"] → VALUE: "+JSON.stringify(t4[k])));
+          else info.push("(empty)");
+          info.push("=== AP keys (picks) ===");
+          if(ap)Object.keys(ap).forEach(k=>info.push("KEY: ["+k+"]"));
+          else info.push("(empty)");
+          info.push("=== Expected key for each user ===");
+          Object.values(users).forEach(u=>info.push(u.name+" → ek: ["+ek(u.email)+"]"));
+          alert(info.join("\n"));
+        }} style={{width:"100%",padding:"10px",borderRadius:8,background:"#FF822A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase",marginBottom:10}}>Show Raw Firebase Keys</button>
+
+        <button onClick={async()=>{
+          // NUCLEAR FIX: read all data, decode every possible key variant, rewrite clean
+          try{
+            const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
+            const decode=k=>{let d=k;for(let i=0;i<10;i++){const n=d.replace(/_at_/g,"@").replace(/_dot_/g,".");if(n===d)break;d=n;}return d;};
+            let fixed=0;
+            if(sp){
+              const clean={};
+              Object.keys(sp).forEach(k=>{const raw=decode(k);const canonical=ek(raw);clean[canonical]=sp[k];if(canonical!==k)fixed++;});
+              await DB.set("sp",clean);
+            }
+            if(t4){
+              const clean={};
+              Object.keys(t4).forEach(k=>{const raw=decode(k);const canonical=ek(raw);clean[canonical]=t4[k];if(canonical!==k)fixed++;});
+              await DB.set("t4",clean);
+            }
+            if(ap){
+              const clean={};
+              Object.keys(ap).forEach(k=>{const raw=decode(k);const canonical=ek(raw);clean[canonical]=ap[k];if(canonical!==k)fixed++;});
+              await DB.set("ap",clean);
+            }
+            toast2("Repaired "+fixed+" keys! Ask users to refresh.","ok");
+            await reloadShared(email);
+          }catch(e){toast2("Repair failed: "+e.message,"error");}
+        }} style={{width:"100%",padding:"10px",borderRadius:8,background:"#15803d",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase"}}>☑️ Force Repair All Keys Now</button>
+      </div>}
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">APP CONTROLS</p>
           <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🔧 Maintenance Mode</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Locks app for non-admins</p></div><Toggle on={maintenance} onChange={toggleMaintenance}/></div>
