@@ -122,16 +122,27 @@ function deepEncodeKeys(v){
   return r;
 }
 
-// Normalize a map whose keys might be raw emails, encoded emails, or double-encoded
+// Decode an encoded email key back to raw email
+function decodeKey(k){return k.replace(/_at_/g,"@").replace(/_dot_/g,".");}
+
+// Normalize ANY key map — handles raw email, single-encoded, double-encoded, triple-encoded
+// Strategy: always decode fully to raw email, then re-encode once
 function normalizeKeyMap(raw){
   if(!raw)return{};
   const out={};
   Object.keys(raw).forEach(k=>{
-    // already encoded (_at_ present, no @) → use as-is
-    // raw email (contains @) → encode
-    // ambiguous (contains _dot_ but no _at_) → use as-is (encoded)
-    const normalized=(k.includes("@"))?ek(k):k;
-    out[normalized]=raw[k];
+    // Fully decode (handles any number of encoding layers)
+    let decoded=k;
+    // Keep decoding until stable
+    for(let i=0;i<5;i++){
+      const next=decodeKey(decoded);
+      if(next===decoded)break;
+      decoded=next;
+    }
+    // decoded is now the raw email (or a plain key if it was never an email)
+    // Re-encode once to get canonical key
+    const canonical=decoded.includes("@")?ek(decoded):ek(decoded.includes(".")?decoded:decoded);
+    out[canonical]=raw[k];
   });
   return out;
 }
@@ -473,9 +484,14 @@ export default function App(){
     ]);
     if(u&&Object.keys(u).length>0)setUsers(u);
 
-    /* normalize allPicks — always encoded keys */
+    /* normalize allPicks — decode fully then re-encode once */
     const rawAP=ap||{};const freshAP={};
-    Object.keys(rawAP).forEach(k=>{freshAP[k.includes("@")?ek(k):k]=rawAP[k];});
+    Object.keys(rawAP).forEach(k=>{
+      let decoded=k;
+      for(let i=0;i<5;i++){const next=decodeKey(decoded);if(next===decoded)break;decoded=next;}
+      const canonical=ek(decoded);
+      freshAP[canonical]=rawAP[k];
+    });
     setAllPicks(freshAP);
     if(em)setMyPicks(freshAP[emk]||{});
 
@@ -494,10 +510,13 @@ export default function App(){
     if(t4){const nt4=normalizeKeyMap(t4);setT4pk(nt4);if(em)setMyT4(nt4[emk]||[]);}
 
     if(rx)setRxns(rx);if(rms)setReminders(rms);
-    if(mnt!=null)setMaintenance(!!mnt);if(pts)setManualPtsAdj(pts);if(lk)setLockedMatches(lk);
+    if(mnt!=null)setMaintenance(!!mnt);
+    if(pts){setManualPtsAdj(normalizeKeyMap(pts));}
+    if(lk)setLockedMatches(lk);
     setPinnedBc(pbc||null);
     if(dm!=null)setDoubleMatch(dm);if(cm2!=null)setChatMuted(!!cm2);
-    if(mu)setMutedUsers(mu);if(mpo)setMatchPtsOverride(mpo);
+    if(mu)setMutedUsers(normalizeKeyMap(mu));
+    if(mpo)setMatchPtsOverride(normalizeKeyMap(mpo));
     return freshAP;
   },[buildBaseMatches]);
 
@@ -539,8 +558,16 @@ export default function App(){
   const todayMs=useMemo(()=>ms.filter(isToday),[ms]);
   const upMs=useMemo(()=>ms.filter(m=>!m.result&&!isToday(m)&&!isTBD(m)),[ms]);
   const unbc=bc.filter(b=>b.ts>bcSeenTs).length;
-  const getManualAdj=useCallback(em=>manualPtsAdj[ek(em)]||manualPtsAdj[em]||0,[manualPtsAdj]);
-  const getMatchOverride=useCallback(em=>{const emk=ek(em);return Object.values({...matchPtsOverride[em]||{},...matchPtsOverride[emk]||{}}).reduce((a,b)=>a+b,0);},[matchPtsOverride]);
+  // FIX: try encoded key only (all maps are normalized to encoded keys on load)
+  const getManualAdj=useCallback(em=>{
+    const emk=ek(em);
+    return manualPtsAdj[emk]||0;
+  },[manualPtsAdj]);
+
+  const getMatchOverride=useCallback(em=>{
+    const emk=ek(em);
+    return Object.values(matchPtsOverride[emk]||{}).reduce((a,b)=>a+b,0);
+  },[matchPtsOverride]);
   const myS=useMemo(()=>calcScore(myPicks,ms,doubleMatch),[myPicks,ms,doubleMatch]);
   const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email),[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email]);
 
@@ -611,6 +638,8 @@ export default function App(){
   async function doSignIn(em,ex,isNew=false){
     setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);await persistSession(em);
+    // FIX: repair any garbled Firebase keys before loading data
+    await repairUserData();
     const emk=ek(em);const freshAP=await reloadShared(em);
     setMyPicks(freshAP[emk]||{});setBcSeenTs(Date.now());setChatSeenTs(Date.now());
     if(isNew)setSc("onboard");else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
@@ -635,7 +664,37 @@ export default function App(){
     setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");
   }
 
-  /* PICK SUBMISSION */
+  /* ─── ONE-TIME DATA REPAIR
+     Runs on every login. Reads sp and t4 from Firebase, normalizes all keys
+     (handles raw, single-encoded, double-encoded), writes back clean data.
+     Safe to run repeatedly — if already clean, it's a no-op.
+  ─── */
+  async function repairUserData(){
+    try{
+      const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
+      // normalize sp
+      if(sp){
+        const clean=normalizeKeyMap(sp);
+        const isDirty=Object.keys(sp).some(k=>!clean[k]||k!==ek(decodeKey(k)||k));
+        await DB.set("sp",clean);
+      }
+      // normalize t4
+      if(t4){
+        const clean=normalizeKeyMap(t4);
+        await DB.set("t4",clean);
+      }
+      // normalize ap (picks keyed by encoded email)
+      if(ap){
+        const clean={};
+        Object.keys(ap).forEach(k=>{
+          let decoded=k;
+          for(let i=0;i<5;i++){const next=decodeKey(decoded);if(next===decoded)break;decoded=next;}
+          clean[ek(decoded)]=ap[k];
+        });
+        await DB.set("ap",clean);
+      }
+    }catch(e){console.error("repairUserData",e);}
+  }
   async function submitPick(){
     if(!am)return;
     const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
