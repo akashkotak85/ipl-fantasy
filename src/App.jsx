@@ -535,7 +535,7 @@ export default function App(){
   }
 
   async function submitPick(){
-    if(!am)return;const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]||{})};
+    if(!am)return;const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
     if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match locked","error");setAm(null);setSc("home");return;}
     if(!draft.toss||!draft.win){toast2("Pick toss and winner","error");return;}if(!draft.motm){toast2("Select Player of the Match","error");return;}
     const np={...myPicks,[am.id]:draft};const na={...allPicks,[myEk]:np};
