@@ -681,37 +681,10 @@ export default function App(){
     return freshAP;
   },[buildBaseMatches]);
 
-  /* ─── AUTO-LOGIN ─── */
+  /* ─── STARTUP — always go to login, no auto-login ─── */
   useEffect(()=>{
-    const fallback=setTimeout(()=>setSc(s=>s==="splash"?"login":s),5000);
-    (async()=>{
-      try{
-        const saved=await DB.get("session");
-        if(saved?.email&&saved?.token){
-          const storedToken=await DB.get("token_"+ek(saved.email));
-          // FIX: strict token comparison, handle null
-          if(storedToken&&storedToken===saved.token){
-            const u2=await DB.get("u")||{};
-            const ex=u2[saved.email]||u2[ek(saved.email)];
-            if(ex){
-              setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-              const freshAP=await reloadShared(saved.email);
-              setMyPicks(freshAP[ek(saved.email)]||{});
-              setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-              clearTimeout(fallback);
-              setAppReady(true);
-              setTimeout(()=>setSc("home"),300);
-              return;
-            }
-          }
-        }
-      }catch(e){console.error("auto-login",e);}
-      clearTimeout(fallback);
-      setAppReady(true);
-      setSc("login");
-    })();
-    return()=>clearTimeout(fallback);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const t=setTimeout(()=>{setAppReady(true);setSc("login");},800);
+    return()=>clearTimeout(t);
   },[]);
 
   /* ─── RELOAD ON SCREEN CHANGE ─── */
@@ -758,12 +731,9 @@ export default function App(){
   useEffect(()=>{if(sc!=="chat")setChatU(chat.filter(m=>m.ts>chatSeenTs).length);},[chat,sc,chatSeenTs]);
   useEffect(()=>{chatRef.current?.scrollIntoView({behavior:"smooth"});},[chat,sc]);
 
-  /* ─── SESSION ─── */
+  /* ─── SESSION — no persistence, login required each visit ─── */
   async function persistSession(em){
-    const token=Math.random().toString(36).slice(2)+Date.now().toString(36);
-    await DB.set("token_"+ek(em),token);
-    await DB.set("session",{email:em,token});
-    setSessionEmail(em);
+    setSessionEmail(em); // keep for online presence tracking only
   }
 
   /* ─── COMPUTED ─── */
@@ -1158,8 +1128,8 @@ export default function App(){
   const remCount=Object.values(reminders).filter(Boolean).length;
 
   const navItems=isAdmin
-    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","Picks"],["hist","📜","History"],["remind","⏰","Remind"],["chat","💬","Chat"],["wof","🌟","Fame"],["adm","⚙️","Admin"]]
-    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","Picks"],["hist","📜","History"],["remind","⏰","Remind"],["chat","💬","Chat"],["wof","🌟","Fame"]];
+    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","Picks"],["hist","📜","History"],["remind","⏰","Remind"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
+    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","Picks"],["hist","📜","History"],["remind","⏰","Remind"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
 
   /* ─── NAV ─── */
   function Nav(){
@@ -1840,6 +1810,98 @@ export default function App(){
           <button onClick={sendChat} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>&#10148;</button>
         </div>
         {chatIn.length>CHAT_MAX*0.8&&<p className="charcnt">{chatIn.length}/{CHAT_MAX}</p>}
+      </div>
+    </div>}
+
+    {/* ── RULES ── */}
+    {sc==="rules"&&<div style={{padding:"16px"}}>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
+        <p style={{fontSize:28,margin:"0 0 6px"}}>📖</p>
+        <p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p>
+        <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>TATA IPL 2026 Fantasy Predictor</p>
+      </div>
+
+      {[
+        {
+          icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",
+          items:[
+            "Before each match, predict: Toss Winner, Match Winner, and Player of the Match.",
+            "Predictions lock 45 minutes before the scheduled start time — no changes after that.",
+            "You can set reminders so you never miss the prediction window.",
+          ]
+        },
+        {
+          icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",
+          items:[
+            "Correct Toss → +10 pts",
+            "Correct Match Winner → +20 pts",
+            "Correct Player of the Match → +30 pts",
+            "All 3 correct in one match (Perfect Pick) → bonus +15 pts streak",
+            "Maximum per match: 75 pts (or 150 pts on a 2× Double Points match)",
+          ]
+        },
+        {
+          icon:"🏆",title:"Season Picks (One-Time)",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",
+          items:[
+            "At signup, pick your IPL 2026 Champion — worth +200 pts if correct at season end.",
+            "Also pick your Top 4 playoff teams. Each team that qualifies earns you +50 pts.",
+            "These picks are locked forever after onboarding — choose wisely!",
+          ]
+        },
+        {
+          icon:"⚡",title:"Double Points Match",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",
+          items:[
+            "Admin can designate any match as a 2× Double Points match.",
+            "All points earned in that match (including streak bonus) are doubled.",
+            "Watch for the ⚡ 2× badge on the match card — it's a big opportunity!",
+          ]
+        },
+        {
+          icon:"🌟",title:"Wall of Fame",color:"#fdf4ff",border:"#e9d5ff",tc:"#6b21a8",
+          items:[
+            "Every Perfect Pick (all 3 correct) earns you a spot on the Wall of Fame.",
+            "The Hall of Fame ranks players by total perfect matches across the season.",
+            "Perfect picks also unlock badges like Hat-Trick Hero (3+ perfects).",
+          ]
+        },
+        {
+          icon:"🏅",title:"Badges",color:"#f8faff",border:"#e2e8f0",tc:"#1e40af",
+          items:[
+            "🎯 Perfect Match — get your first perfect pick",
+            "🏅 Hat-Trick Hero — 3 or more perfect picks",
+            "🐉 Underdog King — correctly pick winners that less than 50% of the group picked",
+            "💪 Consistent — score at least 2/3 correct in 3+ matches",
+            "⚡ Active Predictor — make 10 or more predictions",
+          ]
+        },
+        {
+          icon:"📋",title:"General Rules",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",
+          items:[
+            "This is a private game for your friend group — keep it fun and friendly!",
+            "Picks are final once locked — no edits or appeals after the cutoff.",
+            "Admin can adjust points manually in case of technical issues.",
+            "The leaderboard updates in real time as results are entered.",
+            "In case of a tie, the player with higher prediction accuracy ranks higher.",
+          ]
+        },
+      ].map(({icon,title,color,border,tc,items})=>(
+        <div key={title} style={{background:color,border:"1px solid "+border,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:18}}>{icon}</span>
+            <p className="C" style={{color:tc,fontSize:15,fontWeight:800,letterSpacing:.5,margin:0,textTransform:"uppercase"}}>{title}</p>
+          </div>
+          {items.map((item,i)=>(
+            <div key={i} style={{display:"flex",gap:10,marginBottom:i<items.length-1?8:0}}>
+              <span style={{color:tc,fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>•</span>
+              <p style={{color:tc,fontSize:13,margin:0,lineHeight:1.55,opacity:.9}}>{item}</p>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:12,padding:"16px",marginTop:4,textAlign:"center"}}>
+        <p style={{color:"#FFE57F",fontSize:13,fontWeight:700,margin:"0 0 4px"}}>🏏 May the best predictor win!</p>
+        <p style={{color:"#bfdbfe",fontSize:11,margin:0}}>Questions? Ask in the Group Chat.</p>
       </div>
     </div>}
 
