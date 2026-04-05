@@ -330,7 +330,7 @@ export default function App(){
   const[htab,setHtab]=useState("today");
   const[ptab,setPtab]=useState("pending"); // default to pending
   const[am,setAm]=useState(null);const[draft,setDraft]=useState({});
-  const[admTab,setAdmTab]=useState("results");
+  const[admTab,setAdmTab]=useState("approvals");
   const[bcMsg,setBcMsg]=useState("");
   const[exU,setExU]=useState(null);const[anM,setAnM]=useState(null);
   const[rxns,setRxns]=useState({});
@@ -1186,22 +1186,48 @@ export default function App(){
         <p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>ADMIN PANEL</p>
         <div style={{display:"flex",gap:6}}>{maintenance&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:700}}>🔒 Maintenance</span>}</div>
       </div>
-      {/* Pending approvals banner */}
-      {pendingCount>0&&<div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",marginBottom:14}}>
-        <p style={{color:"#92400E",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>⏳ {pendingCount} user{pendingCount>1?"s":""} awaiting approval</p>
-        {Object.entries(pendingUsers).map(([emk,u])=>(
-          <div key={emk} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid #FDE68A"}}>
-            <Av name={u.name} sz={28}/>
-            <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{u.email}</p></div>
-            <button onClick={()=>approveUser(emk)} style={{padding:"6px 12px",borderRadius:8,background:"#15803d",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase",marginRight:6}}>Approve</button>
-            <button onClick={()=>rejectUser(emk)} style={{padding:"6px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Reject</button>
-          </div>
-        ))}
-      </div>}
+      {/* pending count shown in Approvals tab */}
 
       <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0",flexWrap:"wrap"}}>
-        {[["results","📊 Results"],["users","👥 Users"],["matches","➕ Matches"],["analytics","📈 Stats"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)} style={{minWidth:"33%",fontSize:9}}>{l}</button>)}
+        {[["approvals","✅ Approvals"+(pendingCount>0?" ("+pendingCount+")":"")],["results","📊 Results"],["users","👥 Users"],["matches","➕ Matches"],["analytics","📈 Stats"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=>(
+          <button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}
+            style={{minWidth:"33%",fontSize:9,color:t==="approvals"&&pendingCount>0&&admTab!==t?"#dc2626":undefined,fontWeight:t==="approvals"&&pendingCount>0?"700":undefined}}>
+            {l}
+          </button>
+        ))}
       </div>
+
+      {/* APPROVALS TAB */}
+      {admTab==="approvals"&&<>
+        {pendingCount===0
+          ?<div style={{textAlign:"center",padding:"48px 16px"}}>
+            <span style={{fontSize:48}}>✅</span>
+            <p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p>
+            <p style={{color:"#64748b",fontSize:13,marginTop:8}}>No pending registrations. New users will appear here when they sign up.</p>
+          </div>
+          :<>
+            <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",marginBottom:14}}>
+              <p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:0}}>{pendingCount} user{pendingCount>1?"s":""} waiting for approval to join the game.</p>
+            </div>
+            {Object.entries(pendingUsers).map(([emk,u])=>(
+              <div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                  <Av name={u.name} sz={40}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p>
+                    <p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p>
+                    <p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Registered {new Date(u.joined).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase",letterSpacing:.5}}>✅ Approve</button>
+                  <button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase",letterSpacing:.5}}>❌ Reject</button>
+                </div>
+              </div>
+            ))}
+          </>
+        }
+      </>}
 
       {/* RESULTS */}
       {admTab==="results"&&<>
