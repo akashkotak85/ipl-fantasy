@@ -1022,15 +1022,144 @@ export default function App(){
 
     {/* WALL OF FAME */}
     {sc==="wof"&&<div style={{padding:"16px"}}>
-      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Perfect predictions hall of fame</p></div>
-      {(()=>{const pc={};done.forEach(m=>{Object.entries(allPicks).forEach(([emk,up])=>{const p=up[m.id]??up[String(m.id)];if(p&&m.result&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm)){pc[emk]=(pc[emk]||0)+1;}});});const s=Object.entries(pc).sort((a,b)=>b[1]-a[1]);if(!s.length)return<p style={{color:"#94a3b8",textAlign:"center",marginTop:20,marginBottom:20}}>No perfect matches yet!</p>;return<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:16}}><p className="st">PERFECT MATCH HALL</p>{s.map(([emk,cnt],i)=>{const u=Object.values(users).find(u=>ek(u.email)===emk);if(!u)return null;return<div key={emk} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:i<s.length-1?"1px solid #f1f5f9":"none"}}><span style={{fontSize:i<3?18:13,width:28,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span><Av name={u.name} sz={30}/><div style={{flex:1}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{cnt} perfect match{cnt>1?"es":""}</p></div><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>{cnt}×</span></div>;})} </div>;})()}
-      {getWof().map(m=>(
-        <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TLogo t={m.home} sz={24}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{m.mn} · {m.date}</p></div><TLogo t={m.away} sz={24}/></div>
-          {m.result&&<div style={{background:"#F4F6FB",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:10,color:"#64748b"}}>Win: <b style={{color:"#15803d"}}>{m.result.win}</b> · POTM: <b style={{color:"#B8860B"}}>{m.result.motm}</b></div>}
-          {m.perfs.length>0?<div><p style={{color:"#1D428A",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>🎯 Perfect Picks</p><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{m.perfs.map(p=><div key={p.email} style={{display:"flex",alignItems:"center",gap:6,background:"#EBF0FA",borderRadius:20,padding:"4px 10px"}}><Av name={p.name} sz={20}/><span style={{color:"#1D428A",fontSize:12,fontWeight:600}}>{p.name}</span></div>)}</div></div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No perfect picks this match</p>}
-        </div>
-      ))}
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
+        <p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p>
+        <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Season honours · {done.length} matches completed</p>
+      </div>
+
+      {done.length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40}}>🏆</p><p style={{color:"#94a3b8",fontSize:14,marginTop:12}}>Wall of Fame fills up as matches are completed.</p></div>}
+
+      {done.length>0&&(()=>{
+        /* ── build per-user stats ── */
+        const stats={};// emk → {perfects, matchPts:{mid:pts}, streak, best3streak, matchMvp:{mid:bool}}
+        Object.values(users).forEach(u=>{
+          const emk=ek(u.email);
+          stats[emk]={name:u.name,emk,perfects:0,totalPts:0,streak:0,bestStreak:0,mvpCount:0};
+        });
+
+        // per-match: compute pts for every user, find MVP, track perfects & streaks
+        const matchMvps={}; // mid → [{emk,name,pts}]
+        const matchPerfs={}; // mid → [{emk,name}]
+        const matchBest={}; // mid → [{emk,name,pts}] — highest pts even if not perfect
+
+        done.forEach(m=>{
+          const perMid=[];
+          Object.entries(allPicks).forEach(([emk,up])=>{
+            const p=up[m.id]??up[String(m.id)];
+            if(!p)return;
+            let base=0,h=0;
+            if(p.toss===m.result.toss){base+=PTS.toss;h++;}
+            if(p.win===m.result.win){base+=PTS.win;h++;}
+            if(motmMatch(p.motm,m.result.motm)){base+=PTS.motm;h++;}
+            if(h===3)base+=PTS.streak;
+            const isPerfect=h===3;
+            perMid.push({emk,pts:base,isPerfect});
+            if(stats[emk]){stats[emk].totalPts+=base;if(isPerfect)stats[emk].perfects++;}
+          });
+          // perfects this match
+          matchPerfs[m.id]=perMid.filter(x=>x.isPerfect).map(x=>({emk:x.emk,name:stats[x.emk]?.name||x.emk}));
+          // MVP = highest scorer this match
+          const maxPts=perMid.reduce((a,b)=>b.pts>a?b.pts:a,0);
+          const mvps=perMid.filter(x=>x.pts===maxPts&&x.pts>0).map(x=>({emk:x.emk,name:stats[x.emk]?.name||x.emk,pts:x.pts}));
+          matchMvps[m.id]=mvps;
+          matchBest[m.id]=perMid.sort((a,b)=>b.pts-a.pts).slice(0,3).filter(x=>x.pts>0).map(x=>({emk:x.emk,name:stats[x.emk]?.name||x.emk,pts:x.pts,isPerfect:x.isPerfect}));
+          // MVP count
+          mvps.forEach(({emk})=>{if(stats[emk])stats[emk].mvpCount++;});
+        });
+
+        // compute streaks (consecutive perfect picks over all done matches in order)
+        Object.keys(stats).forEach(emk=>{
+          let cur=0,best=0;
+          done.forEach(m=>{
+            const up=allPicks[emk]||{};const p=up[m.id]??up[String(m.id)];
+            const isPerfect=p&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);
+            if(isPerfect){cur++;best=Math.max(best,cur);}else cur=0;
+          });
+          stats[emk].streak=cur;stats[emk].bestStreak=best;
+        });
+
+        const statArr=Object.values(stats).filter(s=>s.totalPts>0);
+        const byPerf=[...statArr].sort((a,b)=>b.perfects-a.perfects||b.totalPts-a.totalPts);
+        const byMvp=[...statArr].sort((a,b)=>b.mvpCount-a.mvpCount||b.totalPts-a.totalPts).filter(s=>s.mvpCount>0);
+        const byStreak=[...statArr].sort((a,b)=>b.bestStreak-a.bestStreak||b.perfects-a.perfects).filter(s=>s.bestStreak>=2);
+
+        return<>
+          {/* ── PERFECT PICKS HALL ── */}
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+            <p className="st">🎯 PERFECT PICK HALL</p>
+            {byPerf.filter(s=>s.perfects>0).length===0
+              ?<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No perfect picks yet — be the first! Get all 3 right in one match.</p>
+              :byPerf.filter(s=>s.perfects>0).map((s,i)=>(
+                <div key={s.emk} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<byPerf.filter(x=>x.perfects>0).length-1?"1px solid #f1f5f9":"none"}}>
+                  <span style={{fontSize:i<3?18:13,width:28,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
+                  <Av name={s.name} sz={28}/>
+                  <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{s.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{s.perfects} perfect pick{s.perfects>1?"s":""}{s.streak>0?` · 🔥 ${s.streak} active streak`:""}</p></div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <span style={{background:"#EBF0FA",color:"#1D428A",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,padding:"3px 10px",borderRadius:10}}>{s.perfects}×</span>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+
+          {/* ── MATCH MVP HALL ── */}
+          {byMvp.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+            <p className="st">⭐ MATCH MVP HALL</p>
+            <p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Most times finishing top scorer in a match</p>
+            {byMvp.slice(0,5).map((s,i)=>(
+              <div key={s.emk} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<Math.min(byMvp.length,5)-1?"1px solid #f1f5f9":"none"}}>
+                <span style={{fontSize:i<3?18:13,width:28,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
+                <Av name={s.name} sz={28}/>
+                <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{s.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{s.mvpCount} match{s.mvpCount>1?"es":""} topped · {s.totalPts} pts total</p></div>
+                <span style={{background:"#FFF9E6",color:"#92400E",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,padding:"3px 10px",borderRadius:10,flexShrink:0}}>{s.mvpCount}×</span>
+              </div>
+            ))}
+          </div>}
+
+          {/* ── BEST STREAK ── */}
+          {byStreak.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+            <p className="st">🔥 BEST PERFECT STREAKS</p>
+            <p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Most consecutive perfect picks</p>
+            {byStreak.slice(0,5).map((s,i)=>(
+              <div key={s.emk} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<Math.min(byStreak.length,5)-1?"1px solid #f1f5f9":"none"}}>
+                <span style={{fontSize:i<3?18:13,width:28,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
+                <Av name={s.name} sz={28}/>
+                <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{s.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>Best: {s.bestStreak} in a row{s.streak>0?` · 🔥 ${s.streak} active`:""}</p></div>
+                <span style={{background:"#fef2f2",color:"#dc2626",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,padding:"3px 10px",borderRadius:10,flexShrink:0}}>{s.bestStreak}🔥</span>
+              </div>
+            ))}
+          </div>}
+
+          {/* ── MATCH BY MATCH ── */}
+          <p className="st" style={{marginTop:4}}>MATCH BY MATCH</p>
+          {done.map(m=>{
+            const perfs=matchPerfs[m.id]||[];
+            const best=matchBest[m.id]||[];
+            const mvps=matchMvps[m.id]||[];
+            const hasPerfect=perfs.length>0;
+            return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10,position:"relative",overflow:"hidden"}}>
+              {hasPerfect&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#22c55e,#16a34a)"}}/>}
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <TLogo t={m.home} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:13,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{m.mn} · {m.date}</p></div><TLogo t={m.away} sz={22}/>
+              </div>
+              <div style={{background:"#F4F6FB",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:10,color:"#64748b"}}>
+                Win: <b style={{color:"#15803d"}}>{m.result.win}</b> · POTM: <b style={{color:"#B8860B"}}>{m.result.motm}</b>
+              </div>
+              {/* Perfect picks */}
+              {hasPerfect&&<div style={{marginBottom:8}}>
+                <p style={{color:"#15803d",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>🎯 Perfect Picks</p>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{perfs.map(p=><div key={p.emk} style={{display:"flex",alignItems:"center",gap:5,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:20,padding:"3px 10px"}}><Av name={p.name} sz={18}/><span style={{color:"#15803d",fontSize:12,fontWeight:600}}>{p.name}</span></div>)}</div>
+              </div>}
+              {/* Top scorers (always show if no perfects, or as additional context) */}
+              {best.length>0&&<div>
+                <p style={{color:"#64748b",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>{hasPerfect?"📊 Top Scorers":"⭐ Best this match"}</p>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{best.map((b,i)=><div key={b.emk} style={{display:"flex",alignItems:"center",gap:5,background:i===0?"#FFF9E6":"#f8faff",border:"1px solid "+(i===0?"#FDE68A":"#e2e8f0"),borderRadius:20,padding:"3px 10px"}}>{i===0&&<span style={{fontSize:11}}>⭐</span>}<Av name={b.name} sz={18}/><span style={{color:i===0?"#92400E":"#475569",fontSize:12,fontWeight:i===0?700:400}}>{b.name}</span><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>+{b.pts}</span></div>)}</div>
+              </div>}
+              {best.length===0&&<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No picks recorded for this match</p>}
+            </div>;
+          })}
+        </>;
+      })()}
     </div>}
 
     {/* RULES */}
