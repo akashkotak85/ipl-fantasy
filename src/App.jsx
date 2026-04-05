@@ -328,7 +328,7 @@ export default function App(){
   const[chat,setChat]=useState([]);const[chatIn,setChatIn]=useState("");const[chatU,setChatU]=useState(0);
   const[onlineUsers,setOnlineUsers]=useState({});
   const[htab,setHtab]=useState("today");
-  const[ptab,setPtab]=useState("upcoming"); // picks+history unified tab
+  const[ptab,setPtab]=useState("pending"); // default to pending
   const[am,setAm]=useState(null);const[draft,setDraft]=useState({});
   const[admTab,setAdmTab]=useState("results");
   const[bcMsg,setBcMsg]=useState("");
@@ -866,7 +866,10 @@ export default function App(){
     {sc==="picks"&&!am&&(()=>{
       const played=ms.filter(m=>m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
       const pending=ms.filter(m=>!m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
-      const upcoming=ms.filter(m=>!m.result&&!isTBD(m)&&!(myPicks[m.id]??myPicks[String(m.id)]));
+      // Only today's matches that haven't been predicted are "predictable"
+      const upcoming=ms.filter(m=>!m.result&&!isTBD(m)&&!(myPicks[m.id]??myPicks[String(m.id)])&&isToday(m));
+      // All future unpredicted matches (not today, not done) shown as schedule
+      const schedule=ms.filter(m=>!m.result&&!isTBD(m)&&!isToday(m));
       let totalPts=0,perfect=0,streakCur=0,streakBest=0;
       const rows=played.map(m=>{
         const p=myPicks[m.id]??myPicks[String(m.id)];const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);const mult=isDouble?2:1;
@@ -921,29 +924,10 @@ export default function App(){
           </div>
         </div>
 
-        {/* TABS */}
+        {/* TABS — Pending first, then History, then Schedule last */}
         <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0"}}>
-          {[["upcoming","Predict ("+upcoming.length+")"],["pending","Pending ("+pending.length+")"],["results","Results ("+rows.length+")"]].map(([t,l])=><button key={t} className={"at"+(ptab===t?" on":"")} onClick={()=>setPtab(t)} style={{fontSize:10}}>{l}</button>)}
+          {[["pending","Pending ("+pending.length+")"],["results","History ("+rows.length+")"],["schedule","Schedule ("+schedule.length+")"]].map(([t,l])=><button key={t} className={"at"+(ptab===t?" on":"")} onClick={()=>setPtab(t)} style={{fontSize:10}}>{l}</button>)}
         </div>
-
-        {/* UPCOMING — matches to predict */}
-        {ptab==="upcoming"&&<>
-          <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#92400E",display:"flex",gap:8,alignItems:"center"}}><span>🔒</span><span>Picks lock 45 mins before each match.</span></div>
-          {upcoming.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>You've predicted all available matches!</p></div>
-          :upcoming.map(m=>{const lk=isMatchLocked(m,lockedMatches);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
-              {lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>:<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open</span>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
-              <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={32}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
-            </div>
-            {!lk&&<button className="pbtn" onClick={()=>cardProps.onPredict(m)}>Make Prediction →</button>}
-            {lk&&<p style={{color:"#991b1b",fontSize:12,textAlign:"center"}}>🔒 Window closed</p>}
-          </div>;})}
-        </>}
 
         {/* PENDING RESULTS */}
         {ptab==="pending"&&<>
@@ -958,7 +942,7 @@ export default function App(){
           </div>;})}
         </>}
 
-        {/* RESULTS / HISTORY */}
+        {/* HISTORY */}
         {ptab==="results"&&<>
           {rows.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>📜</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No completed predictions yet.</p></div>
           :[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv})=>(
@@ -976,6 +960,31 @@ export default function App(){
               {mOv!==0&&<p style={{color:"#FF822A",fontSize:10,fontWeight:600,margin:"6px 0 0"}}>Admin adjustment: {mOv>0?"+":""}{mOv} pts</p>}
             </div>
           ))}
+        </>}
+        {/* SCHEDULE — all future matches, predict only on match day */}
+        {ptab==="schedule"&&<>
+          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 45 mins before start.</span></div>
+          {schedule.length===0
+            ?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>
+            :schedule.map(m=>{
+              const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+              return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+                  {hasPick
+                    ?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>
+                    :<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>
+                  }
+                </div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
+                  <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
+                </div>
+                <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
+              </div>;
+            })
+          }
         </>}
       </div>;
     })()}
