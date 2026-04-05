@@ -427,10 +427,12 @@ export default function App(){
             if(ex&&ex.approved!==false){
               await forceRepair();
               setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-              const freshAP=await reloadShared(saved.email);
+              const{freshAP,hasOnboarded}=await reloadShared(saved.email);
               setMyPicks(freshAP[ek(saved.email)]||{});
               setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-              clearTimeout(fallback);setTimeout(()=>setSc("home"),300);return;
+              clearTimeout(fallback);
+              setTimeout(()=>setSc(hasOnboarded?"home":"onboard"),300);
+              return;
             }
           }
         }
@@ -442,7 +444,6 @@ export default function App(){
   },[]);
 
   useEffect(()=>{if(["home","picks","lb","wof","adm","hist"].includes(sc)&&email)reloadShared(email);},[sc]);// eslint-disable-line
-
   const[reminders,setReminders]=useState({});
   useEffect(()=>{Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};Object.keys(reminders).forEach(mid=>{if(!reminders[mid])return;const m=ms.find(x=>x.id===parseInt(mid)||x.id===mid);if(!m)return;const diff=cutoff(m).getTime()-30*60*1000-Date.now();if(diff>0&&diff<24*60*60*1000)remTimers.current[mid]=setTimeout(()=>toast2("⏰ "+m.home+" vs "+m.away+" locks in 30 mins!"),diff);});return()=>Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));},[reminders,ms,toast2]);
 
@@ -540,9 +541,23 @@ export default function App(){
   async function doSignIn(em,ex,isNew=false){
     setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);await persistSession(em);
-    const emk=ek(em);const freshAP=await reloadShared(em);
-    setMyPicks(freshAP[emk]||{});setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-    if(isNew)setSc("onboard");else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
+    const emk=ek(em);
+    const freshAP=await reloadShared(em);
+    setMyPicks(freshAP[emk]||{});
+    setBcSeenTs(Date.now());setChatSeenTs(Date.now());
+
+    // FIX: check if user has done onboarding by looking for their champion pick
+    // This covers newly approved users who've never done onboarding
+    const freshSp=await DB.get("sp")||{};
+    const freshSpdNorm=normalizeKeyMap(freshSp);
+    const hasOnboarded=!!(freshSpdNorm[emk]);
+
+    if(isNew||!hasOnboarded){
+      setSc("onboard");
+    }else{
+      setSc("home");
+      toast2("Welcome back, "+ex.name+"! 👋","ok");
+    }
   }
 
   async function logout(){
@@ -621,7 +636,8 @@ export default function App(){
     const matchObj=nm.find(x=>Number(x.id)===Number(mid));
     const latest=await DB.get("ch")||[];
     const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"Result: "+matchObj.home+" vs "+matchObj.away+"\nWinner: "+result.win+" · POTM: "+result.motm+(perfs.length?"\n🎯 Perfect: "+perfs.join(", "):"\nNo perfect picks this match"),ts:Date.now(),sys:true}]);
-    setChat(newCh);await DB.set("ch",newCh);toast2("Result saved! ✅","ok");await reloadShared(email);
+    setChat(newCh);await DB.set("ch",newCh);    toast2("Result saved! ✅","ok");
+    const{freshAP:_}=await reloadShared(email);
   }
 
   async function deleteUser(ue){
