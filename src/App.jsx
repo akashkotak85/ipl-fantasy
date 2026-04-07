@@ -445,46 +445,45 @@ export default function App(){
     return{freshAP,hasOnboarded};
   },[buildBaseMatches]);
 
-  /* AUTO-LOGIN — strict per-device session, no cross-user bleed */
+  /* AUTO-LOGIN — fixed: sequential fetches, strict email match, cancelled flag */
   useEffect(()=>{
     let cancelled=false;
-    const fallback=setTimeout(()=>{if(!cancelled)setSc("login");},6000);
-    (async()=>{
+    const go=async()=>{
       try{
         const saved=await DB.get("session");
-        if(!saved?.email||!saved?.token){
-          clearTimeout(fallback);if(!cancelled)setSc("login");return;
-        }
-        // Strict token validation — must match exactly
+        if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
         const storedToken=await DB.get("token_"+ek(saved.email));
         if(!storedToken||storedToken!==saved.token){
-          // Token mismatch — clear stale session and go to login
           await DB.set("session",null);
-          clearTimeout(fallback);if(!cancelled)setSc("login");return;
+          if(!cancelled)setSc("login");return;
         }
         const u2=await DB.get("u")||{};
-        // Only accept exact email match — never fall back to encoded key for session restore
-        const ex=u2[saved.email];
+        // strict: only match by exact raw email stored in session
+        const ex=u2[saved.email]||null;
         if(!ex||ex.approved===false){
           await DB.set("session",null);
-          clearTimeout(fallback);if(!cancelled)setSc("login");return;
+          if(!cancelled)setSc("login");return;
         }
         await forceRepair();
         if(cancelled)return;
-        setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
+        setUser(ex);
+        setEmail(saved.email);
+        setIsAdmin(saved.email===SUPER_ADMIN);
+        setSessionEmail(saved.email);
         const{freshAP,hasOnboarded}=await reloadShared(saved.email);
         if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
-        setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-        clearTimeout(fallback);
+        setBcSeenTs(Date.now());
+        setChatSeenTs(Date.now());
         setSc(hasOnboarded?"home":"onboard");
       }catch(e){
         console.error("auto-login",e);
-        clearTimeout(fallback);
         if(!cancelled)setSc("login");
       }
-    })();
-    return()=>{cancelled=true;clearTimeout(fallback);};
+    };
+    const t=setTimeout(()=>{if(!cancelled)setSc("login");},7000);
+    go().finally(()=>clearTimeout(t));
+    return()=>{cancelled=true;clearTimeout(t);};
   // eslint-disable-next-line
   },[]);
 
