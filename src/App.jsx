@@ -135,14 +135,14 @@ const DB={
 
 /* ─── MATCH HELPERS ─── */
 function parseMatchDate(date,time){try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00+05:30");return isNaN(d.getTime())?null:d;}catch{return null;}}
-const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-45*60*1000):new Date(0);};
+const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-35*60*1000):new Date(0);};
 const isMatchLocked=(m,lm={})=>{if(m.result)return true;const st=lm[m.id]??lm[String(m.id)];if(st==="unlocked")return false;if(st==="locked")return true;return new Date()>=cutoff(m);};
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
 const motmMatch=(a,b)=>{if(!a||!b||isNR(a)||isNR(b))return false;const n=s=>s.trim().toLowerCase();const na=n(a),nb=n(b);return na===nb||na.endsWith(" "+nb)||nb.endsWith(" "+na)||na.includes(nb)||nb.includes(na);};
 function resolvePlayoffSlots(base,br){if(!br)return base;return base.map(m=>{let{home,away}={...m};if(m.mn==="Q1"&&br.q1?.length===2){[home,away]=[br.q1[0],br.q1[1]];}if(m.mn==="EL1"&&br.el?.length===2){[home,away]=[br.el[0],br.el[1]];}if(m.mn==="Q2"&&br.q2?.length===2){[home,away]=[br.q2[0],br.q2[1]];}if(m.mn==="Final"&&br.final?.length===2){[home,away]=[br.final[0],br.final[1]];}return{...m,home,away};});}
 
-/* ─── SCORING — washout aware ─── */
+/* ─── SCORING ─── */
 function calcScore(uPicks,ms,dbl=null){
   let pts=0,ok=0,tot=0,ms2={};
   ms.forEach(m=>{
@@ -156,15 +156,10 @@ function calcScore(uPicks,ms,dbl=null){
     if(tossAvail&&p.toss===m.result.toss){base+=PTS.toss;h++;}
     if(winAvail&&p.win===m.result.win){base+=PTS.win;h++;}
     if(motmAvail&&motmMatch(p.motm,m.result.motm)){base+=PTS.motm;h++;}
-    const availCount=[tossAvail,winAvail,motmAvail].filter(Boolean).length;
-    const correctCount=[
-      tossAvail&&p.toss===m.result.toss,
-      winAvail&&p.win===m.result.win,
-      motmAvail&&motmMatch(p.motm,m.result.motm)
-    ].filter(Boolean).length;
-    if(availCount>0&&correctCount===availCount)base+=PTS.streak;
+    const fullMatch=tossAvail&&winAvail&&motmAvail;
+    if(fullMatch&&h===3)base+=PTS.streak;
     const mp=base*mult;if(h>0)ok++;pts+=mp;
-    ms2[m.id]={pts:mp,h,perf:availCount===3&&correctCount===3};
+    ms2[m.id]={pts:mp,h,perf:fullMatch&&h===3};
   });
   const played=ms.filter(m=>m.result&&(uPicks[m.id]??uPicks[String(m.id)]));
   const last=played[played.length-1];
@@ -255,12 +250,19 @@ function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=us
 </div>}</div>;}
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
-  const lk=isMatchLocked(m,lockedMatches);const mp=myPicks[m.id]??myPicks[String(m.id)];
-  const ct=cutoff(m);const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});const cd=useCd(ct.getTime());
-  const mr=rxns[m.id]||{};const hc=TC[m.home]||{bg:"#333"},ac=TC[m.away]||{bg:"#555"};
-  const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);const mult=isDouble?2:1;
-  const mOv=((matchPtsOverride[email]||{})[m.id])??((matchPtsOverride[email]||{})[String(m.id)])??0;
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onPredict,onReact}){
+  const lk=isMatchLocked(m,lockedMatches);
+  const mp=myPicks[m.id]??myPicks[String(m.id)];
+  const ct=cutoff(m);
+  const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
+  const cd=useCd(ct.getTime());
+  const mr=rxns[m.id]||{};
+  const hc=TC[m.home]||{bg:"#333"},ac=TC[m.away]||{bg:"#555"};
+  const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);
+  const mult=isDouble?2:1;
+  const myEmk=ek(email);
+  const mOv=((matchPtsOverride[myEmk]||{})[m.id])??((matchPtsOverride[myEmk]||{})[String(m.id)])??0;
+
   let earned=0;
   if(m.result&&mp){
     let base=0;
@@ -273,9 +275,42 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     if(avail>0&&correct===avail)base+=PTS.streak;
     earned=base*mult;
   }
-  const allArr=Object.values(allPicks);const tot=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;
-  const sp=lk&&tot>0&&!isNR(m.result?.toss)?{tot,tA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,tB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,wA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length,wB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length}:null;
+
+  // FIX: count picks correctly — allPicks keys are encoded emails, values are pick objects keyed by match id
+  const allPicksArr=Object.entries(allPicks);
+  const tot=allPicksArr.filter(([,up])=>up[m.id]!=null||up[String(m.id)]!=null).length;
+
+  const sp=lk&&tot>0?{
+    tot,
+    tA:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.toss===m.home).length,
+    tB:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.toss===m.away).length,
+    wA:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.win===m.home).length,
+    wB:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.win===m.away).length,
+  }:null;
+
   const isWashout=m.result&&(isNR(m.result.win)||isNR(m.result.motm));
+
+  // FIX: build all-predictions list — works whether allPicks keys are encoded or raw
+  // We match by comparing ek(u.email) against the allPicks key (which is already encoded)
+  const allPredsList=useMemo(()=>{
+    if(!lk||tot===0)return[];
+    return allPicksArr.map(([emk,up])=>{
+      const p=up[m.id]??up[String(m.id)];
+      if(!p)return null;
+      // find matching user: allPicks keys are encoded emails
+      const u=Object.values(users||{}).find(u2=>ek(u2.email)===emk);
+      const isMe=emk===ek(email);
+      const displayName=isMe?"You":(u?.name||decodeKey(emk));
+      const tA=!isNR(m.result?.toss),wA=!isNR(m.result?.win),mA=!isNR(m.result?.motm);
+      const tOk=!!(m.result&&tA&&p.toss===m.result.toss);
+      const wOk=!!(m.result&&wA&&p.win===m.result.win);
+      const mOk=!!(m.result&&mA&&motmMatch(p.motm,m.result.motm));
+      const isPerfect=!!(m.result&&tA&&wA&&mA&&tOk&&wOk&&mOk);
+      return{emk,p,isMe,displayName,tOk,wOk,mOk,isPerfect};
+    }).filter(Boolean).sort((a,b)=>(b.tOk+b.wOk+b.mOk)-(a.tOk+a.wOk+a.mOk)||(a.isMe?-1:b.isMe?1:0));
+  // eslint-disable-next-line
+  },[lk,tot,allPicks,users,email,m.id,m.result]);
+
   return<div className="mcard fade-in">
     <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -303,10 +338,32 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     </div>}
     {!m.result&&m.toss&&<div style={{background:"#EBF0FA",borderRadius:8,padding:"6px 12px",fontSize:12,marginBottom:8,color:"#1e40af"}}>🪙 Toss: <b>{m.toss}</b>{m.win&&!isNR(m.win)?<span> · 🏆 <b>{m.win}</b></span>:null}</div>}
     {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>Locked: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
-    {sp&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/></div>}
+    {sp&&!isNR(m.result?.toss)&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+      <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
+      <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
+      <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
+    </div>}
     {m.result&&<div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>{EMOJIK.map(k=>{const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);return<button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>{EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}</button>;})}</div>}
+
+    {/* ALL PREDICTIONS — shown once locked, regardless of whether result is in yet */}
+    {lk&&allPredsList.length>0&&<div style={{marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:10}}>
+      <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({allPredsList.length})</p>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        {allPredsList.map(({emk,p,isMe,displayName,tOk,wOk,mOk,isPerfect})=>(
+          <div key={emk} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:8,background:isPerfect?"#f0fdf4":isMe?"#EBF0FA":"#f8faff",border:"1px solid "+(isPerfect?"#bbf7d0":isMe?"#bfdbfe":"#e2e8f0")}}>
+            <span style={{fontSize:11,fontWeight:isMe?700:400,color:isMe?"#1D428A":"#475569",minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName}{isPerfect?" 🎯":""}</span>
+            <div style={{display:"flex",gap:3}}>
+              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(tOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(tOk?"#15803d":"#dc2626"):"#64748b"}}>🪙{p.toss}</span>
+              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(wOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(wOk?"#15803d":"#dc2626"):"#64748b"}}>🏆{p.win}</span>
+              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(mOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(mOk?"#15803d":"#dc2626"):"#64748b"}}>⭐{p.motm?.split(" ").slice(-1)[0]||"—"}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>}
+
     {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
-    {pred&&!lk&&mp&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#94a3b8",marginTop:4}}>✅ Locked — no changes allowed</div>}
+    {pred&&!lk&&mp&&<button className="pbtn" style={{marginTop:10,background:"linear-gradient(135deg,#FF822A,#e07020)"}} onClick={()=>onPredict(m)}>✏️ Edit Prediction</button>}
     {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
   </div>;
 }
@@ -364,14 +421,12 @@ export default function App(){
   useEffect(()=>{if(!email||!user)return;const ping=async()=>{const now=Date.now();const ou=await DB.get("online")||{};ou[ek(email)]={name:user.name,ts:now};Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});await DB.set("online",ou);setOnlineUsers({...ou});};ping();const id=setInterval(ping,30000);return()=>clearInterval(id);},[email,user]);
   useEffect(()=>{if(!user)return;const id=setInterval(async()=>{const ou=await DB.get("online")||{};const now=Date.now();Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});setOnlineUsers({...ou});},15000);return()=>clearInterval(id);},[user]);
 
-  /* ADMIN: pending poll */
   useEffect(()=>{
     if(!isAdmin||!user)return;
     const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current){const newOnes=Object.values(pu).slice(lastPendingCount.current);newOnes.forEach(u=>toast2("🔔 "+u.name+" wants to join! Check Admin → Approvals","info"));}lastPendingCount.current=cnt;};
     poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
   },[isAdmin,user]);// eslint-disable-line
 
-  /* FORCE REPAIR — normalize all Firebase keys */
   const forceRepair=useCallback(async()=>{
     try{
       const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
@@ -381,7 +436,6 @@ export default function App(){
     }catch(e){console.error("repair",e);}
   },[]);
 
-  /* RELOAD SHARED */
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
     const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu]=await Promise.all([
@@ -393,14 +447,20 @@ export default function App(){
     ]);
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
-    const rawAP=ap||{};const freshAP={};
+
+    // FIX: normalize allPicks so every key is a canonical encoded email
+    const rawAP=ap||{};
+    const freshAP={};
     Object.keys(rawAP).forEach(k=>{freshAP[canonicalKey(k)]=rawAP[k];});
-    setAllPicks(freshAP);if(em)setMyPicks(freshAP[emk]||{});
+    setAllPicks(freshAP);
+    if(em)setMyPicks(freshAP[emk]||{});
+
     let allMs=buildBaseMatches();
     if(rm)allMs=allMs.map(m=>{const r=rm[m.id]??rm[String(m.id)];return r?{...m,...r}:m;});
     if(br){setBracket(br);allMs=resolvePlayoffSlots(allMs,br);}else setBracket(null);
     const extraMs=(mn||[]).map(m=>{const mid=Number(m.id)||m.id;const r=rm&&(rm[mid]??rm[String(mid)]);return r?{...m,id:mid,...r}:{...m,id:mid};});
     setMs([...allMs,...extraMs]);
+
     if(b)setBc(b);if(cm)setChat(cm);
     const nsp=normalizeKeyMap(sp);setSpk(nsp);if(em)setMySp(nsp[emk]||"");
     if(sw2!=null)setSw(sw2);
@@ -411,23 +471,21 @@ export default function App(){
     if(lk)setLockedMatches(lk);
     setPinnedBc(pbc||null);if(dm!=null)setDoubleMatch(dm);if(cm2!=null)setChatMuted(!!cm2);
     if(mu)setMutedUsers(normalizeKeyMap(mu));if(mpo)setMatchPtsOverride(normalizeKeyMap(mpo));
-    // Return freshAP + onboarding flag
     const hasOnboarded=!!(nsp[emk]);
     return{freshAP,hasOnboarded};
   },[buildBaseMatches]);
 
-  /* AUTO-LOGIN */
   useEffect(()=>{
     let cancelled=false;
-    const fallback=setTimeout(()=>{if(!cancelled)setSc("login");},6000);
-    (async()=>{
+    const go=async()=>{
       try{
         const saved=await DB.get("session");
-        if(!saved?.email||!saved?.token){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
-        const[storedToken,u2]=await Promise.all([DB.get("token_"+ek(saved.email)),DB.get("u")]);
-        if(!storedToken||storedToken!==saved.token){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
-        const ex=(u2||{})[saved.email]||(u2||{})[ek(saved.email)];
-        if(!ex||ex.approved===false){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
+        if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
+        const storedToken=await DB.get("token_"+ek(saved.email));
+        if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
+        const u2=await DB.get("u")||{};
+        const ex=u2[saved.email]||null;
+        if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         await forceRepair();
         if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
@@ -435,15 +493,12 @@ export default function App(){
         if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
         setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-        clearTimeout(fallback);
         setSc(hasOnboarded?"home":"onboard");
-      }catch(e){
-        console.error("auto-login",e);
-        clearTimeout(fallback);
-        if(!cancelled)setSc("login");
-      }
-    })();
-    return()=>{cancelled=true;clearTimeout(fallback);};
+      }catch(e){console.error("auto-login",e);if(!cancelled)setSc("login");}
+    };
+    const t=setTimeout(()=>{if(!cancelled)setSc("login");},7000);
+    go().finally(()=>clearTimeout(t));
+    return()=>{cancelled=true;clearTimeout(t);};
   // eslint-disable-next-line
   },[]);
 
@@ -480,7 +535,9 @@ export default function App(){
     const scores={};
     Object.values(users).forEach(u=>{
       if(!u?.email||u.approved===false)return;
-      const emk=ek(u.email);const up=allPicks[emk]||{};const st=calcScore(up,ms,doubleMatch);
+      const emk=ek(u.email);
+      const up=allPicks[emk]||{};
+      const st=calcScore(up,ms,doubleMatch);
       const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];
       const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
       scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};
@@ -621,8 +678,11 @@ export default function App(){
     const nm=ms.map(m=>Number(m.id)===Number(mid)?{...m,result,status:"completed"}:m);setMs(nm);
     const rm=(await DB.get("rm"))||{};rm[numMid]={result,status:"completed"};await DB.set("rm",rm);
     setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});
-    const freshAP=await DB.get("ap")||{};const cu=await DB.get("u")||{};
-    const perfs=Object.entries(freshAP).filter(([emk,up])=>{const p=up[numMid]??up[String(numMid)];if(!p)return false;const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
+    const freshAP=await DB.get("ap")||{};
+    // FIX: normalize freshAP before using it
+    const normalizedAP={};Object.keys(freshAP).forEach(k=>{normalizedAP[canonicalKey(k)]=freshAP[k];});
+    const cu=await DB.get("u")||{};
+    const perfs=Object.entries(normalizedAP).filter(([emk,up])=>{const p=up[numMid]??up[String(numMid)];if(!p)return false;const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
     const matchObj=nm.find(x=>Number(x.id)===Number(mid));
     const isWashoutResult=isNR(result.win)||isNR(result.motm);
     const latest=await DB.get("ch")||[];
@@ -652,7 +712,14 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onReact:reactFn,onPredict:(m)=>{setAm(m);setDraft({});setSc("picks");}};
+  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onReact:reactFn,
+    onPredict:(m)=>{
+      setAm(m);
+      const existing=myPicks[m.id]??myPicks[String(m.id)];
+      setDraft(existing?{...existing}:{});
+      setSc("picks");
+    }
+  };
   const navItems=isAdmin
     ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
     :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
@@ -746,12 +813,16 @@ export default function App(){
     {toast&&<Tst t={toast}/>}
   </div>;
 
-  if(sc==="picks"&&am)return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
+  if(sc==="picks"&&am){
+    const isEditing=!!(myPicks[am.id]??myPicks[String(am.id)]);
+    return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
     <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
       <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
-      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/>
+      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST · {isEditing?"Editing pick":"New prediction"}</p></div><TLogo t={am.away} sz={28}/>
     </div>
-    <div style={{background:"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid #dbeafe"}}><span style={{color:"#1D428A",fontSize:12}}>All 3 correct = +{PTS.streak}pts bonus · Predictions are final</span></div>
+    <div style={{background:isEditing?"#FFF9E6":"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid "+(isEditing?"#FDE68A":"#dbeafe")}}>
+      <span style={{color:isEditing?"#92400E":"#1D428A",fontSize:12}}>{isEditing?"✏️ Editing your prediction — changes allowed until lock":"All 3 correct = +"+PTS.streak+"pts bonus · Predictions are final after lock"}</span>
+    </div>
     <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
       {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
         <div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
@@ -764,14 +835,15 @@ export default function App(){
         {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
         <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
       </div>}
-      <button className="lbtn" onClick={submitPick}>Lock Prediction 🔒</button>
+      <button className="lbtn" style={{background:isEditing?"linear-gradient(135deg,#FF822A,#e07020)":"linear-gradient(135deg,#1D428A,#2a5bbf)"}} onClick={submitPick}>
+        {isEditing?"Update Prediction ✏️":"Lock Prediction 🔒"}
+      </button>
     </div>
     {toast&&<Tst t={toast}/>}
-  </div>;
+  </div>;}
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🔧</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline. Check back soon!</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>← Sign Out</button></div></div>;
 
-  /* ════════ MAIN SHELL ════════ */
   return<div className="app" style={{paddingBottom:68}}><style>{CSS}</style>
     {hdr}
     {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
@@ -788,19 +860,21 @@ export default function App(){
       <div style={{padding:"14px 14px 0"}}>
         {htab==="today"&&(todayMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>🏏</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO MATCHES TODAY</p></div>:todayMs.map(m=><MCard key={m.id} m={m} pred={true} {...cardProps}/>))}
         {htab==="done"&&(done.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>⏳</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO RESULTS YET</p></div>:[...done].reverse().map(m=><MCard key={m.id} m={m} pred={false} {...cardProps}/>))}
-        {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>(
-          <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:14,padding:"14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span></div>
+        {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>{
+          const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+          return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+              {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span>}
+            </div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.home}</p></div>
               <p className="C" style={{color:"#e2e8f0",fontSize:16,fontWeight:800,padding:"0 8px",margin:0}}>VS</p>
               <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.away}</p></div>
             </div>
             <p style={{color:"#cbd5e1",fontSize:11,marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:8}}>📍 {m.venue}</p>
-            {!isMatchLocked(m,lockedMatches)&&!(myPicks[m.id]??myPicks[String(m.id)])&&<button className="pbtn" style={{marginTop:10}} onClick={()=>cardProps.onPredict(m)}>Predict This Match</button>}
-            {(myPicks[m.id]??myPicks[String(m.id)])&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#15803d",marginTop:4}}>✅ Predicted</div>}
-          </div>
-        )))}
+          </div>;
+        }))}
         {htab==="season"&&<div>
           <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:2,margin:0}}>MY SEASON PICKS</p></div>
           <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
@@ -821,7 +895,15 @@ export default function App(){
         <p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p>
         <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p>
       </div>
-      {done.length>0&&(()=>{const lb=getLb();const allArr=Object.values(allPicks);const totalPicks=allArr.reduce((s,u)=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+allArr.filter(u=>{const p=u[m.id]??u[String(m.id)];return p&&!isNR(m.result.toss)&&!isNR(m.result.win)&&!isNR(m.result.motm)&&p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPicks,"Picks"],["🎯",totalPerfs,"Perfects"],["📊",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
+      {done.length>0&&(()=>{
+        const lb=getLb();
+        // FIX: use allPicks entries (encoded keys) directly for counting
+        const allPicksEntries=Object.entries(allPicks);
+        const totalPicks=allPicksEntries.reduce((s,[,u])=>s+Object.keys(u).length,0);
+        const totalPerfs=done.reduce((s,m)=>s+allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);
+        const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;
+        return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPicks,"Picks"],["🎯",totalPerfs,"Perfects"],["📊",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;
+      })()}
       {getLb().map((u,i)=>(
         <div key={u.email} style={{background:u.email===email?"#EBF0FA":"#fff",border:"1px solid "+(u.email===email?"#1D428A60":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,boxShadow:"0 1px 4px rgba(29,66,138,.06)"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
@@ -869,7 +951,7 @@ export default function App(){
         let base=0;if(tossOk)base+=PTS.toss;if(winOk)base+=PTS.win;if(motmOk)base+=PTS.motm;
         if(avail>0&&correct===avail)base+=PTS.streak;
         if(isPerfect){perfect++;streakCur++;streakBest=Math.max(streakBest,streakCur);}else streakCur=0;
-        const mOv=((matchPtsOverride[email]||{})[m.id])??((matchPtsOverride[email]||{})[String(m.id)])??0;
+        const mOv=((matchPtsOverride[myEk]||{})[m.id])??((matchPtsOverride[myEk]||{})[String(m.id)])??0;
         const pts=(base*mult)+mOv;totalPts+=pts;
         return{m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv,tA,wA,mA};
       });
@@ -908,10 +990,24 @@ export default function App(){
         </div>
         {ptab==="pending"&&<>
           {pending.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No predictions awaiting results.</p></div>
-          :pending.map(m=>{const p=myPicks[m.id]??myPicks[String(m.id)];const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div><span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Pending</span></div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p.toss],["Win",p.win],["POTM",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}</div>
-          </div>;})}
+          :pending.map(m=>{
+            const p=myPicks[m.id]??myPicks[String(m.id)];
+            const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);
+            const lk=isMatchLocked(m,lockedMatches);
+            const ct=cutoff(m);
+            const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
+            return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/>
+                <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div>
+                {!lk?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Open till {cStr}</span>:<span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>🔒 Locked</span>}
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:!lk?8:0}}>
+                {[["Toss",p.toss],["Win",p.win],["POTM",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}
+              </div>
+              {!lk&&<button onClick={()=>cardProps.onPredict(m)} style={{width:"100%",padding:"8px",borderRadius:8,background:"linear-gradient(135deg,#FF822A,#e07020)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:.5}}>✏️ Edit Prediction</button>}
+            </div>;
+          })}
         </>}
         {ptab==="results"&&<>
           {rows.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>📜</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No completed predictions yet.</p></div>
@@ -939,20 +1035,24 @@ export default function App(){
           ))}
         </>}
         {ptab==="schedule"&&<>
-          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 45 mins before start.</span></div>
+          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start time.</span></div>
           {schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>
-          :schedule.map(m=>{const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
-              {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
-              <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
-            </div>
-            <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
-          </div>;})}
+          :schedule.map(m=>{
+            const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+            return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+                {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>
+                :<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
+                <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
+              </div>
+              <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
+            </div>;
+          })}
         </>}
       </div>;
     })()}
@@ -993,9 +1093,11 @@ export default function App(){
         const stats={};
         Object.values(users).forEach(u=>{if(u.approved===false)return;const emk=ek(u.email);stats[emk]={name:u.name,emk,perfects:0,totalPts:0,streak:0,bestStreak:0,mvpCount:0};});
         const matchMvps={},matchPerfs={},matchBest={};
+        // FIX: use allPicks entries (already encoded) directly
+        const allPicksEntries=Object.entries(allPicks);
         done.forEach(m=>{
           const perMid=[];
-          Object.entries(allPicks).forEach(([emk,up])=>{
+          allPicksEntries.forEach(([emk,up])=>{
             const p=up[m.id]??up[String(m.id)];if(!p)return;
             const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
             let base=0;
@@ -1057,14 +1159,7 @@ export default function App(){
     {/* RULES */}
     {sc==="rules"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p style={{fontSize:28,margin:"0 0 6px"}}>📖</p><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>TATA IPL 2026 Fantasy Predictor</p></div>
-      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, 45 minutes before the scheduled start time.","Before each match, predict: Toss Winner, Match Winner, and Player of the Match.","Once locked, predictions cannot be changed. Find them in My Game → Schedule."]},
-        {icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct Player of the Match → +30 pts","All available correct → bonus +15 pts streak","Maximum per match: 75 pts (150 pts on a 2× Double Points match)"]},
-        {icon:"🌧",title:"Washouts & No Results",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["If a match is washed out, only available results count for scoring.","Toss done but match abandoned → only toss points (+10) are awarded.","If all 3 available fields are correct, the streak bonus still applies.","Washout matches are clearly marked with 🌧 in the app."]},
-        {icon:"🏆",title:"Season Picks (One-Time)",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["At signup, pick your IPL 2026 Champion — worth +200 pts if correct at season end.","Also pick your Top 4 playoff teams — each correct team earns +50 pts.","These picks are locked forever after setup — choose wisely!"]},
-        {icon:"⚡",title:"Double Points Match",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can designate any match as a 2× Double Points match.","All points earned (including streak bonus) are doubled.","Watch for the ⚡ 2× badge on the match card!"]},
-        {icon:"🌟",title:"Wall of Fame",color:"#fdf4ff",border:"#e9d5ff",tc:"#6b21a8",items:["🎯 Perfect Pick Hall — ranked by total perfect picks (all 3 correct in one match).","⭐ Match MVP Hall — ranked by how many times you finished as top scorer in a match.","🔥 Best Streak Hall — ranked by longest run of consecutive perfect picks.","Match by Match — shows perfect pickers AND top 3 scorers for every match.","You don't need a perfect pick to appear — just outscore everyone else in a match!"]},
-        {icon:"🏅",title:"Badges",color:"#f8faff",border:"#e2e8f0",tc:"#1e40af",items:["🎯 Perfect Match — first perfect pick","🏅 Hat-Trick Hero — 3+ perfect picks","🐉 Underdog King — pick winners the group mostly missed","💪 Consistent — 2/3 correct in 3+ matches","⚡ Active Predictor — 10+ predictions"]},
-        {icon:"📋",title:"General Rules",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval before playing.","Picks are final once locked — no edits after cutoff.","Admin can adjust points in case of technical issues.","Leaderboard updates in real time as results are entered.","Tie-breaking: higher accuracy wins."]}
+      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions are open on match day only, and lock 5 minutes before the scheduled start time.","Before each match, predict: Toss Winner, Match Winner, and Player of the Match.","Once locked, predictions cannot be changed. Find upcoming matches in My Game → Schedule.","After the match locks, everyone's predictions become visible to the group."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct Player of the Match → +30 pts","All available correct → bonus +15 pts streak","Maximum per match: 75 pts (150 pts on a 2× Double Points match)"]},{icon:"🌧",title:"Washouts & No Results",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["If a match is washed out, only fields with a real result count for scoring.","Toss done but match abandoned → only toss points (+10) are awarded.","The streak bonus (+15) is never awarded for washout matches — all 3 results must be available.","Washout matches are clearly marked with 🌧 in the app."]},{icon:"🏆",title:"Season Picks (One-Time)",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["At signup, pick your IPL 2026 Champion — worth +200 pts if correct at season end.","Also pick your Top 4 playoff teams — each correct team earns +50 pts.","These picks are locked forever after setup — choose wisely!"]},{icon:"⚡",title:"Double Points Match",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can designate any match as a 2× Double Points match.","All points earned (including streak bonus) are doubled.","Watch for the ⚡ 2× badge on the match card!"]},{icon:"🌟",title:"Wall of Fame",color:"#fdf4ff",border:"#e9d5ff",tc:"#6b21a8",items:["🎯 Perfect Pick Hall — ranked by total perfect picks (all 3 correct in one match).","⭐ Match MVP Hall — ranked by how many times you finished as top scorer in a match.","🔥 Best Streak Hall — ranked by longest run of consecutive perfect picks.","Match by Match — shows perfect pickers AND top 3 scorers for every match.","You don't need a perfect pick to appear — just outscore everyone else in a match!"]},{icon:"🏅",title:"Badges",color:"#f8faff",border:"#e2e8f0",tc:"#1e40af",items:["🎯 Perfect Match — first perfect pick","🏅 Hat-Trick Hero — 3+ perfect picks","🐉 Underdog King — pick winners the group mostly missed","💪 Consistent — 2/3 correct in 3+ matches","⚡ Active Predictor — 10+ predictions"]},{icon:"📋",title:"General Rules",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval before playing.","Picks are final once locked — no edits after cutoff.","Admin can adjust points in case of technical issues.","Leaderboard updates in real time as results are entered.","Tie-breaking: higher accuracy wins."]}
       ].map(({icon,title,color,border,tc,items})=>(
         <div key={title} style={{background:color,border:"1px solid "+border,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{icon}</span><p className="C" style={{color:tc,fontSize:15,fontWeight:800,letterSpacing:.5,margin:0,textTransform:"uppercase"}}>{title}</p></div>
@@ -1105,7 +1200,7 @@ export default function App(){
 
       {/* RESULTS */}
       {admTab==="results"&&<>
-        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14}}><p style={{color:"#1e40af",fontSize:12,fontWeight:600,margin:"0 0 2px"}}>💡 Partial saves · Washout friendly</p><p style={{color:"#3b82f6",fontSize:11,margin:0}}>Save Toss right after it happens. For washouts, set Winner/POTM to "No Result". Only available fields score. Streak bonus fires if all available are correct.</p></div>
+        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14}}><p style={{color:"#1e40af",fontSize:12,fontWeight:600,margin:"0 0 2px"}}>💡 Partial saves · Washout friendly</p><p style={{color:"#3b82f6",fontSize:11,margin:0}}>Save Toss right after it happens. For washouts, set Winner/POTM to "No Result". Only available fields score.</p></div>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
           const rf=admResultForm[m.id]||{};const prefill={toss:m.toss||"",win:m.win||"",motm:m.motm||"",...rf};
@@ -1147,11 +1242,13 @@ export default function App(){
         })}
         <p className="st" style={{marginTop:16}}>COMPLETED ({done.length})</p>
         {[...done].reverse().map(m=>{
-          const allArr=Object.values(allPicks);const tot=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;
-          const tossC=allArr.filter(u=>!isNR(m.result.toss)&&(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length;
-          const winC=allArr.filter(u=>!isNR(m.result.win)&&(u[m.id]??u[String(m.id)])?.win===m.result.win).length;
-          const motmC=allArr.filter(u=>!isNR(m.result.motm)&&motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length;
-          const perfs=allArr.filter(u=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===m.result.toss,wA&&p.win===m.result.win,mA&&motmMatch(p.motm,m.result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).length;
+          // FIX: use allPicksEntries (encoded keys) for all counting
+          const allPicksEntries=Object.entries(allPicks);
+          const tot=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;
+          const tossC=allPicksEntries.filter(([,u])=>!isNR(m.result.toss)&&(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length;
+          const winC=allPicksEntries.filter(([,u])=>!isNR(m.result.win)&&(u[m.id]??u[String(m.id)])?.win===m.result.win).length;
+          const motmC=allPicksEntries.filter(([,u])=>!isNR(m.result.motm)&&motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length;
+          const perfs=allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length;
           const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"};const isWashout=isNR(m.result.win)||isNR(m.result.motm);
           return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
@@ -1167,7 +1264,46 @@ export default function App(){
                 <div style={{flex:1,background:"#f0fdf4",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{tot?Math.round((tossC+winC+motmC)/(tot*[!isNR(m.result.toss),!isNR(m.result.win),!isNR(m.result.motm)].filter(Boolean).length||1)*100):0}%</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Avg Acc</p></div>
                 <div style={{flex:1,background:"#FFF9E6",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,margin:0}}>{tot-perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Missed</p></div>
               </div>
-              {!isNR(m.result.motm)&&(()=>{const counts={};Object.values(allPicks).forEach(u=>{const p=u[m.id]??u[String(m.id)];if(p?.motm&&!isNR(p.motm))counts[p.motm]=(counts[p.motm]||0)+1;});const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);if(!sorted.length)return null;return<div style={{marginTop:10}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>⭐ POTM Guesses</p>{sorted.map(([name,cnt])=>{const pct=Math.round(cnt/tot*100),isRight=motmMatch(name,m.result.motm);return<div key={name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:11,color:isRight?"#15803d":"#64748b",fontWeight:isRight?700:400,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isRight?"✓ ":""}{name}</span><div style={{width:80,height:5,borderRadius:3,background:"#e2e8f0",flexShrink:0}}><div style={{width:pct+"%",height:"100%",borderRadius:3,background:isRight?"#15803d":"#94a3b8"}}/></div><span style={{fontSize:10,color:"#94a3b8",minWidth:28,textAlign:"right"}}>{cnt}</span></div>;})}</div>;})()}
+              {!isNR(m.result.motm)&&(()=>{
+                const counts={};
+                allPicksEntries.forEach(([,u])=>{const p=u[m.id]??u[String(m.id)];if(p?.motm&&!isNR(p.motm))counts[p.motm]=(counts[p.motm]||0)+1;});
+                const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+                if(!sorted.length)return null;
+                return<div style={{marginTop:10}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>⭐ POTM Guesses</p>{sorted.map(([name,cnt])=>{const pct=Math.round(cnt/tot*100),isRight=motmMatch(name,m.result.motm);return<div key={name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:11,color:isRight?"#15803d":"#64748b",fontWeight:isRight?700:400,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isRight?"✓ ":""}{name}</span><div style={{width:80,height:5,borderRadius:3,background:"#e2e8f0",flexShrink:0}}><div style={{width:pct+"%",height:"100%",borderRadius:3,background:isRight?"#15803d":"#94a3b8"}}/></div><span style={{fontSize:10,color:"#94a3b8",minWidth:28,textAlign:"right"}}>{cnt}</span></div>;})}</div>;
+              })()}
+              {/* FIX: All predictions list in admin — use allPicksEntries + match user by encoded key */}
+              {(()=>{
+                const pickEntries=allPicksEntries.map(([emk,up])=>{
+                  const p=up[m.id]??up[String(m.id)];if(!p)return null;
+                  const u=Object.values(users).find(u2=>ek(u2.email)===emk);
+                  const displayName=u?.name||decodeKey(emk);
+                  const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
+                  const tOk=tA&&p.toss===m.result.toss,wOk=wA&&p.win===m.result.win,mOk=mA&&motmMatch(p.motm,m.result.motm);
+                  const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tOk,wOk,mOk].filter(Boolean).length;
+                  const isPerfect=avail===3&&correct===3;
+                  let base=0;if(tOk)base+=PTS.toss;if(wOk)base+=PTS.win;if(mOk)base+=PTS.motm;if(isPerfect)base+=PTS.streak;
+                  return{displayName,emk,p,tOk,wOk,mOk,isPerfect,pts:base};
+                }).filter(Boolean).sort((a,b)=>b.pts-a.pts);
+                if(!pickEntries.length)return null;
+                return<div style={{marginTop:12}}>
+                  <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({pickEntries.length})</p>
+                  <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                    {pickEntries.map((e,i)=>(
+                      <div key={e.emk} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:e.isPerfect?"#f0fdf4":i%2===0?"#f8faff":"#fff",borderBottom:i<pickEntries.length-1?"1px solid #f1f5f9":"none"}}>
+                        <Av name={e.displayName} sz={22}/>
+                        <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{e.displayName}{e.isPerfect?" 🎯":""}</p>
+                          <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.tOk?"#dcfce7":"#fef2f2",color:e.tOk?"#15803d":"#dc2626"}}>🪙 {e.p.toss}</span>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.wOk?"#dcfce7":"#fef2f2",color:e.wOk?"#15803d":"#dc2626"}}>🏆 {e.p.win}</span>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.mOk?"#dcfce7":"#fef2f2",color:e.mOk?"#15803d":"#dc2626"}}>⭐ {e.p.motm?.split(" ").slice(-1)[0]||"—"}</span>
+                          </div>
+                        </div>
+                        <span className="C" style={{color:e.pts>0?"#15803d":"#94a3b8",fontSize:15,fontWeight:800,flexShrink:0}}>+{e.pts}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>;
+              })()}
             </div>}
           </div>;
         })}
@@ -1217,29 +1353,43 @@ export default function App(){
 
       {/* ANALYTICS */}
       {admTab==="analytics"&&<>
-        {done.length>0&&(()=>{
-          const lb=getLb();const allArr=Object.values(allPicks);
-          const totalPredictions=allArr.reduce((s,u)=>s+Object.keys(u).length,0);
-          const totalPerfs=done.reduce((s,m)=>s+allArr.filter(u=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===m.result.toss,wA&&p.win===m.result.win,mA&&motmMatch(p.motm,m.result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).length,0);
+        {/* FIX: always show analytics structure; use done.length > 0 only for match-dependent stats */}
+        <p className="st">GROUP OVERVIEW</p>
+        {(()=>{
+          const lb=getLb();
+          const allPicksEntries=Object.entries(allPicks);
+          const totalPredictions=allPicksEntries.reduce((s,[,u])=>s+Object.keys(u).length,0);
+          const totalPerfs=done.reduce((s,m)=>s+allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);
           const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;
-          const tossT=done.reduce((s,m)=>{if(isNR(m.result.toss))return s;const c=allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length,t=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
-          const winT=done.reduce((s,m)=>{if(isNR(m.result.win))return s;const c=allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.result.win).length,t=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
-          const motmT=done.reduce((s,m)=>{if(isNR(m.result.motm))return s;const c=allArr.filter(u=>motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length,t=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPredictions,"Predictions"],["🎯",totalPerfs,"All Correct"],["📊",avgAcc+"%","Avg Acc"],["👥",lb.length,"Players"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;
+        })()}
+        {done.length>0&&(()=>{
+          const allPicksEntries=Object.entries(allPicks);
+          const tossT=done.reduce((s,m)=>{if(isNR(m.result.toss))return s;const c=allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          const winT=done.reduce((s,m)=>{if(isNR(m.result.win))return s;const c=allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.result.win).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          const motmT=done.reduce((s,m)=>{if(isNR(m.result.motm))return s;const c=allPicksEntries.filter(([,u])=>motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
           return<>
-            <p className="st">GROUP OVERVIEW</p>
-            <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPredictions,"Predictions"],["🎯",totalPerfs,"All Correct"],["📊",avgAcc+"%","Avg Acc"],["👥",lb.length,"Players"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>
             <p className="st">GROUP ACCURACY BY CATEGORY</p>
             <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
               {[["🪙 Toss",tossT,"#1D428A"],["🏆 Winner",winT,"#15803d"],["⭐ POTM",motmT,"#B8860B"]].map(([lbl,d,clr])=>{const pct=d.t?Math.round(d.c/d.t*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{d.c}/{d.t} ({pct}%)</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>;})}
             </div>
-            <p className="st">CHAMPION PICKS DISTRIBUTION</p>
-            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-              {(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span style={{fontSize:12}}>🏆</span>}</div>;});})()}
-            </div>
           </>;
         })()}
+        <p className="st">CHAMPION PICKS DISTRIBUTION</p>
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
+          {(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span style={{fontSize:12}}>🏆</span>}</div>;});})()}
+        </div>
         <p className="st">PER-MATCH PICK SPLIT</p>
-        {ms.filter(m=>Object.values(allPicks).some(u=>u[m.id]||u[String(m.id)])).map(m=>{const allArr=Object.values(allPicks);const tot=allArr.filter(u=>u[m.id]||u[String(m.id)]).length;const sp2=tot&&!isNR(m.result?.toss)?{tot,tA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,tB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,wA:allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length,wB:tot-allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.home).length}:null;const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}><div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{sp2?.tot||0} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>{io&&sp2&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp2.tA} cB={sp2.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp2.wA} cB={sp2.wB} clA={hc.bg} clB={ac.bg}/></div>}</div>;})}
+        {ms.filter(m=>{const e=Object.entries(allPicks);return e.some(([,u])=>u[m.id]!=null||u[String(m.id)]!=null);}).map(m=>{
+          const allPicksEntries=Object.entries(allPicks);
+          const tot=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;
+          const sp2=tot?{tot,tA:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,tB:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.away).length,wA:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.home).length,wB:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.away).length}:null;
+          const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};
+          return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{sp2?.tot||0} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
+            {io&&sp2&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp2.tA} cB={sp2.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp2.wA} cB={sp2.wB} clA={hc.bg} clB={ac.bg}/></div>}
+          </div>;
+        })}
       </>}
 
       {/* CONTROLS */}
@@ -1261,30 +1411,4 @@ export default function App(){
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">🔒 LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button></div>;})}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">💬 MUTE USERS</p>
-          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)];return<div key={u.email} className="ctrl-row"><div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div><button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button></div>;})}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #fecaca",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st" style={{color:"#dc2626",borderColor:"#fecaca"}}>⚠️ DANGER ZONE</p>
-          <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🗑️ Reset Season</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Wipes all picks, results, pts.</p></div>
-            <button onClick={async()=>{if(!confirm("RESET entire season? Cannot be undone."))return;await Promise.all([DB.set("ap",{}),DB.set("rm",{}),DB.set("sp",{}),DB.set("t4",{}),DB.set("ptsadj",{}),DB.set("doublematch",null),DB.set("sw",null),DB.set("matchptsoverride",{}),DB.set("manmatches",[]),DB.set("bracket",null),DB.set("lockedm",{})]);setAllPicks({});setMyPicks({});setMs(buildBaseMatches());setManualPtsAdj({});setSw(null);setDoubleMatch(null);setMatchPtsOverride({});setBracket(null);setLockedMatches({});setSpk({});setT4pk({});setMySp("");setMyT4([]);toast2("Season reset","ok");}} style={{padding:"7px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase",flexShrink:0}}>Reset</button>
-          </div>
-        </div>
-      </div>}
-
-      {/* BROADCAST */}
-      {admTab==="broadcast"&&<>
-        <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
-        <p className="st" style={{marginTop:16}}>HISTORY</p>
-        {bc.length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No broadcasts yet</p>}
-        {[...bc].reverse().map(b=><div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}><span style={{fontSize:15,flexShrink:0}}>📢</span><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div><button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button></div>)}
-      </>}
-    </div>}
-
-    <Nav/>
-    {toast&&<Tst t={toast}/>}
-  </div>;
-}
+          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked
