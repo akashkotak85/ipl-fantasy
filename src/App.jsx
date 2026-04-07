@@ -135,14 +135,15 @@ const DB={
 
 /* ─── MATCH HELPERS ─── */
 function parseMatchDate(date,time){try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00+05:30");return isNaN(d.getTime())?null:d;}catch{return null;}}
-const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-45*60*1000):new Date(0);};
+// FIX 4: lock 5 minutes before match (was 45 mins)
+const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-5*60*1000):new Date(0);};
 const isMatchLocked=(m,lm={})=>{if(m.result)return true;const st=lm[m.id]??lm[String(m.id)];if(st==="unlocked")return false;if(st==="locked")return true;return new Date()>=cutoff(m);};
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
 const motmMatch=(a,b)=>{if(!a||!b||isNR(a)||isNR(b))return false;const n=s=>s.trim().toLowerCase();const na=n(a),nb=n(b);return na===nb||na.endsWith(" "+nb)||nb.endsWith(" "+na)||na.includes(nb)||nb.includes(na);};
 function resolvePlayoffSlots(base,br){if(!br)return base;return base.map(m=>{let{home,away}={...m};if(m.mn==="Q1"&&br.q1?.length===2){[home,away]=[br.q1[0],br.q1[1]];}if(m.mn==="EL1"&&br.el?.length===2){[home,away]=[br.el[0],br.el[1]];}if(m.mn==="Q2"&&br.q2?.length===2){[home,away]=[br.q2[0],br.q2[1]];}if(m.mn==="Final"&&br.final?.length===2){[home,away]=[br.final[0],br.final[1]];}return{...m,home,away};});}
 
-/* ─── SCORING — washout aware ─── */
+/* ─── SCORING — washout aware, FIX 3: no streak on NO_RESULT ─── */
 function calcScore(uPicks,ms,dbl=null){
   let pts=0,ok=0,tot=0,ms2={};
   ms.forEach(m=>{
@@ -156,15 +157,12 @@ function calcScore(uPicks,ms,dbl=null){
     if(tossAvail&&p.toss===m.result.toss){base+=PTS.toss;h++;}
     if(winAvail&&p.win===m.result.win){base+=PTS.win;h++;}
     if(motmAvail&&motmMatch(p.motm,m.result.motm)){base+=PTS.motm;h++;}
-    const availCount=[tossAvail,winAvail,motmAvail].filter(Boolean).length;
-    const correctCount=[
-      tossAvail&&p.toss===m.result.toss,
-      winAvail&&p.win===m.result.win,
-      motmAvail&&motmMatch(p.motm,m.result.motm)
-    ].filter(Boolean).length;
-    if(availCount>0&&correctCount===availCount)base+=PTS.streak;
+    // FIX 3: streak bonus ONLY when all 3 fields are available AND all 3 correct
+    // A washout (any NO_RESULT field) never awards streak
+    const fullMatch=tossAvail&&winAvail&&motmAvail;
+    if(fullMatch&&h===3)base+=PTS.streak;
     const mp=base*mult;if(h>0)ok++;pts+=mp;
-    ms2[m.id]={pts:mp,h,perf:availCount===3&&correctCount===3};
+    ms2[m.id]={pts:mp,h,perf:fullMatch&&h===3};
   });
   const played=ms.filter(m=>m.result&&(uPicks[m.id]??uPicks[String(m.id)]));
   const last=played[played.length-1];
@@ -255,7 +253,7 @@ function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=us
 </div>}</div>;}
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onPredict,onReact}){
   const lk=isMatchLocked(m,lockedMatches);const mp=myPicks[m.id]??myPicks[String(m.id)];
   const ct=cutoff(m);const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});const cd=useCd(ct.getTime());
   const mr=rxns[m.id]||{};const hc=TC[m.home]||{bg:"#333"},ac=TC[m.away]||{bg:"#555"};
@@ -305,6 +303,37 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>Locked: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
     {sp&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/></div>}
     {m.result&&<div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>{EMOJIK.map(k=>{const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);return<button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>{EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}</button>;})}</div>}
+    {/* FIX 1: show all user predictions once locked */}
+    {lk&&tot>0&&(()=>{
+      const pickEntries=Object.entries(allPicks).map(([emk,up])=>{
+        const p=up[m.id]??up[String(m.id)];if(!p)return null;
+        const u=Object.values(users||{}).find(u=>ek(u.email)===emk);
+        const isMe=emk===ek(email);
+        const displayName=isMe?"You":(u?.name||emk);
+        const tA=!isNR(m.result?.toss),wA=!isNR(m.result?.win),mA=!isNR(m.result?.motm);
+        const tOk=!!(m.result&&tA&&p.toss===m.result.toss);
+        const wOk=!!(m.result&&wA&&p.win===m.result.win);
+        const mOk=!!(m.result&&mA&&motmMatch(p.motm,m.result.motm));
+        const isPerfect=!!(m.result&&tA&&wA&&mA&&tOk&&wOk&&mOk);
+        return{emk,p,isMe,displayName,tOk,wOk,mOk,isPerfect};
+      }).filter(Boolean).sort((a,b)=>(b.tOk+b.wOk+b.mOk)-(a.tOk+a.wOk+a.mOk)||(a.isMe?-1:b.isMe?1:0));
+      if(!pickEntries.length)return null;
+      return<div style={{marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:10}}>
+        <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({pickEntries.length})</p>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          {pickEntries.map(({emk:emk2,p,isMe,displayName,tOk,wOk,mOk,isPerfect})=>(
+            <div key={emk2} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:8,background:isPerfect?"#f0fdf4":isMe?"#EBF0FA":"#f8faff",border:"1px solid "+(isPerfect?"#bbf7d0":isMe?"#bfdbfe":"#e2e8f0")}}>
+              <span style={{fontSize:11,fontWeight:isMe?700:400,color:isMe?"#1D428A":"#475569",minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName}{isPerfect?" 🎯":""}</span>
+              <div style={{display:"flex",gap:3}}>
+                <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(tOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(tOk?"#15803d":"#dc2626"):"#64748b"}}>🪙{p.toss}</span>
+                <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(wOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(wOk?"#15803d":"#dc2626"):"#64748b"}}>🏆{p.win}</span>
+                <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(mOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(mOk?"#15803d":"#dc2626"):"#64748b"}}>⭐{p.motm?.split(" ").slice(-1)[0]||"—"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>;
+    })()}
     {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
     {pred&&!lk&&mp&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#94a3b8",marginTop:4}}>✅ Locked — no changes allowed</div>}
     {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
@@ -652,7 +681,7 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onReact:reactFn,onPredict:(m)=>{setAm(m);setDraft({});setSc("picks");}};
+  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onReact:reactFn,onPredict:(m)=>{setAm(m);setDraft({});setSc("picks");}};
   const navItems=isAdmin
     ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
     :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
@@ -788,20 +817,21 @@ export default function App(){
       <div style={{padding:"14px 14px 0"}}>
         {htab==="today"&&(todayMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>🏏</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO MATCHES TODAY</p></div>:todayMs.map(m=><MCard key={m.id} m={m} pred={true} {...cardProps}/>))}
         {htab==="done"&&(done.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>⏳</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO RESULTS YET</p></div>:[...done].reverse().map(m=><MCard key={m.id} m={m} pred={false} {...cardProps}/>))}
-        {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>(
-          <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:14,padding:"14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span></div>
+        {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>{
+          const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+          return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+              {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span>}
+            </div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.home}</p></div>
               <p className="C" style={{color:"#e2e8f0",fontSize:16,fontWeight:800,padding:"0 8px",margin:0}}>VS</p>
               <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.away}</p></div>
             </div>
             <p style={{color:"#cbd5e1",fontSize:11,marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:8}}>📍 {m.venue}</p>
-            {!isMatchLocked(m,lockedMatches)&&!(myPicks[m.id]??myPicks[String(m.id)])&&<button className="pbtn" style={{marginTop:10}} onClick={()=>cardProps.onPredict(m)}>Predict This Match</button>}
-            {(myPicks[m.id]??myPicks[String(m.id)])&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#15803d",marginTop:4}}>✅ Predicted</div>}
-          </div>
-        )))}
-        {htab==="season"&&<div>
+          </div>;
+        }))}        {htab==="season"&&<div>
           <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:2,margin:0}}>MY SEASON PICKS</p></div>
           <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
             <p className="st">IPL 2026 CHAMPION</p>
@@ -858,6 +888,8 @@ export default function App(){
     {sc==="picks"&&!am&&(()=>{
       const played=ms.filter(m=>m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
       const pending=ms.filter(m=>!m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
+      // FIX 2: predictions open for all matches until auto-lock (5 min before start)
+      // Schedule shows ALL future unpredicted matches; predict button shows if not locked
       const schedule=ms.filter(m=>!m.result&&!isTBD(m)&&!isToday(m));
       let totalPts=0,perfect=0,streakCur=0,streakBest=0;
       const rows=played.map(m=>{
@@ -939,20 +971,24 @@ export default function App(){
           ))}
         </>}
         {ptab==="schedule"&&<>
-          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 45 mins before start.</span></div>
+          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start time.</span></div>
           {schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>
-          :schedule.map(m=>{const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
-              {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
-              <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
-            </div>
-            <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
-          </div>;})}
+          :schedule.map(m=>{
+            const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+            return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+                {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>
+                :<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
+                <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
+              </div>
+              <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
+            </div>;
+          })}
         </>}
       </div>;
     })()}
@@ -1057,9 +1093,9 @@ export default function App(){
     {/* RULES */}
     {sc==="rules"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p style={{fontSize:28,margin:"0 0 6px"}}>📖</p><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>TATA IPL 2026 Fantasy Predictor</p></div>
-      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, 45 minutes before the scheduled start time.","Before each match, predict: Toss Winner, Match Winner, and Player of the Match.","Once locked, predictions cannot be changed. Find them in My Game → Schedule."]},
+      {[        {icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions are open on match day only, and lock 5 minutes before the scheduled start time.","Before each match, predict: Toss Winner, Match Winner, and Player of the Match.","Once locked, predictions cannot be changed. Find upcoming matches in My Game → Schedule.","After the match locks, everyone's predictions become visible to the group."]},
         {icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct Player of the Match → +30 pts","All available correct → bonus +15 pts streak","Maximum per match: 75 pts (150 pts on a 2× Double Points match)"]},
-        {icon:"🌧",title:"Washouts & No Results",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["If a match is washed out, only available results count for scoring.","Toss done but match abandoned → only toss points (+10) are awarded.","If all 3 available fields are correct, the streak bonus still applies.","Washout matches are clearly marked with 🌧 in the app."]},
+        {icon:"🌧",title:"Washouts & No Results",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["If a match is washed out, only fields with a real result count for scoring.","Toss done but match abandoned → only toss points (+10) are awarded.","The streak bonus (+15) is never awarded for washout matches — all 3 results must be available.","Washout matches are clearly marked with 🌧 in the app."]},
         {icon:"🏆",title:"Season Picks (One-Time)",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["At signup, pick your IPL 2026 Champion — worth +200 pts if correct at season end.","Also pick your Top 4 playoff teams — each correct team earns +50 pts.","These picks are locked forever after setup — choose wisely!"]},
         {icon:"⚡",title:"Double Points Match",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can designate any match as a 2× Double Points match.","All points earned (including streak bonus) are doubled.","Watch for the ⚡ 2× badge on the match card!"]},
         {icon:"🌟",title:"Wall of Fame",color:"#fdf4ff",border:"#e9d5ff",tc:"#6b21a8",items:["🎯 Perfect Pick Hall — ranked by total perfect picks (all 3 correct in one match).","⭐ Match MVP Hall — ranked by how many times you finished as top scorer in a match.","🔥 Best Streak Hall — ranked by longest run of consecutive perfect picks.","Match by Match — shows perfect pickers AND top 3 scorers for every match.","You don't need a perfect pick to appear — just outscore everyone else in a match!"]},
@@ -1168,6 +1204,38 @@ export default function App(){
                 <div style={{flex:1,background:"#FFF9E6",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,margin:0}}>{tot-perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Missed</p></div>
               </div>
               {!isNR(m.result.motm)&&(()=>{const counts={};Object.values(allPicks).forEach(u=>{const p=u[m.id]??u[String(m.id)];if(p?.motm&&!isNR(p.motm))counts[p.motm]=(counts[p.motm]||0)+1;});const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);if(!sorted.length)return null;return<div style={{marginTop:10}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>⭐ POTM Guesses</p>{sorted.map(([name,cnt])=>{const pct=Math.round(cnt/tot*100),isRight=motmMatch(name,m.result.motm);return<div key={name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:11,color:isRight?"#15803d":"#64748b",fontWeight:isRight?700:400,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isRight?"✓ ":""}{name}</span><div style={{width:80,height:5,borderRadius:3,background:"#e2e8f0",flexShrink:0}}><div style={{width:pct+"%",height:"100%",borderRadius:3,background:isRight?"#15803d":"#94a3b8"}}/></div><span style={{fontSize:10,color:"#94a3b8",minWidth:28,textAlign:"right"}}>{cnt}</span></div>;})}</div>;})()}
+              {/* FIX 1: show every user's prediction for this match */}
+              {(()=>{
+                const pickEntries=Object.entries(allPicks).map(([emk,up])=>{
+                  const p=up[m.id]??up[String(m.id)];if(!p)return null;
+                  const u=Object.values(users).find(u=>ek(u.email)===emk);if(!u)return null;
+                  const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
+                  const tOk=tA&&p.toss===m.result.toss,wOk=wA&&p.win===m.result.win,mOk=mA&&motmMatch(p.motm,m.result.motm);
+                  const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tOk,wOk,mOk].filter(Boolean).length;
+                  const isPerfect=avail===3&&correct===3;
+                  let base=0;if(tOk)base+=PTS.toss;if(wOk)base+=PTS.win;if(mOk)base+=PTS.motm;if(isPerfect)base+=PTS.streak;
+                  return{name:u.name,emk,p,tOk,wOk,mOk,isPerfect,pts:base};
+                }).filter(Boolean).sort((a,b)=>b.pts-a.pts);
+                if(!pickEntries.length)return null;
+                return<div style={{marginTop:12}}>
+                  <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({pickEntries.length})</p>
+                  <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                    {pickEntries.map((e,i)=>(
+                      <div key={e.emk} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:e.isPerfect?"#f0fdf4":i%2===0?"#f8faff":"#fff",borderBottom:i<pickEntries.length-1?"1px solid #f1f5f9":"none"}}>
+                        <Av name={e.name} sz={22}/>
+                        <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{e.name}{e.isPerfect?" 🎯":""}</p>
+                          <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.tOk?"#dcfce7":"#fef2f2",color:e.tOk?"#15803d":"#dc2626"}}>🪙 {e.p.toss}</span>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.wOk?"#dcfce7":"#fef2f2",color:e.wOk?"#15803d":"#dc2626"}}>🏆 {e.p.win}</span>
+                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.mOk?"#dcfce7":"#fef2f2",color:e.mOk?"#15803d":"#dc2626"}}>⭐ {e.p.motm?.split(" ").slice(-1)[0]||"—"}</span>
+                          </div>
+                        </div>
+                        <span className="C" style={{color:e.pts>0?"#15803d":"#94a3b8",fontSize:15,fontWeight:800,flexShrink:0}}>+{e.pts}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>;
+              })()}
             </div>}
           </div>;
         })}
