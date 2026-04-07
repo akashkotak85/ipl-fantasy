@@ -135,8 +135,8 @@ const DB={
 
 /* ─── MATCH HELPERS ─── */
 function parseMatchDate(date,time){try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00+05:30");return isNaN(d.getTime())?null:d;}catch{return null;}}
-// FIX 4: lock 5 minutes before match (was 45 mins)
-const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-5*60*1000):new Date(0);};
+// Lock 35 minutes before match start: 19:30 → 18:55, 15:30 → 14:55
+const cutoff=m=>{const d=parseMatchDate(m.date,m.time);return d?new Date(d-35*60*1000):new Date(0);};
 const isMatchLocked=(m,lm={})=>{if(m.result)return true;const st=lm[m.id]??lm[String(m.id)];if(st==="unlocked")return false;if(st==="locked")return true;return new Date()>=cutoff(m);};
 const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
@@ -335,7 +335,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       </div>;
     })()}
     {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
-    {pred&&!lk&&mp&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#94a3b8",marginTop:4}}>✅ Locked — no changes allowed</div>}
+    {pred&&!lk&&mp&&<button className="pbtn" style={{marginTop:10,background:"linear-gradient(135deg,#FF822A,#e07020)"}} onClick={()=>onPredict(m)}>✏️ Edit Prediction</button>}
     {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
   </div>;
 }
@@ -681,7 +681,15 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onReact:reactFn,onPredict:(m)=>{setAm(m);setDraft({});setSc("picks");}};
+  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onReact:reactFn,
+    onPredict:(m)=>{
+      setAm(m);
+      // Pre-fill draft with existing pick so user can edit it
+      const existing=myPicks[m.id]??myPicks[String(m.id)];
+      setDraft(existing?{...existing}:{});
+      setSc("picks");
+    }
+  };
   const navItems=isAdmin
     ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
     :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
@@ -775,12 +783,16 @@ export default function App(){
     {toast&&<Tst t={toast}/>}
   </div>;
 
-  if(sc==="picks"&&am)return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
+  if(sc==="picks"&&am){
+    const isEditing=!!(myPicks[am.id]??myPicks[String(am.id)]);
+    return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
     <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
       <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
-      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/>
+      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST · {isEditing?"Editing pick":"New prediction"}</p></div><TLogo t={am.away} sz={28}/>
     </div>
-    <div style={{background:"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid #dbeafe"}}><span style={{color:"#1D428A",fontSize:12}}>All 3 correct = +{PTS.streak}pts bonus · Predictions are final</span></div>
+    <div style={{background:isEditing?"#FFF9E6":"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid "+(isEditing?"#FDE68A":"#dbeafe")}}>
+      <span style={{color:isEditing?"#92400E":"#1D428A",fontSize:12}}>{isEditing?"✏️ Editing your prediction — changes allowed until lock":"All 3 correct = +"+PTS.streak+"pts bonus · Predictions are final after lock"}</span>
+    </div>
     <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
       {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
         <div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
@@ -793,10 +805,13 @@ export default function App(){
         {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
         <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
       </div>}
-      <button className="lbtn" onClick={submitPick}>Lock Prediction 🔒</button>
+      <button className="lbtn" style={{background:isEditing?"linear-gradient(135deg,#FF822A,#e07020)":"linear-gradient(135deg,#1D428A,#2a5bbf)"}} onClick={submitPick}>
+        {isEditing?"Update Prediction ✏️":"Lock Prediction 🔒"}
+      </button>
     </div>
     {toast&&<Tst t={toast}/>}
-  </div>;
+  </div>;}
+
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🔧</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline. Check back soon!</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>← Sign Out</button></div></div>;
 
@@ -940,10 +955,24 @@ export default function App(){
         </div>
         {ptab==="pending"&&<>
           {pending.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No predictions awaiting results.</p></div>
-          :pending.map(m=>{const p=myPicks[m.id]??myPicks[String(m.id)];const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div><span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Pending</span></div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p.toss],["Win",p.win],["POTM",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}</div>
-          </div>;})}
+          :pending.map(m=>{
+            const p=myPicks[m.id]??myPicks[String(m.id)];
+            const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);
+            const lk=isMatchLocked(m,lockedMatches);
+            const ct=cutoff(m);
+            const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
+            return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/>
+                <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div>
+                {!lk?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Open till {cStr}</span>:<span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>🔒 Locked</span>}
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:!lk?8:0}}>
+                {[["Toss",p.toss],["Win",p.win],["POTM",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}
+              </div>
+              {!lk&&<button onClick={()=>cardProps.onPredict(m)} style={{width:"100%",padding:"8px",borderRadius:8,background:"linear-gradient(135deg,#FF822A,#e07020)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:.5}}>✏️ Edit Prediction</button>}
+            </div>;
+          })}
         </>}
         {ptab==="results"&&<>
           {rows.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>📜</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No completed predictions yet.</p></div>
