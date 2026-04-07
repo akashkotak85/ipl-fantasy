@@ -445,18 +445,30 @@ export default function App(){
     return{freshAP,hasOnboarded};
   },[buildBaseMatches]);
 
-  /* AUTO-LOGIN */
+  /* AUTO-LOGIN — strict per-device session, no cross-user bleed */
   useEffect(()=>{
     let cancelled=false;
     const fallback=setTimeout(()=>{if(!cancelled)setSc("login");},6000);
     (async()=>{
       try{
         const saved=await DB.get("session");
-        if(!saved?.email||!saved?.token){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
-        const[storedToken,u2]=await Promise.all([DB.get("token_"+ek(saved.email)),DB.get("u")]);
-        if(!storedToken||storedToken!==saved.token){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
-        const ex=(u2||{})[saved.email]||(u2||{})[ek(saved.email)];
-        if(!ex||ex.approved===false){clearTimeout(fallback);if(!cancelled)setSc("login");return;}
+        if(!saved?.email||!saved?.token){
+          clearTimeout(fallback);if(!cancelled)setSc("login");return;
+        }
+        // Strict token validation — must match exactly
+        const storedToken=await DB.get("token_"+ek(saved.email));
+        if(!storedToken||storedToken!==saved.token){
+          // Token mismatch — clear stale session and go to login
+          await DB.set("session",null);
+          clearTimeout(fallback);if(!cancelled)setSc("login");return;
+        }
+        const u2=await DB.get("u")||{};
+        // Only accept exact email match — never fall back to encoded key for session restore
+        const ex=u2[saved.email];
+        if(!ex||ex.approved===false){
+          await DB.set("session",null);
+          clearTimeout(fallback);if(!cancelled)setSc("login");return;
+        }
         await forceRepair();
         if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
