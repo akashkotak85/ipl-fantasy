@@ -16,6 +16,7 @@ const KNOWN_RESULTS={
   5:{toss:"DC",win:"LSG",motm:"Rishabh Pant"},
   6:{toss:"SRH",win:"SRH",motm:"Travis Head"},
   7:{toss:"PBKS",win:"CSK",motm:"Ayush Mhatre"},
+  13:{toss:"MI",win:"RR",motm:"Yashasvi Jaiswal"},
 };
 
 const BASE_MATCHES=[
@@ -298,6 +299,151 @@ function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
+/* ─── FORM GUIDE: compute last 5 results for a team from completed matches ─── */
+function getFormGuide(team,ms){
+  const played=ms.filter(m=>m.result&&!isNR(m.result.win)&&(m.home===team||m.away===team));
+  return played.slice(-5).map(m=>m.result.win===team?"W":"L");
+}
+
+/* ─── SMART HINTS DATABASE — factual + cheeky, multiple per match ─── */
+const HINTS={
+  // ─ VENUE hints ─
+  venue:{
+    "M.Chinnaswamy Stadium, Bengaluru":[
+      "Chinnaswamy is the highest-scoring ground in IPL history. If you think 200 is safe here, think again — it isn't.",
+      "The short boundaries at Chinnaswamy mean every mis-hit can be a six. Batters love it; bowlers have therapy bills.",
+      "RCB have won 6 of their last 8 home games here in IPL 2026 — defending champions on home turf is a dangerous combo.",
+      "In IPL 2026 M11, RCB posted 250/3 here vs CSK. The pitch has basically declared itself a batting paradise.",
+      "Spin struggles at Chinnaswamy — pace and power win here. POTM almost always goes to a batter or a fast bowler.",
+    ],
+    "Wankhede Stadium, Mumbai":[
+      "Wankhede has hosted MI's greatest moments. Five IPL titles worth of home advantage isn't nothing.",
+      "Dew at Wankhede is serious business — teams chasing here win 62% of the time. Toss could be decisive.",
+      "The Wankhede crowd is relentless. MI's home record here is among the best in IPL history — opponents feel it.",
+      "Sea breeze off the Arabian Sea keeps the air humid — the ball doesn't swing as much after the 10th over. Powerplay is king.",
+      "Both the fastest IPL hundreds (AB de Villiers 2015, Chris Gayle 2013) were scored at grounds exactly like this — high-scoring, short boundaries.",
+    ],
+    "MA Chidambaram Stadium, Chennai":[
+      "Chepauk is spin heaven. The dry, turning surface makes this ground the nightmare of every overseas batter.",
+      "CSK have won 70% of home games at Chepauk over IPL history. The crowd treats it like a fortress.",
+      "Don't pick a pace POTM here unless it's the first 3 overs. Spinners take 60% of wickets at this ground.",
+      "The pitch gets slower as the innings progresses. Scoring 160+ here feels like climbing Everest in flip-flops.",
+      "CSK have lost 3 straight in IPL 2026 — they are DESPERATE for a home win. Expect full intensity.",
+    ],
+    "Eden Gardens, Kolkata":[
+      "Eden Gardens holds 68,000 fans. When KKR are chasing, the noise is genuinely a 12th man.",
+      "KKR's home record at Eden Gardens is among the best in the IPL — 70% win rate over all editions.",
+      "M12 KKR vs PBKS was washed out here on April 6 — Eden has a drainage issue that has cost points before.",
+      "The pitch here tends to assist pacers early. First 6 overs are critical — openers set the tone completely.",
+      "KKR are yet to win in IPL 2026. Eden Gardens will be electric — desperate crowd, desperate team.",
+    ],
+    "Rajiv Gandhi Intl. Stadium, Hyderabad":[
+      "SRH posted 260+ at this ground in IPL 2024 — it is one of the most batting-friendly venues in India.",
+      "SRH beat KKR by 65 runs here in M6. When SRH bat first at home, they rarely show mercy.",
+      "The outfield at RGIS is lightning fast — expect high scores and a LOT of boundaries.",
+      "Travis Head destroyed KKR here in M6, setting the platform for SRH's dominant win. He loves this ground.",
+      "Hyderabad evenings can get humid — dew factor is real. Teams prefer chasing here whenever possible.",
+    ],
+    "Narendra Modi Stadium, Ahmedabad":[
+      "The world's largest cricket stadium with 130,000 seats. GT's home ground — and they used it to win two IPL titles.",
+      "The NM Stadium pitch is flat and true. Spinners get good turn here in the second half — big first innings scores are common.",
+      "GT have home advantage at the world's biggest cricket ground. The crowd noise in a full house is otherworldly.",
+      "PBKS beat GT here in M4 — so home advantage isn't always enough. But GT will be fired up to correct that.",
+      "This ground hosted the 2023 World Cup final. High-pressure matches produce high-pressure performances here.",
+    ],
+    "Sawai Mansingh Stadium, Jaipur":[
+      "RR's home fortress. The Jaipur crowd is passionate, knowledgeable, and fiercely behind Riyan Parag's men.",
+      "The pitch at Sawai Mansingh tends to help spinners — Ravi Bishnoi (7 wickets this season) will relish this surface.",
+      "RR are on a 3-match winning streak after M13. They're flying — and they're coming home.",
+      "The ground sits at 431m elevation — the ball travels further here than at sea-level venues. Batters love Jaipur.",
+      "RR have the best record in the tournament right now. Picking against them at home seems like a brave choice.",
+    ],
+    "Barsapara Cricket Stadium, Guwahati":[
+      "M13 (RR vs MI) was delayed 2.5 hours by rain here and reduced to 11 overs — watch the weather carefully.",
+      "Guwahati is neutral territory for both teams — no true home advantage. The pitch is relatively unknown.",
+      "Jaiswal scored 77* off 32 here in M13. Barsapara has a flat track — batters can go from ball one.",
+      "RR have now played at Guwahati twice and won both. The ground seems to suit their aggressive batting style.",
+      "Small ground, big scores. When the dew comes in at Guwahati, the second innings becomes a run-fest.",
+    ],
+    "Ekana Cricket Stadium, Lucknow":[
+      "LSG beat SRH here in M10 — Rishabh Pant's home ground and he made it count as POTM.",
+      "Ekana has a slower pitch compared to other venues — strokeplay is harder, but Pant makes it look easy.",
+      "LSG have a strong home record at Ekana. The pitch favours teams with a solid spin attack.",
+      "The Lucknow crowd is growing — Rishabh Pant has turned this city into a cricket-mad fanbase in one season.",
+      "Evening dew at Ekana helps batters in the second innings. Toss could matter significantly here.",
+    ],
+    "Arun Jaitley Stadium, Delhi":[
+      "DC's home ground and they came flying in IPL 2026 — Sameer Rizvi has been in sensational form here.",
+      "The Delhi pitch is a batting beauty — flat, fast, and favours strokemakers. 180+ is par here.",
+      "DC beat MI in M8 with a high-scoring performance at this ground. Home form is strong.",
+      "Delhi evenings get dew-heavy — chasing teams historically do well here after the first 8 overs.",
+      "Axar Patel captaining at his home ground with home fans — captains tend to dig deep at home.",
+    ],
+    "Mullanpur Stadium, New Chandigarh":[
+      "PBKS's home ground is the brand new Mullanpur Stadium — a batting beauty with true bounce.",
+      "PBKS are flying in IPL 2026. At home, with Shreyas Iyer and a packed lineup, they're dangerous.",
+      "Mullanpur is a high-scoring ground — expect totals above 190. The boundaries are not small.",
+      "Priyansh Arya (2× POTM already) plays at his home base. The young gun will want to perform in front of his crowd.",
+      "SRH vs PBKS here — two aggressive batting sides on a flat track. This could be a run-fest.",
+    ],
+    "HPCA Stadium, Dharamshala":[
+      "Dharamshala is the most scenic cricket ground on Earth — but don't let the mountains fool you, the cricket is fierce.",
+      "At 1,457m altitude, the ball flies further here than anywhere else in IPL. Expect massive sixes and bigger totals.",
+      "Spinners struggle at altitude — the air is thinner, the ball doesn't grip. Pacers with extra bounce rule here.",
+      "RCB played MI here in IPL 2024 — high-scoring game. This ground and big batting performances go hand in hand.",
+      "The morning mist can delay starts at Dharamshala, but once underway, the conditions are magnificent for batting.",
+    ],
+    "SVNS Intl. Stadium, Raipur":[
+      "A relatively new IPL venue — Raipur has a reputation for flat pitches and high scores.",
+      "MI play here in M54 and M57 — neutral territory for both teams. Conditions will be unknown to both sides.",
+      "Raipur tends to produce batting-friendly surfaces. The outfield is quick and the boundaries are reasonably short.",
+      "With no strong home advantage for either team, team composition and form on the day will decide this one.",
+      "It's one of IPL's newer venues — less historical data, which makes prediction trickier but more exciting.",
+    ],
+  },
+
+  // ─ TOSS hints per team ─
+  toss:{
+    RCB:["RCB won the toss in M1 vs SRH and elected to field — SRH batted first and still lost. Make of that what you will.","RCB's toss record in 2026: 1W 0L so far — but at Chinnaswamy they typically prefer to chase to harness dew.","Rajat Patidar at the toss — calm, composed, usually goes with the conditions. Expect him to field if he wins it.","RCB won the IPL 2025 title in part by reading match situations smartly. Patidar's toss decisions have been sound."],
+    SRH:["SRH won the toss in M1 and M6 — winning 2/2 tosses so far in IPL 2026. The orange army is coin-flip royalty.","SRH elected to field in M1 (lost) and bat in M6 (won big). They adapt toss strategy to conditions.","Travis Head loves batting first and setting targets — expect SRH to bat if they win the toss.","Pat Cummins reads conditions well. He'll factor in dew, pitch, and opposition strengths before deciding."],
+    MI:["MI won the toss in M2 and M13 — winning both, electing to field both times. Classic MI strategy.","MI chose to field in M13 at Guwahati — it backfired spectacularly. Jaiswal 77* happened. Sometimes the toss decision is irrelevant.","Hardik Pandya is MI's captain — he likes bowling conditions and setting up his pacers. Expect MI to field if they win.","MI's toss strategy under Pandya: field first, trust Bumrah, and chase. It's been their MO all season."],
+    KKR:["KKR won the toss in M12 vs PBKS and elected to bat — but the match was washed out. Saved by rain.","KKR are winless in IPL 2026 so far. Their toss decisions haven't hurt them — the execution has.","Ajinkya Rahane is a pragmatic captain. He'll read the surface carefully before calling bat or field.","KKR at Eden Gardens — Rahane knows this ground inside out. Expect a shrewd toss call from the experienced campaigner."],
+    CSK:["CSK lost the toss in M3 (batted, lost) and M7 (didn't even win it). They're 0/2 on toss wins — and 0/3 on match wins.","CSK are winless in IPL 2026. The toss has not been kind, but the bigger issue is their batting hasn't fired.","Ruturaj Gaikwad is a thoughtful captain. He'll want to bat first at home to control the innings.","Fun fact: MS Dhoni had a legendary toss record — Ruturaj is building his own, though it's started rough in 2026."],
+    RR:["RR lost the toss in M3 (lost match) but won in M9 and M13 — winning 2/3 tosses and all 3 matches in IPL 2026.","Riyan Parag elected to field in M9 and M13, both times winning. Chasing suits RR's aggressive top order.","RR's openers Jaiswal and Sooryavanshi are so good they make chasing look easy. Parag loves to field first.","RR are top of the table with 6 points. Their toss reading has been sharp — Parag is becoming a sharp captain."],
+    PBKS:["PBKS won the toss in M4 and M7 — winning 2/2, and also winning both those matches. Toss = win for PBKS so far.","Shreyas Iyer is a composed toss-caller. He's backed his batters by electing to bowl first in both PBKS wins.","PBKS have 5 points including a NR in M12. They're doing everything right — including the coin flip.","Priyansh Arya hits sixes regardless of match situation. PBKS under Iyer chase without fear."],
+    GT:["GT lost the toss in M4 (lost) and M9 (lost) — 0 from 2 on toss wins and 0 from 2 on match wins. Tough start.","Shubman Gill has had a quiet 2026 by his standards. GT are 0 points from 2 games — they desperately need a win.","GT love batting first and building big totals with Gill and Buttler — but they haven't had the chance to set the tempo yet.","GT won two IPL titles (2022, 2023) by being clinical. They'll be back — the class is still there."],
+    LSG:["LSG won the toss in M5 (Rishabh Pant POTM, LSG won) and M10 (beat SRH). 2/2 tosses and 2/2 matches in 2026.","Rishabh Pant's captaincy has been sharp — he reads conditions quickly and his instincts have been correct so far.","LSG under Pant love chasing — they've done it twice in 2026 and won both. Don't be surprised if they field after winning the toss.","Pant won the toss in M5 vs DC and made it count personally — POTM with a match-winning knock. He leads from the front."],
+    DC:["DC won the toss in M5 (lost), M8 (won big vs MI) — their toss record is fine, the performances are what matter.","Axar Patel won the toss in M8 and chose to bat — DC posted a big score and bowled MI out. Clean execution.","Sameer Rizvi is DC's orange-cap leader with 160 runs in 2 matches. If DC win the toss and bat, watch out.","DC are 2/2 in matches so far. They're flying — and Axar's tactical calls have been strong."],
+  },
+
+  // ─ POTM hints per team ─
+  potm:{
+    RCB:["Phil Salt smashed a brutal knock in M1 to win POTM. He's RCB's explosive opener — a big score from him is always possible.","Tim David hit a 106m six in the 30-run over vs CSK in M11. If David gets going, he wins games singlehandedly.","Bhuvneshwar Kumar became the first pacer to 200 IPL wickets in M11. He's always in the POTM hunt with the ball.","Devdutt Padikkal scored 50 off 29 vs CSK. He's consistent and elegant — when RCB win, he's usually involved.","Rajat Patidar scored 48* off 19 vs CSK. The skipper loves stepping up in big moments — keep an eye on him."],
+    SRH:["Travis Head is SRH's POTM machine — won it in M6, been explosive at the top. He's your first pick if SRH win.","Abhishek Sharma hit a century (first Indian to do it for SRH) in IPL 2026. When SRH fire, he goes ballistic.","Harshal Patel and Eshan Malinga cleaned up KKR in M6. SRH's bowling POTM candidates are real — don't ignore them.","Heinrich Klaasen is among the top run-scorers in IPL 2026 with 145 runs. A big Klaasen knock usually seals a SRH win.","Pat Cummins himself is always a POTM threat — quick, smart bowling at the death has won him awards before."],
+    MI:["Jasprit Bumrah is always the POTM threat with the ball — 2 wickets in a crucial over changes any game.","Suryakumar Yadav won POTM in M2 — he bats in situations others can't handle. If SKY plays an innings, he's the pick.","Rohit Sharma is 5th in the IPL 2026 run charts with 118 runs. A vintage Rohit knock would seal a POTM for sure.","Hardik Pandya does it with bat AND ball. A Pandya all-round day (30 runs + 2 wickets) screams POTM.","Tilak Varma is quietly becoming MI's best batter in 2026. Watch him for the POTM if MI win."],
+    KKR:["Sunil Narine can win games with bat OR ball. He's the wild card — a 50 or a 5-wicket haul, both possible.","Varun Chakaravarthy was KKR's MVP in 2024 and 2025. He bowls the mystery ball that even world-class batters edge.","Cameron Green (₹25.2Cr) has been quiet this season. He's due a big performance — when it comes, it'll be POTM-worthy.","Rinku Singh is the king of finishing. If KKR are chasing, a Rinku cameo at the end wins him awards.","Matheesha Pathirana has genuine pace. On a lively pitch, he can tear through any batting lineup."],
+    CSK:["Ruturaj Gaikwad won POTM in M3 — but CSK have lost 3 straight. He'll be desperate to drag his team to victory.","CSK are missing MS Dhoni due to injury. Gaikwad needs to step up as both captain and batter — pressure = POTM moments.","Ayush Mhatre won POTM in M7 for CSK. The young opener has been outstanding — a second big performance is coming.","Khaleel Ahmed has been CSK's most effective bowler. On a spinning Chepauk track, he can be lethal early.","Noor Ahmad is CSK's mystery spinner. In home conditions at Chennai, he can be unplayable — watch for a bowling POTM."],
+    RR:["Yashasvi Jaiswal is the Orange Cap leader with 170 runs — POTM favourite whenever RR win. He's in ridiculous form.","Vaibhav Sooryavanshi hit TWO sixes off Bumrah in M13. A 14-year-old smashing the world's best bowler — pick him for POTM.","Ravi Bishnoi is the Purple Cap leader with 7 wickets. When RR bowl, he's your POTM candidate every single match.","Jofra Archer took the first wicket in M13 and has been RR's most dangerous bowler. A 3-wicket haul = easy POTM.","Nandre Burger took 2 wickets in M13. He's emerging as RR's best death bowler — a consistent threat for POTM."],
+    PBKS:["Priyansh Arya has won POTM twice in 2026 already — in M4 and M7. He's on fire and he's barely 20 years old.","Arshdeep Singh is India's best left-arm pacer. In power play and death overs, he takes wickets and wins awards.","Shreyas Iyer scored big in the IPL 2025 final. The big-game experience shows — he rises when it matters most.","Yuzvendra Chahal is still the trickiest leg-spinner in the IPL. On a turning pitch, 3 wickets from him is routine.","Cooper Connolly scored 108 runs in 2 games for PBKS. The Australian opener has been sensational — a genuine POTM threat."],
+    GT:["Shubman Gill is GT's anchor and best batter. When GT win, it's usually because Gill played an innings of class.","Rashid Khan has taken wickets in EVERY GT game in IPL 2026. He is always, always, always a POTM candidate.","Jos Buttler was bought to explode at the top — he hasn't hit his best form yet, but when he does, it'll be spectacular.","Kagiso Rabada is among the most dangerous pace bowlers in T20 cricket. 3 wickets from him shuts any team down.","Sai Sudharsan has been quietly consistent for GT. He doesn't win POTM often, but he wins matches. Watch him."],
+    LSG:["Rishabh Pant won POTM in M5 vs DC — not just as captain but as match-winner. He's the heartbeat of LSG.","Avesh Khan has been LSG's best death bowler. In the final 4 overs, he's wicket-taking and economical.","Nicholas Pooran hits 100m sixes like most people hit singles. One big over from him changes any game instantly.","Wanindu Hasaranga is a mystery spinner AND a handy lower-order batter. Both roles can produce a POTM.","Mayank Yadav when fit is the fastest bowler in the IPL. If he's playing, he's your pace POTM pick."],
+    DC:["Sameer Rizvi has 160 runs in 2 matches — he's the Orange Cap holder and DC's most explosive batter right now.","Axar Patel is DC's captain AND best all-rounder. A typical Axar day: 30 runs and 2 wickets for economical figures.","Kuldeep Yadav is among the smartest spinners in world cricket. At Arun Jaitley, on a turning pitch, he's unplayable.","Mitchell Starc brings extra pace. On a bouncy Delhi track, a 3-wicket haul from Starc is always possible.","KL Rahul is DC's most experienced batter. A composed 60 from him always keeps DC in and around POTM contention."],
+  },
+};
+
+function getHints(home,away,venue){
+  const vHints=HINTS.venue[venue]||["This venue has a batting-friendly reputation — expect a high-scoring game."];
+  const tHome=HINTS.toss[home]||["Watch the toss carefully — conditions here can influence the decision significantly."];
+  const tAway=HINTS.toss[away]||["Both captains are shrewd — whoever wins the toss will make it count."];
+  const pHome=HINTS.potm[home]||["The home team's best batter or bowler is always a strong POTM pick."];
+  const pAway=HINTS.potm[away]||["Watch the away team's key performer — upsets often come with a standout individual display."];
+  return{
+    venue:vHints,
+    toss:[...tHome,...tAway],
+    potm:[...pHome,...pAway],
+  };
+}
+
 /* ─── MATCH CARD ─── */
 function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
   const lk=isMatchLocked(m,lockedMatches);
@@ -501,21 +647,36 @@ export default function App(){
         const saved=await DB.get("session");
         if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
         const storedToken=await DB.get("token_"+ek(saved.email));
-        if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
+        if(!storedToken||storedToken!==saved.token){
+          await DB.set("session",null);
+          if(!cancelled)setSc("login");return;
+        }
         const u2=await DB.get("u")||{};
-        const ex=u2[saved.email]||null;
-        if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
+        // try both raw email and encoded email key
+        const ex=u2[saved.email]||u2[ek(saved.email)]||null;
+        if(!ex||ex.approved===false){
+          await DB.set("session",null);
+          if(!cancelled)setSc("login");return;
+        }
         await forceRepair();
         if(cancelled)return;
-        setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
+        setUser(ex);
+        setEmail(saved.email);
+        setIsAdmin(saved.email===SUPER_ADMIN);
+        setSessionEmail(saved.email);
         const{freshAP,hasOnboarded}=await reloadShared(saved.email);
         if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
-        setBcSeenTs(Date.now());setChatSeenTs(Date.now());
+        setBcSeenTs(Date.now());
+        setChatSeenTs(Date.now());
         setSc(hasOnboarded?"home":"onboard");
-      }catch(e){console.error("auto-login",e);if(!cancelled)setSc("login");}
+      }catch(e){
+        console.error("auto-login",e);
+        if(!cancelled)setSc("login");
+      }
     };
-    const t=setTimeout(()=>{if(!cancelled)setSc("login");},7000);
+    // Give Firebase 15 seconds before giving up — slow connections in India need more time
+    const t=setTimeout(()=>{if(!cancelled){console.warn("auto-login timeout");setSc("login");}},15000);
     go().finally(()=>clearTimeout(t));
     return()=>{cancelled=true;clearTimeout(t);};
   // eslint-disable-next-line
@@ -537,7 +698,14 @@ export default function App(){
   useEffect(()=>{if(sc!=="chat")setChatU(chat.filter(m=>m.ts>chatSeenTs).length);},[chat,sc,chatSeenTs]);
   useEffect(()=>{chatRef.current?.scrollIntoView({behavior:"smooth"});},[chat,sc]);
 
-  async function persistSession(em){const token=Math.random().toString(36).slice(2)+Date.now().toString(36);await DB.set("token_"+ek(em),token);await DB.set("session",{email:em,token});setSessionEmail(em);}
+  async function persistSession(em){
+    // always store normalised lowercase email so auto-login lookup is consistent
+    const nem=normalizeEmail(em);
+    const token=Math.random().toString(36).slice(2)+Date.now().toString(36);
+    await DB.set("token_"+ek(nem),token);
+    await DB.set("session",{email:nem,token});
+    setSessionEmail(nem);
+  }
 
   /* COMPUTED */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
@@ -635,7 +803,16 @@ export default function App(){
   async function logout(){
     Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};
     if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}clearTimeout(tRef.current);
-    if(sessionEmail){try{const ou=await DB.get("online")||{};delete ou[ek(sessionEmail)];await DB.set("online",ou);await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}catch(e){console.error(e);}}
+    if(sessionEmail){
+      try{
+        const nem=normalizeEmail(sessionEmail);
+        const ou=await DB.get("online")||{};
+        delete ou[ek(nem)];
+        await DB.set("online",ou);
+        await DB.set("token_"+ek(nem),null);
+        await DB.set("session",null);
+      }catch(e){console.error(e);}
+    }
     setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);
     setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");
   }
@@ -767,7 +944,7 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onReact:reactFn,
+  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
       setAm(m);setDraft({});setSc("picks");
