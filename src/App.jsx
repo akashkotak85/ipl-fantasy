@@ -110,20 +110,22 @@ const encodeEmail=e=>(e||"").trim().toLowerCase().replace(/\./g,"_dot_").replace
 const ek=e=>encodeEmail(e);
 const normalizeEmail=e=>(e||"").trim().toLowerCase();
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const decodeKey=k=>{let d=k;for(let i=0;i<8;i++){const n=d.replace(/_at_/g,"@").replace(/_dot_/g,".");if(n===d)break;d=n;}return d;};
 const canonicalKey=k=>{const d=decodeKey(k);return ek(d);};
 function normalizeKeyMap(raw){if(!raw)return{};const out={};Object.keys(raw).forEach(k=>{out[canonicalKey(k)]=raw[k];});return out;}
 function deepEncodeKeys(v){if(!v||typeof v!=="object"||Array.isArray(v))return v;const r={};Object.keys(v).forEach(k=>{r[k.includes("@")?ek(k):k]=deepEncodeKeys(v[k]);});return r;}
-
 function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
 function validatePassword(p,mode="login"){if(!p)return"Password is required";if(mode==="register"){if(p.length<8)return"Min 8 characters";if(!/[A-Z]/.test(p))return"Add an uppercase letter";if(!/[0-9]/.test(p))return"Add a number";if(!/[^A-Za-z0-9]/.test(p))return"Add a special character";}return"";}
 function validateName(n){if(!n||n.trim().length<2)return"Name must be at least 2 characters";return"";}
 function capChat(arr){return arr.length>CHAT_CAP?arr.slice(arr.length-CHAT_CAP):arr;}
 async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
-
 const isNR=v=>!v||v===NR;
 const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
+
+/* ─── FIX: always use string key for picks to avoid number/string mismatch in Firebase ─── */
+const pickKey=id=>String(id);
+/* getP: safely get a pick for a match id from a picks object regardless of key type */
+const getP=(picks,id)=>picks[pickKey(id)]??picks[id]??null;
 
 /* ─── FIREBASE ─── */
 const firebaseConfig={apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"};
@@ -147,21 +149,19 @@ function calcScore(uPicks,ms,dbl=null){
   let pts=0,ok=0,tot=0,ms2={};
   ms.forEach(m=>{
     if(!m.result)return;
-    const p=uPicks[m.id]??uPicks[String(m.id)];if(!p)return;
+    const p=getP(uPicks,m.id);if(!p)return;
     const mult=(dbl!=null&&Number(dbl)===Number(m.id))?2:1;
     tot++;let base=0,h=0;
-    const tossAvail=!isNR(m.result.toss);
-    const winAvail=!isNR(m.result.win);
-    const motmAvail=!isNR(m.result.motm);
-    if(tossAvail&&p.toss===m.result.toss){base+=PTS.toss;h++;}
-    if(winAvail&&p.win===m.result.win){base+=PTS.win;h++;}
-    if(motmAvail&&motmMatch(p.motm,m.result.motm)){base+=PTS.motm;h++;}
-    const fullMatch=tossAvail&&winAvail&&motmAvail;
+    const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
+    if(tA&&p.toss===m.result.toss){base+=PTS.toss;h++;}
+    if(wA&&p.win===m.result.win){base+=PTS.win;h++;}
+    if(mA&&motmMatch(p.motm,m.result.motm)){base+=PTS.motm;h++;}
+    const fullMatch=tA&&wA&&mA;
     if(fullMatch&&h===3)base+=PTS.streak;
     const mp=base*mult;if(h>0)ok++;pts+=mp;
     ms2[m.id]={pts:mp,h,perf:fullMatch&&h===3};
   });
-  const played=ms.filter(m=>m.result&&(uPicks[m.id]??uPicks[String(m.id)]));
+  const played=ms.filter(m=>m.result&&getP(uPicks,m.id));
   const last=played[played.length-1];
   return{pts,acc:tot?Math.round(ok/tot*100):0,ms2,hot:!!(last&&ms2[last.id]?.perf)};
 }
@@ -170,7 +170,7 @@ function calcBadges(uPicks,ms,allP){
   const perf=done.filter(m=>ms2[m.id]?.perf).length;
   if(perf>=1)b.push({id:"p1",ic:"🎯",lb:"Perfect Match"});
   if(perf>=3)b.push({id:"p3",ic:"🏅",lb:"Hat-Trick Hero"});
-  let ud=0;done.forEach(m=>{const p=uPicks[m.id]??uPicks[String(m.id)];if(!p||isNR(m.result.win)||p.win!==m.result.win)return;const allArr=Object.values(allP);const t2=allArr.filter(u=>u[m.id]||u[String(m.id)]).length||1;if(allArr.filter(u=>(u[m.id]??u[String(m.id)])?.win===m.result.win).length/t2<0.5)ud++;});
+  let ud=0;done.forEach(m=>{const p=getP(uPicks,m.id);if(!p||isNR(m.result.win)||p.win!==m.result.win)return;const allArr=Object.values(allP);const t2=allArr.filter(u=>getP(u,m.id)).length||1;if(allArr.filter(u=>getP(u,m.id)?.win===m.result.win).length/t2<0.5)ud++;});
   if(ud>=1)b.push({id:"ud",ic:"🐉",lb:"Underdog King"});
   if(done.filter(m=>ms2[m.id]?.h>=2).length>=3)b.push({id:"con",ic:"💪",lb:"Consistent"});
   if(Object.keys(uPicks).length>=10)b.push({id:"act",ic:"⚡",lb:"Active Predictor"});
@@ -250,9 +250,9 @@ function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=us
 </div>}</div>;}
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onPredict,onReact}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
   const lk=isMatchLocked(m,lockedMatches);
-  const mp=myPicks[m.id]??myPicks[String(m.id)];
+  const mp=getP(myPicks,m.id);
   const ct=cutoff(m);
   const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
   const cd=useCd(ct.getTime());
@@ -276,40 +276,19 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     earned=base*mult;
   }
 
-  // FIX: count picks correctly — allPicks keys are encoded emails, values are pick objects keyed by match id
   const allPicksArr=Object.entries(allPicks);
-  const tot=allPicksArr.filter(([,up])=>up[m.id]!=null||up[String(m.id)]!=null).length;
+  const tot=allPicksArr.filter(([,up])=>getP(up,m.id)!=null).length;
 
-  const sp=lk&&tot>0?{
+  /* group split bars — shown once locked & result toss available */
+  const sp=lk&&tot>0&&m.result&&!isNR(m.result.toss)?{
     tot,
-    tA:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.toss===m.home).length,
-    tB:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.toss===m.away).length,
-    wA:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.win===m.home).length,
-    wB:allPicksArr.filter(([,up])=>(up[m.id]??up[String(m.id)])?.win===m.away).length,
+    tA:allPicksArr.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
+    tB:allPicksArr.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
+    wA:allPicksArr.filter(([,up])=>getP(up,m.id)?.win===m.home).length,
+    wB:allPicksArr.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
   }:null;
 
   const isWashout=m.result&&(isNR(m.result.win)||isNR(m.result.motm));
-
-  // FIX: build all-predictions list — works whether allPicks keys are encoded or raw
-  // We match by comparing ek(u.email) against the allPicks key (which is already encoded)
-  const allPredsList=useMemo(()=>{
-    if(!lk||tot===0)return[];
-    return allPicksArr.map(([emk,up])=>{
-      const p=up[m.id]??up[String(m.id)];
-      if(!p)return null;
-      // find matching user: allPicks keys are encoded emails
-      const u=Object.values(users||{}).find(u2=>ek(u2.email)===emk);
-      const isMe=emk===ek(email);
-      const displayName=isMe?"You":(u?.name||decodeKey(emk));
-      const tA=!isNR(m.result?.toss),wA=!isNR(m.result?.win),mA=!isNR(m.result?.motm);
-      const tOk=!!(m.result&&tA&&p.toss===m.result.toss);
-      const wOk=!!(m.result&&wA&&p.win===m.result.win);
-      const mOk=!!(m.result&&mA&&motmMatch(p.motm,m.result.motm));
-      const isPerfect=!!(m.result&&tA&&wA&&mA&&tOk&&wOk&&mOk);
-      return{emk,p,isMe,displayName,tOk,wOk,mOk,isPerfect};
-    }).filter(Boolean).sort((a,b)=>(b.tOk+b.wOk+b.mOk)-(a.tOk+a.wOk+a.mOk)||(a.isMe?-1:b.isMe?1:0));
-  // eslint-disable-next-line
-  },[lk,tot,allPicks,users,email,m.id,m.result]);
 
   return<div className="mcard fade-in">
     <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
@@ -336,34 +315,16 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       <span style={{color:"#64748b"}}>POTM: </span><b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b>
       {mp&&<span style={{color:earned+mOv>0?"#15803d":"#94a3b8",fontWeight:700,float:"right",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14}}>+{earned+mOv}pts</span>}
     </div>}
-    {!m.result&&m.toss&&<div style={{background:"#EBF0FA",borderRadius:8,padding:"6px 12px",fontSize:12,marginBottom:8,color:"#1e40af"}}>🪙 Toss: <b>{m.toss}</b>{m.win&&!isNR(m.win)?<span> · 🏆 <b>{m.win}</b></span>:null}</div>}
-    {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>Locked: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
-    {sp&&!isNR(m.result?.toss)&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+    {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
+    {/* Group split bars — only after result is in */}
+    {sp&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
       <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
       <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
       <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
     </div>}
     {m.result&&<div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>{EMOJIK.map(k=>{const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);return<button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>{EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}</button>;})}</div>}
-
-    {/* ALL PREDICTIONS — shown once locked, regardless of whether result is in yet */}
-    {lk&&allPredsList.length>0&&<div style={{marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:10}}>
-      <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({allPredsList.length})</p>
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        {allPredsList.map(({emk,p,isMe,displayName,tOk,wOk,mOk,isPerfect})=>(
-          <div key={emk} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:8,background:isPerfect?"#f0fdf4":isMe?"#EBF0FA":"#f8faff",border:"1px solid "+(isPerfect?"#bbf7d0":isMe?"#bfdbfe":"#e2e8f0")}}>
-            <span style={{fontSize:11,fontWeight:isMe?700:400,color:isMe?"#1D428A":"#475569",minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayName}{isPerfect?" 🎯":""}</span>
-            <div style={{display:"flex",gap:3}}>
-              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(tOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(tOk?"#15803d":"#dc2626"):"#64748b"}}>🪙{p.toss}</span>
-              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(wOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(wOk?"#15803d":"#dc2626"):"#64748b"}}>🏆{p.win}</span>
-              <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:m.result?(mOk?"#dcfce7":"#fef2f2"):"#f1f5f9",color:m.result?(mOk?"#15803d":"#dc2626"):"#64748b"}}>⭐{p.motm?.split(" ").slice(-1)[0]||"—"}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>}
-
+    {/* Predict button — only if no pick yet and not locked */}
     {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
-    {pred&&!lk&&mp&&<button className="pbtn" style={{marginTop:10,background:"linear-gradient(135deg,#FF822A,#e07020)"}} onClick={()=>onPredict(m)}>✏️ Edit Prediction</button>}
     {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
   </div>;
 }
@@ -423,7 +384,7 @@ export default function App(){
 
   useEffect(()=>{
     if(!isAdmin||!user)return;
-    const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current){const newOnes=Object.values(pu).slice(lastPendingCount.current);newOnes.forEach(u=>toast2("🔔 "+u.name+" wants to join! Check Admin → Approvals","info"));}lastPendingCount.current=cnt;};
+    const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current){const newOnes=Object.values(pu).slice(lastPendingCount.current);newOnes.forEach(u=>toast2("🔔 "+u.name+" wants to join!","info"));}lastPendingCount.current=cnt;};
     poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
   },[isAdmin,user]);// eslint-disable-line
 
@@ -431,7 +392,17 @@ export default function App(){
     try{
       const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
       const cleanSp=normalizeKeyMap(sp);const cleanT4=normalizeKeyMap(t4);
-      const cleanAp={};if(ap)Object.keys(ap).forEach(k=>{cleanAp[canonicalKey(k)]=ap[k];});
+      const cleanAp={};
+      if(ap)Object.keys(ap).forEach(k=>{
+        const ck=canonicalKey(k);
+        const userPicks=ap[k];
+        // FIX M13: normalize all pick keys to strings inside each user's picks
+        if(userPicks&&typeof userPicks==="object"){
+          const normalized={};
+          Object.keys(userPicks).forEach(mid=>{normalized[String(mid)]=userPicks[mid];});
+          cleanAp[ck]=normalized;
+        }else{cleanAp[ck]=userPicks;}
+      });
       await Promise.all([DB.set("sp",cleanSp),DB.set("t4",cleanT4),DB.set("ap",cleanAp)]);
     }catch(e){console.error("repair",e);}
   },[]);
@@ -448,10 +419,18 @@ export default function App(){
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
 
-    // FIX: normalize allPicks so every key is a canonical encoded email
+    // FIX: normalize allPicks — canonical email keys + string match ids
     const rawAP=ap||{};
     const freshAP={};
-    Object.keys(rawAP).forEach(k=>{freshAP[canonicalKey(k)]=rawAP[k];});
+    Object.keys(rawAP).forEach(k=>{
+      const ck=canonicalKey(k);
+      const userPicks=rawAP[k];
+      if(userPicks&&typeof userPicks==="object"){
+        const normalized={};
+        Object.keys(userPicks).forEach(mid=>{normalized[String(mid)]=userPicks[mid];});
+        freshAP[ck]=normalized;
+      }else{freshAP[ck]=userPicks;}
+    });
     setAllPicks(freshAP);
     if(em)setMyPicks(freshAP[emk]||{});
 
@@ -460,7 +439,6 @@ export default function App(){
     if(br){setBracket(br);allMs=resolvePlayoffSlots(allMs,br);}else setBracket(null);
     const extraMs=(mn||[]).map(m=>{const mid=Number(m.id)||m.id;const r=rm&&(rm[mid]??rm[String(mid)]);return r?{...m,id:mid,...r}:{...m,id:mid};});
     setMs([...allMs,...extraMs]);
-
     if(b)setBc(b);if(cm)setChat(cm);
     const nsp=normalizeKeyMap(sp);setSpk(nsp);if(em)setMySp(nsp[emk]||"");
     if(sw2!=null)setSw(sw2);
@@ -520,7 +498,6 @@ export default function App(){
 
   async function persistSession(em){const token=Math.random().toString(36).slice(2)+Date.now().toString(36);await DB.set("token_"+ek(em),token);await DB.set("session",{email:em,token});setSessionEmail(em);}
 
-  /* COMPUTED */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
   const todayMs=useMemo(()=>ms.filter(isToday),[ms]);
   const upMs=useMemo(()=>ms.filter(m=>!m.result&&!isToday(m)&&!isTBD(m)),[ms]);
@@ -547,7 +524,6 @@ export default function App(){
 
   const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
-  /* AUTH */
   function clearAuthForm(){setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setShowForgotPw(false);setShowForgotPw2(false);}
 
   async function doLogin(){
@@ -604,7 +580,7 @@ export default function App(){
     const{freshAP,hasOnboarded}=await reloadShared(em);
     setMyPicks(freshAP[emk]||{});
     setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-    if(isNew||!hasOnboarded){setSc("onboard");}
+    if(isNew||!hasOnboarded)setSc("onboard");
     else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
   }
 
@@ -616,7 +592,6 @@ export default function App(){
     setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");
   }
 
-  /* ADMIN: APPROVE / REJECT */
   async function approveUser(emk){
     const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;
     delete pu[emk];
@@ -633,7 +608,6 @@ export default function App(){
     setPendingUsers({...pu});toast2(entry.name+" rejected","error");
   }
 
-  /* ONBOARDING */
   async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+myEk,{step,sp,t4});}
   async function doneOnboard(){
     if(!obSp){toast2("Pick a champion first","error");return;}if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}
@@ -643,14 +617,20 @@ export default function App(){
     setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");
   }
 
-  /* PICKS */
+  /* FIX: save picks with string match id keys always */
   async function submitPick(){
-    if(!am)return;const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
+    if(!am)return;
+    const freshRm=await DB.get("rm")||{};
+    const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
     if(KNOWN_RESULTS[am.id])freshMatch.result=KNOWN_RESULTS[am.id];
     if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}
-    if(!draft.toss||!draft.win){toast2("Pick toss and winner first","error");return;}if(!draft.motm){toast2("Select Player of the Match","error");return;}
-    const np={...myPicks,[am.id]:draft};const na={...allPicks,[myEk]:np};
-    setMyPicks(np);setAllPicks(na);await DB.set("ap",na);
+    if(!draft.toss||!draft.win){toast2("Pick toss and winner first","error");return;}
+    if(!draft.motm){toast2("Select Player of the Match","error");return;}
+    /* use string key so Firebase stores consistently and getP always finds it */
+    const np={...myPicks,[pickKey(am.id)]:draft};
+    const na={...allPicks,[myEk]:np};
+    setMyPicks(np);setAllPicks(na);
+    await DB.set("ap",na);
     toast2("Prediction locked! 🎯","ok");setAm(null);setSc("home");
   }
 
@@ -664,7 +644,6 @@ export default function App(){
   }
   async function delMsg(id){const latest=await DB.get("ch")||[];const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);}
 
-  /* ADMIN: RESULTS */
   async function savePartialResult(mid,field,value){
     const numMid=Number(mid)||mid;const rm=(await DB.get("rm"))||{};const existing=rm[numMid]||{};
     const updated={...existing,[field]:value};rm[numMid]=updated;await DB.set("rm",rm);
@@ -679,10 +658,15 @@ export default function App(){
     const rm=(await DB.get("rm"))||{};rm[numMid]={result,status:"completed"};await DB.set("rm",rm);
     setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});
     const freshAP=await DB.get("ap")||{};
-    // FIX: normalize freshAP before using it
-    const normalizedAP={};Object.keys(freshAP).forEach(k=>{normalizedAP[canonicalKey(k)]=freshAP[k];});
+    const normalizedAP={};
+    Object.keys(freshAP).forEach(k=>{
+      const ck=canonicalKey(k);const userPicks=freshAP[k];
+      if(userPicks&&typeof userPicks==="object"){const normalized={};Object.keys(userPicks).forEach(pk=>{normalized[String(pk)]=userPicks[pk];});normalizedAP[ck]=normalized;}
+      else normalizedAP[ck]=userPicks;
+    });
     const cu=await DB.get("u")||{};
-    const perfs=Object.entries(normalizedAP).filter(([emk,up])=>{const p=up[numMid]??up[String(numMid)];if(!p)return false;const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
+    const sidStr=String(numMid);
+    const perfs=Object.entries(normalizedAP).filter(([emk,up])=>{const p=up[sidStr];if(!p)return false;const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
     const matchObj=nm.find(x=>Number(x.id)===Number(mid));
     const isWashoutResult=isNR(result.win)||isNR(result.motm);
     const latest=await DB.get("ch")||[];
@@ -714,12 +698,13 @@ export default function App(){
 
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,users,onReact:reactFn,
     onPredict:(m)=>{
-      setAm(m);
-      const existing=myPicks[m.id]??myPicks[String(m.id)];
-      setDraft(existing?{...existing}:{});
-      setSc("picks");
+      // FIX: no editing — only allow predict if no pick exists yet
+      const existing=getP(myPicks,m.id);
+      if(existing){toast2("Prediction already locked! No edits allowed.","error");return;}
+      setAm(m);setDraft({});setSc("picks");
     }
   };
+
   const navItems=isAdmin
     ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
     :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
@@ -749,7 +734,6 @@ export default function App(){
     </div>
   </div>;
 
-  /* ════════ SCREENS ════════ */
   if(sc==="splash")return<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 20px"}}>
     <style>{CSS}</style>
     <img src={LOGOS.IPL} alt="IPL" style={{width:90,marginBottom:16,filter:"drop-shadow(0 0 20px rgba(255,255,255,.25))"}} onError={e=>e.target.style.display="none"}/>
@@ -760,14 +744,7 @@ export default function App(){
     <div style={{display:"flex",alignItems:"center",gap:8,color:"rgba(255,255,255,.6)",fontSize:12}}><span className="spin" style={{fontSize:16}}>⚙</span> Loading…</div>
   </div>;
 
-  if(sc==="pending_approval")return<div className="app"><style>{CSS}</style>
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}>
-      <span style={{fontSize:52,marginBottom:16}}>⏳</span>
-      <p className="C" style={{color:"#1D428A",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>PENDING APPROVAL</p>
-      <p style={{color:"#64748b",fontSize:14,marginTop:12,lineHeight:1.6}}>Your registration is awaiting admin approval. You'll be able to sign in once approved.</p>
-      <button onClick={()=>setSc("login")} style={{marginTop:28,padding:"12px 28px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>← Back to Sign In</button>
-    </div>
-  </div>;
+  if(sc==="pending_approval")return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}><span style={{fontSize:52,marginBottom:16}}>⏳</span><p className="C" style={{color:"#1D428A",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>PENDING APPROVAL</p><p style={{color:"#64748b",fontSize:14,marginTop:12,lineHeight:1.6}}>Your registration is awaiting admin approval.</p><button onClick={()=>setSc("login")} style={{marginTop:28,padding:"12px 28px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>← Back to Sign In</button></div></div>;
 
   if(sc==="login")return<div className="app"><style>{CSS}</style>
     <div style={{background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",padding:"32px 24px 28px",textAlign:"center"}}>
@@ -780,26 +757,9 @@ export default function App(){
       </div>
     </div>
     <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:14}}>
-      {authMode==="login"&&<>
-        <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-        <button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button>
-        <p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p>
-      </>}
-      {authMode==="register"&&<>
-        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval before you can play.</div>
-        <div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div>
-        <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
-        <button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button>
-        <p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p>
-      </>}
-      {authMode==="forgot"&&<>
-        {forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}
-        {forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}
-        <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button>
-      </>}
+      {authMode==="login"&&<><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p></>}
+      {authMode==="register"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval before you can play.</div><div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p></>}
+      {authMode==="forgot"&&<>{forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}{forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}<button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button></>}
     </div>
     {toast&&<Tst t={toast}/>}
   </div>;
@@ -814,14 +774,13 @@ export default function App(){
   </div>;
 
   if(sc==="picks"&&am){
-    const isEditing=!!(myPicks[am.id]??myPicks[String(am.id)]);
     return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
     <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
       <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
-      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST · {isEditing?"Editing pick":"New prediction"}</p></div><TLogo t={am.away} sz={28}/>
+      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/>
     </div>
-    <div style={{background:isEditing?"#FFF9E6":"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid "+(isEditing?"#FDE68A":"#dbeafe")}}>
-      <span style={{color:isEditing?"#92400E":"#1D428A",fontSize:12}}>{isEditing?"✏️ Editing your prediction — changes allowed until lock":"All 3 correct = +"+PTS.streak+"pts bonus · Predictions are final after lock"}</span>
+    <div style={{background:"#EBF0FA",padding:"8px 16px",borderBottom:"1px solid #dbeafe"}}>
+      <span style={{color:"#1D428A",fontSize:12}}>⚠️ Once locked, predictions are final. No edits allowed.</span>
     </div>
     <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
       {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
@@ -835,9 +794,7 @@ export default function App(){
         {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
         <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
       </div>}
-      <button className="lbtn" style={{background:isEditing?"linear-gradient(135deg,#FF822A,#e07020)":"linear-gradient(135deg,#1D428A,#2a5bbf)"}} onClick={submitPick}>
-        {isEditing?"Update Prediction ✏️":"Lock Prediction 🔒"}
-      </button>
+      <button className="lbtn" onClick={submitPick}>Lock Prediction 🔒</button>
     </div>
     {toast&&<Tst t={toast}/>}
   </div>;}
@@ -852,7 +809,6 @@ export default function App(){
       {[["🎯","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<3?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:12,margin:0}}>{p}<span style={{fontSize:9,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:9,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
     </div>
 
-    {/* HOME */}
     {sc==="home"&&<>
       <div style={{display:"flex",background:"#fff",borderBottom:"1px solid #e2e8f0"}}>
         {[["today","Today ("+todayMs.length+")"],["done","Results ("+done.length+")"],["up","Schedule ("+upMs.length+")"],["season","Season"]].map(([t,l])=><button key={t} className={"tbtn"+(htab===t?" on":"")} onClick={()=>setHtab(t)}>{l}</button>)}
@@ -861,7 +817,7 @@ export default function App(){
         {htab==="today"&&(todayMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>🏏</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO MATCHES TODAY</p></div>:todayMs.map(m=><MCard key={m.id} m={m} pred={true} {...cardProps}/>))}
         {htab==="done"&&(done.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>⏳</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO RESULTS YET</p></div>:[...done].reverse().map(m=><MCard key={m.id} m={m} pred={false} {...cardProps}/>))}
         {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>{
-          const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
+          const hasPick=!!getP(myPicks,m.id);
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
@@ -877,73 +833,39 @@ export default function App(){
         }))}
         {htab==="season"&&<div>
           <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:2,margin:0}}>MY SEASON PICKS</p></div>
-          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-            <p className="st">IPL 2026 CHAMPION</p>
-            <div style={{display:"flex",alignItems:"center",gap:14}}>{mySp?<TLogo t={mySp} sz={50}/>:<div style={{width:50,height:50,borderRadius:10,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>?</div>}<div><p className="C" style={{color:"#1a2540",fontSize:18,fontWeight:800,margin:0}}>{mySp||"Not set"}</p>{sw&&mySp&&<p style={{color:mySp===sw?"#15803d":"#dc2626",fontSize:13,fontWeight:700,marginTop:6}}>{mySp===sw?"✅ Correct! +200pts":"❌ Better luck next time"}</p>}{!sw&&mySp&&<p style={{color:"#94a3b8",fontSize:11,marginTop:4}}>Worth +{PTS.season}pts at season end</p>}</div></div>
-          </div>
-          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
-            <p className="st">MY TOP 4 PICKS</p>
-            {myT4&&myT4.length>0?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:8,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:13,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={28}/><span className="C" style={{color:"#1D428A",fontSize:14,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:13}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
-          </div>
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}><p className="st">IPL 2026 CHAMPION</p><div style={{display:"flex",alignItems:"center",gap:14}}>{mySp?<TLogo t={mySp} sz={50}/>:<div style={{width:50,height:50,borderRadius:10,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>?</div>}<div><p className="C" style={{color:"#1a2540",fontSize:18,fontWeight:800,margin:0}}>{mySp||"Not set"}</p>{sw&&mySp&&<p style={{color:mySp===sw?"#15803d":"#dc2626",fontSize:13,fontWeight:700,marginTop:6}}>{mySp===sw?"✅ Correct! +200pts":"❌ Better luck next time"}</p>}{!sw&&mySp&&<p style={{color:"#94a3b8",fontSize:11,marginTop:4}}>Worth +{PTS.season}pts at season end</p>}</div></div></div>
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}><p className="st">MY TOP 4 PICKS</p>{myT4&&myT4.length>0?<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:8,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:13,fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={28}/><span className="C" style={{color:"#1D428A",fontSize:14,fontWeight:700}}>{t}</span>{sw&&<span style={{fontSize:13}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}</div>
         </div>}
       </div>
     </>}
 
-    {/* LEADERBOARD */}
     {sc==="lb"&&<div style={{padding:"16px"}}>
-      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
-        <p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p>
-        <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p>
-      </div>
-      {done.length>0&&(()=>{
-        const lb=getLb();
-        // FIX: use allPicks entries (encoded keys) directly for counting
-        const allPicksEntries=Object.entries(allPicks);
-        const totalPicks=allPicksEntries.reduce((s,[,u])=>s+Object.keys(u).length,0);
-        const totalPerfs=done.reduce((s,m)=>s+allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);
-        const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;
-        return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPicks,"Picks"],["🎯",totalPerfs,"Perfects"],["📊",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;
-      })()}
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p></div>
+      {done.length>0&&(()=>{const lb=getLb();const ae=Object.entries(allPicks);const totalPicks=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPicks,"Picks"],["🎯",totalPerfs,"Perfects"],["📊",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
       {getLb().map((u,i)=>(
         <div key={u.email} style={{background:u.email===email?"#EBF0FA":"#fff",border:"1px solid "+(u.email===email?"#1D428A60":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,boxShadow:"0 1px 4px rgba(29,66,138,.06)"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:32,flexShrink:0}}>
-              <span style={{fontSize:i<3?18:13}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
-              {i<3&&<span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:10,color:i===0?"#D4AF37":i===1?"#94a3b8":"#b45309"}}>#{i+1}</span>}
-            </div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:32,flexShrink:0}}><span style={{fontSize:i<3?18:13}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>{i<3&&<span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:10,color:i===0?"#D4AF37":i===1?"#94a3b8":"#b45309"}}>#{i+1}</span>}</div>
             <Av name={u.name} sz={30}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:5}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}</p>{u.hot&&<span style={{fontSize:13}}>🔥</span>}</div>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}><span style={{fontSize:10,color:"#64748b"}}>{u.acc}% accurate</span>{(u.bgs||[]).slice(0,2).map(b=><span key={b.id} className="bp">{b.ic} {b.lb}</span>)}</div>
-            </div>
-            <div style={{textAlign:"right",flexShrink:0}}>
-              <p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0,letterSpacing:1}}>{u.pts}</p>
-              {(getManualAdj(u.email)+getMatchOverride(u.email))!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{getManualAdj(u.email)+getMatchOverride(u.email)>0?"+":""}{getManualAdj(u.email)+getMatchOverride(u.email)} adj</p>}
-            </div>
+            <div style={{flex:1,minWidth:0}}><div style={{display:"flex",alignItems:"center",gap:5}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}</p>{u.hot&&<span style={{fontSize:13}}>🔥</span>}</div><div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}><span style={{fontSize:10,color:"#64748b"}}>{u.acc}% accurate</span>{(u.bgs||[]).slice(0,2).map(b=><span key={b.id} className="bp">{b.ic} {b.lb}</span>)}</div></div>
+            <div style={{textAlign:"right",flexShrink:0}}><p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,margin:0,letterSpacing:1}}>{u.pts}</p>{(getManualAdj(u.email)+getMatchOverride(u.email))!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{getManualAdj(u.email)+getMatchOverride(u.email)>0?"+":""}{getManualAdj(u.email)+getMatchOverride(u.email)} adj</p>}</div>
           </div>
           <div style={{display:"flex",gap:8,borderTop:"1px solid #f1f5f9",paddingTop:8,flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>
-              {u.userSp?<><TLogo t={u.userSp} sz={16}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw&&u.userSp===sw?"#15803d":"#1D428A"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>
-              {(u.userT4||[]).length>0?(u.userT4||[]).map(t=><TLogo key={t} t={t} sz={16}/>):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
-            </div>
+            <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>{u.userSp?<><TLogo t={u.userSp} sz={16}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw&&u.userSp===sw?"#15803d":"#1D428A"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>{(u.userT4||[]).length>0?(u.userT4||[]).map(t=><TLogo key={t} t={t} sz={16}/>):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
           </div>
         </div>
       ))}
       {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
     </div>}
 
-    {/* MY GAME */}
     {sc==="picks"&&!am&&(()=>{
-      const played=ms.filter(m=>m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
-      const pending=ms.filter(m=>!m.result&&(myPicks[m.id]??myPicks[String(m.id)]));
+      const played=ms.filter(m=>m.result&&getP(myPicks,m.id));
+      const pending=ms.filter(m=>!m.result&&getP(myPicks,m.id));
       const schedule=ms.filter(m=>!m.result&&!isTBD(m)&&!isToday(m));
       let totalPts=0,perfect=0,streakCur=0,streakBest=0;
       const rows=played.map(m=>{
-        const p=myPicks[m.id]??myPicks[String(m.id)];const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);const mult=isDouble?2:1;
+        const p=getP(myPicks,m.id);const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);const mult=isDouble?2:1;
         const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
         const tossOk=tA&&p.toss===m.result.toss,winOk=wA&&p.win===m.result.win,motmOk=mA&&motmMatch(p.motm,m.result.motm);
         const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tossOk,winOk,motmOk].filter(Boolean).length;
@@ -961,144 +883,46 @@ export default function App(){
       const motmAcc=rows.filter(r=>r.mA).length?Math.round(rows.filter(r=>r.motmOk).length/rows.filter(r=>r.mA).length*100):0;
       return<div style={{padding:"16px"}}>
         <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>MY GAME</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{Object.keys(myPicks).length} predictions made</p></div>
-            <p className="C" style={{color:"#FFE57F",fontSize:28,fontWeight:800,margin:0}}>{myPts}</p>
-          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>MY GAME</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{Object.keys(myPicks).length} predictions made</p></div><p className="C" style={{color:"#FFE57F",fontSize:28,fontWeight:800,margin:0}}>{myPts}</p></div>
           <div style={{display:"flex",gap:6}}>{[["🏏",rows.length,"Played"],["⭐",totalPts,"Pts"],["🎯",perfect,"Perfect"],["📊",acc+"%","Acc"]].map(([ic,val,lbl])=><div key={lbl} className="stat-mini"><p style={{fontSize:13,margin:0}}>{ic}</p><p className="C" style={{color:"#FFE57F",fontSize:15,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#bfdbfe",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>
           {streakBest>=2&&<div style={{marginTop:10,background:"rgba(255,229,127,.15)",borderRadius:8,padding:"6px 12px",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>🔥</span><span style={{color:"#FFE57F",fontSize:12,fontWeight:600}}>Best perfect streak: {streakBest} in a row</span></div>}
         </div>
-        {rows.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">PREDICTION ACCURACY</p>
-          {[["🪙 Toss",tossAcc,"#1D428A"],["🏆 Winner",winAcc,"#15803d"],["⭐ POTM",motmAcc,"#B8860B"]].map(([lbl,pct,clr])=><div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{pct}%</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>)}
-        </div>}
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">SEASON PICKS</p>
-          <div style={{display:"flex",gap:10}}>
-            <div style={{flex:1,background:"#f8faff",border:"1px solid #dbeafe",borderRadius:10,padding:"10px 12px"}}>
-              <p style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>🏆 Champion</p>
-              {mySp?<div style={{display:"flex",alignItems:"center",gap:8}}><TLogo t={mySp} sz={28}/><div><p className="C" style={{color:"#1D428A",fontSize:14,fontWeight:800,margin:0}}>{mySp}</p><p style={{color:sw?(mySp===sw?"#15803d":"#dc2626"):"#94a3b8",fontSize:10,fontWeight:600,margin:0}}>{sw?(mySp===sw?"✅ +200pts":"❌"):"Pending"}</p></div></div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not set</p>}
-            </div>
-            <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}>
-              <p style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>🏅 Top 4</p>
-              {myT4&&myT4.length>0?<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:4,background:"#fff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={18}/><span className="C" style={{fontSize:11,fontWeight:700,color:"#1D428A"}}>{t}</span>{sw&&<span style={{fontSize:10}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not set</p>}
-            </div>
+        {rows.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}><p className="st">PREDICTION ACCURACY</p>{[["🪙 Toss",tossAcc,"#1D428A"],["🏆 Winner",winAcc,"#15803d"],["⭐ POTM",motmAcc,"#B8860B"]].map(([lbl,pct,clr])=><div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{pct}%</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>)}</div>}
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}><p className="st">SEASON PICKS</p><div style={{display:"flex",gap:10}}><div style={{flex:1,background:"#f8faff",border:"1px solid #dbeafe",borderRadius:10,padding:"10px 12px"}}><p style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>🏆 Champion</p>{mySp?<div style={{display:"flex",alignItems:"center",gap:8}}><TLogo t={mySp} sz={28}/><div><p className="C" style={{color:"#1D428A",fontSize:14,fontWeight:800,margin:0}}>{mySp}</p><p style={{color:sw?(mySp===sw?"#15803d":"#dc2626"):"#94a3b8",fontSize:10,fontWeight:600,margin:0}}>{sw?(mySp===sw?"✅ +200pts":"❌"):"Pending"}</p></div></div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not set</p>}</div><div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px"}}><p style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>🏅 Top 4</p>{myT4&&myT4.length>0?<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:4,background:"#fff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:700}}>#{i+1}</span><TLogo t={t} sz={18}/><span className="C" style={{fontSize:11,fontWeight:700,color:"#1D428A"}}>{t}</span>{sw&&<span style={{fontSize:10}}>{t===sw?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Not set</p>}</div></div></div>
+        <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0"}}>{[["pending","Pending ("+pending.length+")"],["results","History ("+rows.length+")"],["schedule","Schedule ("+schedule.length+")"]].map(([t,l])=><button key={t} className={"at"+(ptab===t?" on":"")} onClick={()=>setPtab(t)} style={{fontSize:10}}>{l}</button>)}</div>
+        {ptab==="pending"&&<>{pending.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No predictions awaiting results.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);const lk=isMatchLocked(m,lockedMatches);const ct=cutoff(m);const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div>{!lk?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Open till {cStr}</span>:<span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>🔒 Locked</span>}</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss],["Win",p?.win],["POTM",p?.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}</div></div>;})}</>}
+        {ptab==="results"&&<>{rows.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>📜</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No completed predictions yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv,tA,wA,mA})=>(
+          <div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,position:"relative",overflow:"hidden"}}>
+            {isPerfect&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#22c55e,#16a34a)"}}/>}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date}</p><p style={{color:"#64748b",fontSize:11,margin:"1px 0 0"}}>Win: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></p></div><div style={{textAlign:"right",flexShrink:0}}><p className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:20,fontWeight:800,margin:0}}>{pts>0?"+":""}{pts}</p><p style={{color:"#94a3b8",fontSize:9,margin:0,textTransform:"uppercase"}}>pts{mult>1?" 2×":""}</p></div></div>
+            <div style={{display:"flex",gap:6}}>{[["Toss",p.toss,tossOk,m.result.toss,tA],["Winner",p.win,winOk,m.result.win,wA],["POTM",p.motm?.split(" ").slice(-1)[0],motmOk,m.result.motm?.split(" ").slice(-1)[0],mA]].map(([lbl,val,ok,actual,avail])=>(<div key={lbl} style={{flex:1,background:!avail?"#f8faff":ok?"#f0fdf4":"#fef2f2",border:"1px solid "+(!avail?"#e2e8f0":ok?"#bbf7d0":"#fecaca"),borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{color:"#94a3b8",fontSize:9,fontWeight:600,textTransform:"uppercase",margin:"0 0 3px"}}>{lbl}</p><p style={{color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",fontSize:11,fontWeight:700,margin:0}}>{!avail?"🌧":(ok?"✓":"✗")} {val||"—"}</p>{avail&&!ok&&<p style={{color:"#94a3b8",fontSize:9,margin:"2px 0 0"}}>was {actual}</p>}</div>))}</div>
+            {isPerfect&&<div style={{marginTop:8,background:"#f0fdf4",borderRadius:6,padding:"5px 10px",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12}}>🎯</span><span style={{color:"#15803d",fontSize:11,fontWeight:700}}>Perfect! +{PTS.streak}pts streak bonus</span></div>}
+            {mOv!==0&&<p style={{color:"#FF822A",fontSize:10,fontWeight:600,margin:"6px 0 0"}}>Admin adj: {mOv>0?"+":""}{mOv} pts</p>}
           </div>
-        </div>
-        <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0"}}>
-          {[["pending","Pending ("+pending.length+")"],["results","History ("+rows.length+")"],["schedule","Schedule ("+schedule.length+")"]].map(([t,l])=><button key={t} className={"at"+(ptab===t?" on":"")} onClick={()=>setPtab(t)} style={{fontSize:10}}>{l}</button>)}
-        </div>
-        {ptab==="pending"&&<>
-          {pending.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No predictions awaiting results.</p></div>
-          :pending.map(m=>{
-            const p=myPicks[m.id]??myPicks[String(m.id)];
-            const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);
-            const lk=isMatchLocked(m,lockedMatches);
-            const ct=cutoff(m);
-            const cStr=ct.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
-            return<div key={m.id} style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/>
-                <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.home} vs {m.away}{isDouble?" ⚡":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>📍 {m.venue}</p></div>
-                {!lk?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:12,flexShrink:0}}>Open till {cStr}</span>:<span style={{background:"#FDE68A",color:"#92400E",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:12,flexShrink:0}}>🔒 Locked</span>}
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:!lk?8:0}}>
-                {[["Toss",p.toss],["Win",p.win],["POTM",p.motm]].map(([l,v])=><span key={l} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#92400E"}}>{l}: <b>{v||"—"}</b></span>)}
-              </div>
-              {!lk&&<button onClick={()=>cardProps.onPredict(m)} style={{width:"100%",padding:"8px",borderRadius:8,background:"linear-gradient(135deg,#FF822A,#e07020)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:.5}}>✏️ Edit Prediction</button>}
-            </div>;
-          })}
-        </>}
-        {ptab==="results"&&<>
-          {rows.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>📜</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No completed predictions yet.</p></div>
-          :[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv,tA,wA,mA})=>(
-            <div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,position:"relative",overflow:"hidden"}}>
-              {isPerfect&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#22c55e,#16a34a)"}}/>}
-              {(isNR(m.result.win)||isNR(m.result.motm))&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#94a3b8,#64748b)"}}/>}
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={22}/>
-                <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date}{(isNR(m.result.win)||isNR(m.result.motm))?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:"1px 0 0"}}>Win: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></p></div>
-                <div style={{textAlign:"right",flexShrink:0}}><p className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:20,fontWeight:800,margin:0}}>{pts>0?"+":""}{pts}</p><p style={{color:"#94a3b8",fontSize:9,margin:0,textTransform:"uppercase"}}>pts{mult>1?" 2×":""}</p></div>
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                {[["Toss",p.toss,tossOk,m.result.toss,tA],["Winner",p.win,winOk,m.result.win,wA],["POTM",p.motm?.split(" ").slice(-1)[0],motmOk,m.result.motm?.split(" ").slice(-1)[0],mA]].map(([lbl,val,ok,actual,avail])=>(
-                  <div key={lbl} style={{flex:1,background:!avail?"#f8faff":ok?"#f0fdf4":"#fef2f2",border:"1px solid "+(!avail?"#e2e8f0":ok?"#bbf7d0":"#fecaca"),borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
-                    <p style={{color:"#94a3b8",fontSize:9,fontWeight:600,textTransform:"uppercase",margin:"0 0 3px"}}>{lbl}</p>
-                    <p style={{color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",fontSize:11,fontWeight:700,margin:0}}>{!avail?"🌧":(ok?"✓":"✗")} {val||"—"}</p>
-                    {avail&&!ok&&<p style={{color:"#94a3b8",fontSize:9,margin:"2px 0 0"}}>was {actual}</p>}
-                  </div>
-                ))}
-              </div>
-              {isPerfect&&<div style={{marginTop:8,background:"#f0fdf4",borderRadius:6,padding:"5px 10px",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12}}>🎯</span><span style={{color:"#15803d",fontSize:11,fontWeight:700}}>Perfect! +{PTS.streak}pts streak bonus</span></div>}
-              {mOv!==0&&<p style={{color:"#FF822A",fontSize:10,fontWeight:600,margin:"6px 0 0"}}>Admin adj: {mOv>0?"+":""}{mOv} pts</p>}
-            </div>
-          ))}
-        </>}
-        {ptab==="schedule"&&<>
-          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start time.</span></div>
-          {schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>
-          :schedule.map(m=>{
-            const hasPick=!!(myPicks[m.id]??myPicks[String(m.id)]);
-            return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
-                {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>
-                :<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div>
-                <span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span>
-                <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div>
-              </div>
-              <p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p>
-            </div>;
-          })}
-        </>}
+        ))}</>}
+        {ptab==="schedule"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start time.</span></div>{schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>:schedule.map(m=>{const hasPick=!!getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}</div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div><span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span><div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div></div><p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p></div>;})}</>}
       </div>;
     })()}
 
-    {/* CHAT */}
     {sc==="chat"&&<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 134px)"}}>
-      <div style={{padding:"10px 16px 8px",borderBottom:"1px solid #e2e8f0",background:"#fff"}}>
-        <p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,letterSpacing:1,margin:0}}>GROUP CHAT</p>
-        <p style={{color:"#64748b",fontSize:11,margin:"2px 0 6px"}}>{Object.values(users).filter(u=>u.approved!==false).length} players · <span style={{color:"#22c55e",fontWeight:600}}>{Object.keys(onlineUsers).length} online</span>{chatMuted?" · 🔇":""}</p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{Object.values(users).filter(u=>u.approved!==false).map(u=>{const isOnline=!!(onlineUsers[ek(u.email)]);return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:isOnline?"#f0fdf4":"#f8faff",border:"1px solid "+(isOnline?"#bbf7d0":"#e2e8f0"),borderRadius:20,padding:"3px 8px"}}><div style={{width:6,height:6,borderRadius:"50%",background:isOnline?"#22c55e":"#cbd5e1",flexShrink:0}}/><span style={{fontSize:10,fontWeight:600,color:isOnline?"#15803d":"#94a3b8"}}>{u.name.split(" ")[0]}</span></div>;})}</div>
-      </div>
-      <div style={{flex:1,overflowY:"auto",padding:"14px",display:"flex",flexDirection:"column",gap:8,background:"#F4F6FB"}}>
-        {chat.length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><span style={{fontSize:36}}>💬</span><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700,letterSpacing:1,marginTop:12}}>NO MESSAGES YET</p></div>}
-        {chat.map(msg=>{const im=msg.email===email,is=msg.sys;return<div key={msg.id} className={"chat-row "+(is?"sys":im?"me":"them")}>
-          {!im&&!is&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={msg.name} sz={16}/><span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{msg.name}</span></div>}
-          <div className={"bubble "+(is?"sys":im?"me":"them")}>{msg.text}{isAdmin&&!is&&<button onClick={()=>delMsg(msg.id)} style={{background:"none",border:"none",color:im?"rgba(255,255,255,.4)":"#94a3b8",fontSize:10,cursor:"pointer",marginLeft:8,padding:0,verticalAlign:"middle"}}>×</button>}</div>
-          <span style={{color:"#94a3b8",fontSize:10}}>{new Date(msg.ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true})}</span>
-        </div>;})}
-        <div ref={chatRef}/>
-      </div>
-      <div style={{padding:"10px 14px 12px",borderTop:"1px solid #e2e8f0",background:"#fff"}}>
-        <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
-          <input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} placeholder={chatMuted||(mutedUsers||{})[myEk]?"Chat is muted":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[myEk]} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()} style={{flex:1,padding:"10px 14px",borderRadius:24}}/>
-          <button onClick={sendChat} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>&#10148;</button>
-        </div>
-        {chatIn.length>CHAT_MAX*0.8&&<p className="charcnt">{chatIn.length}/{CHAT_MAX}</p>}
-      </div>
+      <div style={{padding:"10px 16px 8px",borderBottom:"1px solid #e2e8f0",background:"#fff"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,letterSpacing:1,margin:0}}>GROUP CHAT</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 6px"}}>{Object.values(users).filter(u=>u.approved!==false).length} players · <span style={{color:"#22c55e",fontWeight:600}}>{Object.keys(onlineUsers).length} online</span>{chatMuted?" · 🔇":""}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{Object.values(users).filter(u=>u.approved!==false).map(u=>{const isOnline=!!(onlineUsers[ek(u.email)]);return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:isOnline?"#f0fdf4":"#f8faff",border:"1px solid "+(isOnline?"#bbf7d0":"#e2e8f0"),borderRadius:20,padding:"3px 8px"}}><div style={{width:6,height:6,borderRadius:"50%",background:isOnline?"#22c55e":"#cbd5e1",flexShrink:0}}/><span style={{fontSize:10,fontWeight:600,color:isOnline?"#15803d":"#94a3b8"}}>{u.name.split(" ")[0]}</span></div>;})}</div></div>
+      <div style={{flex:1,overflowY:"auto",padding:"14px",display:"flex",flexDirection:"column",gap:8,background:"#F4F6FB"}}>{chat.length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><span style={{fontSize:36}}>💬</span><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700,letterSpacing:1,marginTop:12}}>NO MESSAGES YET</p></div>}{chat.map(msg=>{const im=msg.email===email,is=msg.sys;return<div key={msg.id} className={"chat-row "+(is?"sys":im?"me":"them")}>{!im&&!is&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={msg.name} sz={16}/><span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{msg.name}</span></div>}<div className={"bubble "+(is?"sys":im?"me":"them")}>{msg.text}{isAdmin&&!is&&<button onClick={()=>delMsg(msg.id)} style={{background:"none",border:"none",color:im?"rgba(255,255,255,.4)":"#94a3b8",fontSize:10,cursor:"pointer",marginLeft:8,padding:0,verticalAlign:"middle"}}>×</button>}</div><span style={{color:"#94a3b8",fontSize:10}}>{new Date(msg.ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true})}</span></div>;})}
+        <div ref={chatRef}/></div>
+      <div style={{padding:"10px 14px 12px",borderTop:"1px solid #e2e8f0",background:"#fff"}}><div style={{display:"flex",gap:10,alignItems:"flex-end"}}><input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} placeholder={chatMuted||(mutedUsers||{})[myEk]?"Chat is muted":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[myEk]} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()} style={{flex:1,padding:"10px 14px",borderRadius:24}}/><button onClick={sendChat} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>&#10148;</button></div>{chatIn.length>CHAT_MAX*0.8&&<p className="charcnt">{chatIn.length}/{CHAT_MAX}</p>}</div>
     </div>}
 
-    {/* WALL OF FAME */}
     {sc==="wof"&&<div style={{padding:"16px"}}>
-      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
-        <p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p>
-        <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Season honours · {done.length} matches completed</p>
-      </div>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Season honours · {done.length} matches completed</p></div>
       {done.length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40}}>🏆</p><p style={{color:"#94a3b8",fontSize:14,marginTop:12}}>Wall of Fame fills as matches complete.</p></div>}
       {done.length>0&&(()=>{
         const stats={};
         Object.values(users).forEach(u=>{if(u.approved===false)return;const emk=ek(u.email);stats[emk]={name:u.name,emk,perfects:0,totalPts:0,streak:0,bestStreak:0,mvpCount:0};});
+        const ae=Object.entries(allPicks);
         const matchMvps={},matchPerfs={},matchBest={};
-        // FIX: use allPicks entries (already encoded) directly
-        const allPicksEntries=Object.entries(allPicks);
         done.forEach(m=>{
           const perMid=[];
-          allPicksEntries.forEach(([emk,up])=>{
-            const p=up[m.id]??up[String(m.id)];if(!p)return;
+          ae.forEach(([emk,up])=>{
+            const p=getP(up,m.id);if(!p)return;
             const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
             let base=0;
             if(tA&&p.toss===m.result.toss)base+=PTS.toss;
@@ -1116,200 +940,78 @@ export default function App(){
           matchMvps[m.id]=mvps;mvps.forEach(({emk})=>{if(stats[emk])stats[emk].mvpCount++;});
           matchBest[m.id]=perMid.sort((a,b)=>b.pts-a.pts).slice(0,3).filter(x=>x.pts>0).map(x=>({emk:x.emk,name:stats[x.emk]?.name||x.emk,pts:x.pts,isPerfect:x.isPerfect}));
         });
-        Object.keys(stats).forEach(emk=>{let cur=0,best=0;done.forEach(m=>{const up=allPicks[emk]||{};const p=up[m.id]??up[String(m.id)];const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p?.toss===m.result.toss,wA&&p?.win===m.result.win,mA&&p&&motmMatch(p.motm,m.result.motm)].filter(Boolean).length;const isPerfect=p&&avail===3&&correct===3;if(isPerfect){cur++;best=Math.max(best,cur);}else cur=0;});stats[emk].streak=cur;stats[emk].bestStreak=best;});
+        Object.keys(stats).forEach(emk=>{let cur=0,best=0;done.forEach(m=>{const up=allPicks[emk]||{};const p=getP(up,m.id);const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tA&&p?.toss===m.result.toss,wA&&p?.win===m.result.win,mA&&p&&motmMatch(p.motm,m.result.motm)].filter(Boolean).length;const isPerfect=p&&avail===3&&correct===3;if(isPerfect){cur++;best=Math.max(best,cur);}else cur=0;});stats[emk].streak=cur;stats[emk].bestStreak=best;});
         const statArr=Object.values(stats).filter(s=>s.totalPts>0);
         const byPerf=[...statArr].sort((a,b)=>b.perfects-a.perfects||b.totalPts-a.totalPts);
         const byMvp=[...statArr].sort((a,b)=>b.mvpCount-a.mvpCount||b.totalPts-a.totalPts).filter(s=>s.mvpCount>0);
         const byStreak=[...statArr].sort((a,b)=>b.bestStreak-a.bestStreak||b.perfects-a.perfects).filter(s=>s.bestStreak>=2);
-        const HallRow=({s,i,val,color,suffix=""})=><div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
-          <span style={{fontSize:i<3?18:13,width:28,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
-          <Av name={s.name} sz={28}/>
-          <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{s.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{s.perfects} perfects · {s.totalPts} pts{s.streak>0?` · 🔥 ${s.streak} active`:""}</p></div>
-          <span style={{background:color+"22",color,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,padding:"3px 10px",borderRadius:10,flexShrink:0}}>{val}{suffix}</span>
-        </div>;
+        const HallRow=({s,i,val,color,suffix=""})=><div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}><span style={{fontSize:i<3?18:13,width:28,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span><Av name={s.name} sz={28}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{s.name}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{s.perfects} perfects · {s.totalPts} pts{s.streak>0?` · 🔥 ${s.streak} active`:""}</p></div><span style={{background:color+"22",color,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,padding:"3px 10px",borderRadius:10,flexShrink:0}}>{val}{suffix}</span></div>;
         return<>
-          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-            <p className="st">🎯 PERFECT PICK HALL</p>
-            {byPerf.filter(s=>s.perfects>0).length===0?<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No perfect picks yet — get all 3 right in one match!</p>:byPerf.filter(s=>s.perfects>0).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.perfects+"×"} color="#1D428A"/>)}
-          </div>
-          {byMvp.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-            <p className="st">⭐ MATCH MVP HALL</p>
-            <p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Most times top scorer in a match</p>
-            {byMvp.slice(0,5).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.mvpCount+"×"} color="#92400E"/>)}
-          </div>}
-          {byStreak.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-            <p className="st">🔥 BEST STREAK HALL</p>
-            <p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Longest run of consecutive perfect picks</p>
-            {byStreak.slice(0,5).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.bestStreak} suffix="🔥" color="#dc2626"/>)}
-          </div>}
+          <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><p className="st">🎯 PERFECT PICK HALL</p>{byPerf.filter(s=>s.perfects>0).length===0?<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No perfect picks yet!</p>:byPerf.filter(s=>s.perfects>0).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.perfects+"×"} color="#1D428A"/>)}</div>
+          {byMvp.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><p className="st">⭐ MATCH MVP HALL</p><p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Most times top scorer in a match</p>{byMvp.slice(0,5).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.mvpCount+"×"} color="#92400E"/>)}</div>}
+          {byStreak.length>0&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><p className="st">🔥 BEST STREAK HALL</p><p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>Longest run of consecutive perfect picks</p>{byStreak.slice(0,5).map((s,i)=><HallRow key={s.emk} s={s} i={i} val={s.bestStreak} suffix="🔥" color="#dc2626"/>)}</div>}
           <p className="st" style={{marginTop:4}}>MATCH BY MATCH</p>
-          {done.map(m=>{const perfs=matchPerfs[m.id]||[];const best=matchBest[m.id]||[];const hasPerfect=perfs.length>0;const isWashout=isNR(m.result.win)||isNR(m.result.motm);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10,position:"relative",overflow:"hidden"}}>
-            {hasPerfect&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#22c55e,#16a34a)"}}/>}
-            {isWashout&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#94a3b8,#64748b)"}}/>}
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><TLogo t={m.home} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:13,fontWeight:700,margin:0}}>{m.home} vs {m.away}{isWashout?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{m.mn} · {m.date}</p></div><TLogo t={m.away} sz={22}/></div>
-            <div style={{background:"#F4F6FB",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:10,color:"#64748b"}}>Win: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></div>
-            {hasPerfect&&<div style={{marginBottom:8}}><p style={{color:"#15803d",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>🎯 Perfect Picks</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{perfs.map(p=><div key={p.emk} style={{display:"flex",alignItems:"center",gap:5,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:20,padding:"3px 10px"}}><Av name={p.name} sz={18}/><span style={{color:"#15803d",fontSize:12,fontWeight:600}}>{p.name}</span></div>)}</div></div>}
-            {best.length>0&&<div><p style={{color:"#64748b",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>{hasPerfect?"📊 Top Scorers":"⭐ Best this match"}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{best.map((b,i)=><div key={b.emk} style={{display:"flex",alignItems:"center",gap:5,background:i===0?"#FFF9E6":"#f8faff",border:"1px solid "+(i===0?"#FDE68A":"#e2e8f0"),borderRadius:20,padding:"3px 10px"}}>{i===0&&<span style={{fontSize:11}}>⭐</span>}<Av name={b.name} sz={18}/><span style={{color:i===0?"#92400E":"#475569",fontSize:12,fontWeight:i===0?700:400}}>{b.name}</span><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>+{b.pts}</span></div>)}</div></div>}
-            {best.length===0&&<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No picks recorded for this match</p>}
-          </div>;})}
+          {done.map(m=>{const perfs=matchPerfs[m.id]||[];const best=matchBest[m.id]||[];const hasPerfect=perfs.length>0;const isWashout=isNR(m.result.win)||isNR(m.result.motm);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10,position:"relative",overflow:"hidden"}}>{hasPerfect&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#22c55e,#16a34a)"}}/>}{isWashout&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#94a3b8,#64748b)"}}/>}<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><TLogo t={m.home} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:13,fontWeight:700,margin:0}}>{m.home} vs {m.away}{isWashout?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{m.mn} · {m.date}</p></div><TLogo t={m.away} sz={22}/></div><div style={{background:"#F4F6FB",borderRadius:8,padding:"6px 10px",fontSize:11,marginBottom:10,color:"#64748b"}}>Win: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></div>{hasPerfect&&<div style={{marginBottom:8}}><p style={{color:"#15803d",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>🎯 Perfect Picks</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{perfs.map(p=><div key={p.emk} style={{display:"flex",alignItems:"center",gap:5,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:20,padding:"3px 10px"}}><Av name={p.name} sz={18}/><span style={{color:"#15803d",fontSize:12,fontWeight:600}}>{p.name}</span></div>)}</div></div>}{best.length>0&&<div><p style={{color:"#64748b",fontSize:11,fontWeight:700,margin:"0 0 6px",textTransform:"uppercase",letterSpacing:.5}}>{hasPerfect?"📊 Top Scorers":"⭐ Best this match"}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{best.map((b,i)=><div key={b.emk} style={{display:"flex",alignItems:"center",gap:5,background:i===0?"#FFF9E6":"#f8faff",border:"1px solid "+(i===0?"#FDE68A":"#e2e8f0"),borderRadius:20,padding:"3px 10px"}}>{i===0&&<span style={{fontSize:11}}>⭐</span>}<Av name={b.name} sz={18}/><span style={{color:i===0?"#92400E":"#475569",fontSize:12,fontWeight:i===0?700:400}}>{b.name}</span><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>+{b.pts}</span></div>)}</div></div>}{best.length===0&&<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No picks recorded for this match</p>}</div>;})}
         </>;
       })()}
     </div>}
 
-    {/* RULES */}
     {sc==="rules"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p style={{fontSize:28,margin:"0 0 6px"}}>📖</p><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>TATA IPL 2026 Fantasy Predictor</p></div>
-      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions are open on match day only, and lock 5 minutes before the scheduled start time.","Before each match, predict: Toss Winner, Match Winner, and Player of the Match.","Once locked, predictions cannot be changed. Find upcoming matches in My Game → Schedule.","After the match locks, everyone's predictions become visible to the group."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct Player of the Match → +30 pts","All available correct → bonus +15 pts streak","Maximum per match: 75 pts (150 pts on a 2× Double Points match)"]},{icon:"🌧",title:"Washouts & No Results",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["If a match is washed out, only fields with a real result count for scoring.","Toss done but match abandoned → only toss points (+10) are awarded.","The streak bonus (+15) is never awarded for washout matches — all 3 results must be available.","Washout matches are clearly marked with 🌧 in the app."]},{icon:"🏆",title:"Season Picks (One-Time)",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["At signup, pick your IPL 2026 Champion — worth +200 pts if correct at season end.","Also pick your Top 4 playoff teams — each correct team earns +50 pts.","These picks are locked forever after setup — choose wisely!"]},{icon:"⚡",title:"Double Points Match",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can designate any match as a 2× Double Points match.","All points earned (including streak bonus) are doubled.","Watch for the ⚡ 2× badge on the match card!"]},{icon:"🌟",title:"Wall of Fame",color:"#fdf4ff",border:"#e9d5ff",tc:"#6b21a8",items:["🎯 Perfect Pick Hall — ranked by total perfect picks (all 3 correct in one match).","⭐ Match MVP Hall — ranked by how many times you finished as top scorer in a match.","🔥 Best Streak Hall — ranked by longest run of consecutive perfect picks.","Match by Match — shows perfect pickers AND top 3 scorers for every match.","You don't need a perfect pick to appear — just outscore everyone else in a match!"]},{icon:"🏅",title:"Badges",color:"#f8faff",border:"#e2e8f0",tc:"#1e40af",items:["🎯 Perfect Match — first perfect pick","🏅 Hat-Trick Hero — 3+ perfect picks","🐉 Underdog King — pick winners the group mostly missed","💪 Consistent — 2/3 correct in 3+ matches","⚡ Active Predictor — 10+ predictions"]},{icon:"📋",title:"General Rules",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval before playing.","Picks are final once locked — no edits after cutoff.","Admin can adjust points in case of technical issues.","Leaderboard updates in real time as results are entered.","Tie-breaking: higher accuracy wins."]}
-      ].map(({icon,title,color,border,tc,items})=>(
-        <div key={title} style={{background:color,border:"1px solid "+border,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{icon}</span><p className="C" style={{color:tc,fontSize:15,fontWeight:800,letterSpacing:.5,margin:0,textTransform:"uppercase"}}>{title}</p></div>
-          {items.map((item,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:i<items.length-1?8:0}}><span style={{color:tc,fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>•</span><p style={{color:tc,fontSize:13,margin:0,lineHeight:1.55,opacity:.9}}>{item}</p></div>)}
-        </div>
+      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, locking 5 minutes before start time.","Predict: Toss Winner, Match Winner, and Player of the Match.","Once submitted, predictions are final — no edits allowed.","Find upcoming matches in My Game → Schedule."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct Player of the Match → +30 pts","All available correct → bonus +15 pts","Maximum per match: 75 pts (150 on 2× match)"]},{icon:"🌧",title:"Washouts",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["Only fields with a real result score.","Streak bonus never awarded for washouts."]},{icon:"🏆",title:"Season Picks",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["Pick your Champion (+200 pts) and Top 4 (+50 pts each) at signup.","Locked forever — choose wisely!"]},{icon:"⚡",title:"Double Points",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can mark any match as 2× — all points including streak are doubled."]},{icon:"📋",title:"General Rules",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval.","Picks are final once submitted.","Leaderboard updates in real time."]}].map(({icon,title,color,border,tc,items})=>(
+        <div key={title} style={{background:color,border:"1px solid "+border,borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{icon}</span><p className="C" style={{color:tc,fontSize:15,fontWeight:800,letterSpacing:.5,margin:0,textTransform:"uppercase"}}>{title}</p></div>{items.map((item,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:i<items.length-1?8:0}}><span style={{color:tc,fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>•</span><p style={{color:tc,fontSize:13,margin:0,lineHeight:1.55,opacity:.9}}>{item}</p></div>)}</div>
       ))}
-      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:12,padding:"16px",marginTop:4,textAlign:"center"}}><p style={{color:"#FFE57F",fontSize:13,fontWeight:700,margin:"0 0 4px"}}>🏏 May the best predictor win!</p><p style={{color:"#bfdbfe",fontSize:11,margin:0}}>Questions? Ask in the Group Chat.</p></div>
     </div>}
 
-    {/* ADMIN */}
     {sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>ADMIN PANEL</p>
-        {maintenance&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:700}}>🔒 Maintenance</span>}
-      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>ADMIN PANEL</p>{maintenance&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:700}}>🔒 Maintenance</span>}</div>
       <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0",flexWrap:"wrap"}}>
         {[["approvals","✅ Approvals"+(pendingCount>0?" ("+pendingCount+")":"")],["results","📊 Results"],["users","👥 Users"],["matches","➕ Matches"],["analytics","📈 Stats"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=>(
           <button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)} style={{minWidth:"33%",fontSize:9,color:t==="approvals"&&pendingCount>0&&admTab!==t?"#dc2626":undefined,fontWeight:t==="approvals"&&pendingCount>0?"700":undefined}}>{l}</button>
         ))}
       </div>
 
-      {/* APPROVALS */}
-      {admTab==="approvals"&&<>
-        {pendingCount===0?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p><p style={{color:"#64748b",fontSize:13,marginTop:8}}>No pending registrations.</p></div>
-        :<>
-          <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",marginBottom:14}}><p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:0}}>{pendingCount} user{pendingCount>1?"s":""} waiting for approval to join the game.</p></div>
-          {Object.entries(pendingUsers).map(([emk,u])=>(
-            <div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Registered {new Date(u.joined).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div></div>
-              <div style={{display:"flex",gap:10}}>
-                <button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase",letterSpacing:.5}}>✅ Approve</button>
-                <button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase",letterSpacing:.5}}>❌ Reject</button>
-              </div>
-            </div>
-          ))}
-        </>}
-      </>}
+      {admTab==="approvals"&&<>{pendingCount===0?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p></div>:<><div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",marginBottom:14}}><p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:0}}>{pendingCount} user{pendingCount>1?"s":""} waiting for approval.</p></div>{Object.entries(pendingUsers).map(([emk,u])=><div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p></div></div><div style={{display:"flex",gap:10}}><button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>✅ Approve</button><button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>❌ Reject</button></div></div>)}</>}</>}
 
-      {/* RESULTS */}
       {admTab==="results"&&<>
-        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14}}><p style={{color:"#1e40af",fontSize:12,fontWeight:600,margin:"0 0 2px"}}>💡 Partial saves · Washout friendly</p><p style={{color:"#3b82f6",fontSize:11,margin:0}}>Save Toss right after it happens. For washouts, set Winner/POTM to "No Result". Only available fields score.</p></div>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
           const rf=admResultForm[m.id]||{};const prefill={toss:m.toss||"",win:m.win||"",motm:m.motm||"",...rf};
           const allFilled=!!(prefill.toss)&&!!(prefill.win)&&!!(prefill.motm);
           const isWashout=prefill.win===NR||prefill.motm===NR;
           return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/>
-              <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p>
-                <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>{prefill.toss&&<span style={{background:"#EBF0FA",color:"#1e40af",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10}}>🪙 {showVal(prefill.toss)}</span>}{prefill.win&&<span style={{background:"#f0fdf4",color:"#166534",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10}}>🏆 {showVal(prefill.win)}</span>}{prefill.motm&&<span style={{background:"#FFF9E6",color:"#92400E",fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:10}}>⭐ {showVal(prefill.motm)}</span>}</div>
-              </div>
-            </div>
-            {[{lbl:"🪙 Toss",field:"toss"},{lbl:"🏆 Match Winner",field:"win"}].map(({lbl,field})=>(
-              <div key={field} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                <p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>{lbl}</p>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <select className="sel" style={{flex:1}} value={prefill[field]} onChange={e=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,[field]:e.target.value}}))}>
-                    <option value="">— Select —</option><option value={m.home}>{m.home}</option><option value={m.away}>{m.away}</option><option value={NR}>🌧 No Result / Washout</option>
-                  </select>
-                  <button onClick={async()=>{const val=(admResultForm[m.id]?.[field])||prefill[field];if(!val){toast2("Select "+field,"error");return;}await savePartialResult(m.id,field,val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button>
-                </div>
-              </div>
-            ))}
-            <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-              <p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>⭐ Player of the Match</p>
-              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-                <button onMouseDown={e=>{e.preventDefault();setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:NR}}));}} style={{padding:"8px 12px",borderRadius:8,background:prefill.motm===NR?"#fee2e2":"#f8faff",color:prefill.motm===NR?"#dc2626":"#64748b",border:"1px solid "+(prefill.motm===NR?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:12,flexShrink:0,whiteSpace:"nowrap"}}>🌧 No Result</button>
-                <button onClick={async()=>{await savePartialResult(m.id,"motm",NR);}} style={{padding:"8px 10px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>Save NR</button>
-              </div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <div style={{flex:1}}><PotmDropdown homeTeam={m.home} awayTeam={m.away} value={prefill.motm===NR?"":prefill.motm} onChange={v=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:v}}))}/></div>
-                <button onClick={async()=>{const val=(admResultForm[m.id]?.motm)||prefill.motm;if(!val){toast2("Select POTM or No Result","error");return;}await savePartialResult(m.id,"motm",val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button>
-              </div>
-            </div>
-            <button onClick={()=>{setAdmResultForm(f=>({...f,[m.id]:{...prefill,...f[m.id]}}));setTimeout(()=>setManualResult(m.id),0);}} disabled={!allFilled}
-              style={{width:"100%",padding:"10px",borderRadius:8,background:allFilled?(isWashout?"linear-gradient(135deg,#64748b,#475569)":"linear-gradient(135deg,#15803d,#16a34a)"):"#f1f5f9",color:allFilled?"#fff":"#94a3b8",border:"none",cursor:allFilled?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase"}}>
-              {allFilled?(isWashout?"🌧 Finalise Washout & Notify":"✅ Finalise & Notify Group"):"Fill all 3 fields to finalise"}
-            </button>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p></div></div>
+            {[{lbl:"🪙 Toss",field:"toss"},{lbl:"🏆 Match Winner",field:"win"}].map(({lbl,field})=>(<div key={field} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>{lbl}</p><div style={{display:"flex",gap:8,alignItems:"center"}}><select className="sel" style={{flex:1}} value={prefill[field]} onChange={e=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,[field]:e.target.value}}))}>  <option value="">— Select —</option><option value={m.home}>{m.home}</option><option value={m.away}>{m.away}</option><option value={NR}>🌧 No Result</option></select><button onClick={async()=>{const val=(admResultForm[m.id]?.[field])||prefill[field];if(!val)return;await savePartialResult(m.id,field,val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button></div></div>))}
+            <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:10}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>⭐ POTM</p><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}><button onMouseDown={e=>{e.preventDefault();setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:NR}}));}} style={{padding:"8px 12px",borderRadius:8,background:prefill.motm===NR?"#fee2e2":"#f8faff",color:prefill.motm===NR?"#dc2626":"#64748b",border:"1px solid "+(prefill.motm===NR?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:12,flexShrink:0}}>🌧 No Result</button><button onClick={async()=>{await savePartialResult(m.id,"motm",NR);}} style={{padding:"8px 10px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>Save NR</button></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{flex:1}}><PotmDropdown homeTeam={m.home} awayTeam={m.away} value={prefill.motm===NR?"":prefill.motm} onChange={v=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:v}}))}/></div><button onClick={async()=>{const val=(admResultForm[m.id]?.motm)||prefill.motm;if(!val)return;await savePartialResult(m.id,"motm",val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button></div></div>
+            <button onClick={()=>{setAdmResultForm(f=>({...f,[m.id]:{...prefill,...f[m.id]}}));setTimeout(()=>setManualResult(m.id),0);}} disabled={!allFilled} style={{width:"100%",padding:"10px",borderRadius:8,background:allFilled?(isWashout?"linear-gradient(135deg,#64748b,#475569)":"linear-gradient(135deg,#15803d,#16a34a)"):"#f1f5f9",color:allFilled?"#fff":"#94a3b8",border:"none",cursor:allFilled?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase"}}>{allFilled?(isWashout?"🌧 Finalise Washout":"✅ Finalise & Notify"):"Fill all 3 fields"}</button>
           </div>;
         })}
         <p className="st" style={{marginTop:16}}>COMPLETED ({done.length})</p>
         {[...done].reverse().map(m=>{
-          // FIX: use allPicksEntries (encoded keys) for all counting
-          const allPicksEntries=Object.entries(allPicks);
-          const tot=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;
-          const tossC=allPicksEntries.filter(([,u])=>!isNR(m.result.toss)&&(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length;
-          const winC=allPicksEntries.filter(([,u])=>!isNR(m.result.win)&&(u[m.id]??u[String(m.id)])?.win===m.result.win).length;
-          const motmC=allPicksEntries.filter(([,u])=>!isNR(m.result.motm)&&motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length;
-          const perfs=allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length;
+          const ae=Object.entries(allPicks);
+          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
+          const tossC=ae.filter(([,u])=>!isNR(m.result.toss)&&getP(u,m.id)?.toss===m.result.toss).length;
+          const winC=ae.filter(([,u])=>!isNR(m.result.win)&&getP(u,m.id)?.win===m.result.win).length;
+          const motmC=ae.filter(([,u])=>!isNR(m.result.motm)&&motmMatch(getP(u,m.id)?.motm,m.result.motm)).length;
+          const perfs=ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length;
           const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"};const isWashout=isNR(m.result.win)||isNR(m.result.motm);
           return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
               <TLogo t={m.home} sz={20}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={20}/>
               <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date}{isWashout?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 0"}}>W: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></p></div>
-              <div style={{textAlign:"right"}}>{perfs>0&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,display:"block",marginBottom:2}}>🎯 {perfs} all-correct</span>}<span style={{color:"#94a3b8",fontSize:11}}>{io?"▲":"▼"} {tot}</span></div>
+              <div style={{textAlign:"right"}}>{perfs>0&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,display:"block",marginBottom:2}}>🎯 {perfs}</span>}<span style={{color:"#94a3b8",fontSize:11}}>{io?"▲":"▼"} {tot}</span></div>
             </div>
             {io&&tot>0&&<div style={{borderTop:"1px solid #f1f5f9",padding:"12px 14px",background:"#f8faff"}}>
-              <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 10px"}}>{tot} predictions · breakdown</p>
               {[["🪙 Toss",tossC,tot,hc.bg,!isNR(m.result.toss)],["🏆 Winner",winC,tot,hc.bg,!isNR(m.result.win)],["⭐ POTM",motmC,tot,"#B8860B",!isNR(m.result.motm)]].map(([lbl,correct,total,clA,avail])=>{const pct=total?Math.round(correct/total*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:11,color:avail?"#1a2540":"#94a3b8",fontWeight:700}}>{avail?correct+"/"+total+" ("+pct+"%)":"🌧 No Result"}</span></div>{avail&&<div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clA}}/></div>}</div>;})}
-              <div style={{display:"flex",gap:8,marginTop:12}}>
+              <div style={{display:"flex",gap:8,marginTop:8}}>
                 <div style={{flex:1,background:"#EBF0FA",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>All correct</p></div>
-                <div style={{flex:1,background:"#f0fdf4",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{tot?Math.round((tossC+winC+motmC)/(tot*[!isNR(m.result.toss),!isNR(m.result.win),!isNR(m.result.motm)].filter(Boolean).length||1)*100):0}%</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Avg Acc</p></div>
                 <div style={{flex:1,background:"#FFF9E6",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,margin:0}}>{tot-perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Missed</p></div>
               </div>
-              {!isNR(m.result.motm)&&(()=>{
-                const counts={};
-                allPicksEntries.forEach(([,u])=>{const p=u[m.id]??u[String(m.id)];if(p?.motm&&!isNR(p.motm))counts[p.motm]=(counts[p.motm]||0)+1;});
-                const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-                if(!sorted.length)return null;
-                return<div style={{marginTop:10}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>⭐ POTM Guesses</p>{sorted.map(([name,cnt])=>{const pct=Math.round(cnt/tot*100),isRight=motmMatch(name,m.result.motm);return<div key={name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:11,color:isRight?"#15803d":"#64748b",fontWeight:isRight?700:400,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isRight?"✓ ":""}{name}</span><div style={{width:80,height:5,borderRadius:3,background:"#e2e8f0",flexShrink:0}}><div style={{width:pct+"%",height:"100%",borderRadius:3,background:isRight?"#15803d":"#94a3b8"}}/></div><span style={{fontSize:10,color:"#94a3b8",minWidth:28,textAlign:"right"}}>{cnt}</span></div>;})}</div>;
-              })()}
-              {/* FIX: All predictions list in admin — use allPicksEntries + match user by encoded key */}
-              {(()=>{
-                const pickEntries=allPicksEntries.map(([emk,up])=>{
-                  const p=up[m.id]??up[String(m.id)];if(!p)return null;
-                  const u=Object.values(users).find(u2=>ek(u2.email)===emk);
-                  const displayName=u?.name||decodeKey(emk);
-                  const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
-                  const tOk=tA&&p.toss===m.result.toss,wOk=wA&&p.win===m.result.win,mOk=mA&&motmMatch(p.motm,m.result.motm);
-                  const avail=[tA,wA,mA].filter(Boolean).length;const correct=[tOk,wOk,mOk].filter(Boolean).length;
-                  const isPerfect=avail===3&&correct===3;
-                  let base=0;if(tOk)base+=PTS.toss;if(wOk)base+=PTS.win;if(mOk)base+=PTS.motm;if(isPerfect)base+=PTS.streak;
-                  return{displayName,emk,p,tOk,wOk,mOk,isPerfect,pts:base};
-                }).filter(Boolean).sort((a,b)=>b.pts-a.pts);
-                if(!pickEntries.length)return null;
-                return<div style={{marginTop:12}}>
-                  <p style={{color:"#64748b",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>👥 All Predictions ({pickEntries.length})</p>
-                  <div style={{border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
-                    {pickEntries.map((e,i)=>(
-                      <div key={e.emk} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:e.isPerfect?"#f0fdf4":i%2===0?"#f8faff":"#fff",borderBottom:i<pickEntries.length-1?"1px solid #f1f5f9":"none"}}>
-                        <Av name={e.displayName} sz={22}/>
-                        <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{e.displayName}{e.isPerfect?" 🎯":""}</p>
-                          <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.tOk?"#dcfce7":"#fef2f2",color:e.tOk?"#15803d":"#dc2626"}}>🪙 {e.p.toss}</span>
-                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.wOk?"#dcfce7":"#fef2f2",color:e.wOk?"#15803d":"#dc2626"}}>🏆 {e.p.win}</span>
-                            <span style={{fontSize:10,padding:"1px 6px",borderRadius:4,background:e.mOk?"#dcfce7":"#fef2f2",color:e.mOk?"#15803d":"#dc2626"}}>⭐ {e.p.motm?.split(" ").slice(-1)[0]||"—"}</span>
-                          </div>
-                        </div>
-                        <span className="C" style={{color:e.pts>0?"#15803d":"#94a3b8",fontSize:15,fontWeight:800,flexShrink:0}}>+{e.pts}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>;
-              })()}
             </div>}
           </div>;
         })}
       </>}
 
-      {/* USERS */}
       {admTab==="users"&&<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><p style={{color:"#64748b",fontSize:12,margin:0}}>{Object.keys(users).length} players</p><button onClick={exportCSV} style={{padding:"6px 12px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Export CSV</button></div>
         <input className="inp" value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by name or email…" style={{marginBottom:12,fontSize:13}}/>
@@ -1318,7 +1020,7 @@ export default function App(){
           return<div key={u.email} style={{background:"#fff",border:"1px solid "+(u.email===email?"#1D428A40":"#e2e8f0"),borderRadius:12,marginBottom:10,overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex2?null:u.email)}>
               <Av name={u.name} sz={34}/>
-              <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}% · 🏆 {st.userSp||"—"}</p></div>
+              <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}%</p></div>
               <div style={{textAlign:"right"}}><p className="C" style={{color:"#1D428A",fontSize:17,fontWeight:800,margin:0}}>{st.pts}</p>{(adj+mOv)!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{adj+mOv>0?"+":""}{adj+mOv} adj</p>}<p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex2?"▲":"▼"}</p></div>
             </div>
             {ex2&&<div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
@@ -1326,73 +1028,56 @@ export default function App(){
               <div style={{display:"flex",gap:8,marginBottom:8}}>{[-50,-25,-10,10,25,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>{d>0?"+":""}{d}</button>)}</div>
               {adj!==0&&<p style={{color:"#FF822A",fontSize:11,fontWeight:600,marginBottom:12}}>Current adj: {adj>0?"+":""}{adj} pts</p>}
               <p className="st">PER-MATCH OVERRIDE</p>
-              {ms.filter(m=>up[m.id]||up[String(m.id)]).map(m=>{const emk2=ek(u.email);const mOvM=((matchPtsOverride[emk2]||{})[m.id])||0;return<div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div><div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div></div>;})}
+              {ms.filter(m=>getP(up,m.id)).map(m=>{const emk2=ek(u.email);const mOvM=((matchPtsOverride[emk2]||{})[m.id])||0;return<div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div><div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div></div>;})}
               {u.email!==SUPER_ADMIN&&u.email!==email&&<button onClick={()=>deleteUser(u.email)} className="dbtn" style={{marginTop:12}}>🗑️ Delete Account</button>}
             </div>}
           </div>;
         })}
       </>}
 
-      {/* MATCHES */}
       {admTab==="matches"&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
         <p className="st">ADD CUSTOM MATCH</p>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Match Label</p><input className="inp" value={manMatchForm.mn} onChange={e=>setManMatchForm(f=>({...f,mn:e.target.value}))} placeholder="e.g. M75" style={{fontSize:13}}/></div>
-          <div style={{display:"flex",gap:8}}>
-            <div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Home</p><select className="sel" value={manMatchForm.home} onChange={e=>setManMatchForm(f=>({...f,home:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-            <div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Away</p><select className="sel" value={manMatchForm.away} onChange={e=>setManMatchForm(f=>({...f,away:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Date</p><input className="inp" type="date" value={manMatchForm.date} onChange={e=>setManMatchForm(f=>({...f,date:e.target.value}))} style={{fontSize:13}}/></div>
-            <div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Time IST</p><input className="inp" value={manMatchForm.time} onChange={e=>setManMatchForm(f=>({...f,time:e.target.value}))} placeholder="19:30" style={{fontSize:13}}/></div>
-          </div>
+          <div style={{display:"flex",gap:8}}><div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Home</p><select className="sel" value={manMatchForm.home} onChange={e=>setManMatchForm(f=>({...f,home:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div><div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Away</p><select className="sel" value={manMatchForm.away} onChange={e=>setManMatchForm(f=>({...f,away:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div></div>
+          <div style={{display:"flex",gap:8}}><div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Date</p><input className="inp" type="date" value={manMatchForm.date} onChange={e=>setManMatchForm(f=>({...f,date:e.target.value}))} style={{fontSize:13}}/></div><div style={{flex:1}}><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Time IST</p><input className="inp" value={manMatchForm.time} onChange={e=>setManMatchForm(f=>({...f,time:e.target.value}))} placeholder="19:30" style={{fontSize:13}}/></div></div>
           <div><p style={{color:"#64748b",fontSize:10,fontWeight:600,margin:"0 0 4px",textTransform:"uppercase"}}>Venue</p><input className="inp" value={manMatchForm.venue} onChange={e=>setManMatchForm(f=>({...f,venue:e.target.value}))} placeholder="Stadium, City" style={{fontSize:13}}/></div>
           <button onClick={addManualMatch} className="pbtn">Add Match</button>
         </div>
       </div>}
 
-      {/* ANALYTICS */}
       {admTab==="analytics"&&<>
-        {/* FIX: always show analytics structure; use done.length > 0 only for match-dependent stats */}
         <p className="st">GROUP OVERVIEW</p>
         {(()=>{
-          const lb=getLb();
-          const allPicksEntries=Object.entries(allPicks);
-          const totalPredictions=allPicksEntries.reduce((s,[,u])=>s+Object.keys(u).length,0);
-          const totalPerfs=done.reduce((s,m)=>s+allPicksEntries.filter(([,u])=>{const p=u[m.id]??u[String(m.id)];if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);
+          const lb=getLb();const ae=Object.entries(allPicks);
+          const totalPredictions=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);
+          const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);
           const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;
           return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPredictions,"Predictions"],["🎯",totalPerfs,"All Correct"],["📊",avgAcc+"%","Avg Acc"],["👥",lb.length,"Players"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;
         })()}
         {done.length>0&&(()=>{
-          const allPicksEntries=Object.entries(allPicks);
-          const tossT=done.reduce((s,m)=>{if(isNR(m.result.toss))return s;const c=allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.result.toss).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
-          const winT=done.reduce((s,m)=>{if(isNR(m.result.win))return s;const c=allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.result.win).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
-          const motmT=done.reduce((s,m)=>{if(isNR(m.result.motm))return s;const c=allPicksEntries.filter(([,u])=>motmMatch((u[m.id]??u[String(m.id)])?.motm,m.result.motm)).length,t=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
-          return<>
-            <p className="st">GROUP ACCURACY BY CATEGORY</p>
-            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-              {[["🪙 Toss",tossT,"#1D428A"],["🏆 Winner",winT,"#15803d"],["⭐ POTM",motmT,"#B8860B"]].map(([lbl,d,clr])=>{const pct=d.t?Math.round(d.c/d.t*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{d.c}/{d.t} ({pct}%)</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>;})}
-            </div>
-          </>;
+          const ae=Object.entries(allPicks);
+          const tossT=done.reduce((s,m)=>{if(isNR(m.result.toss))return s;const c=ae.filter(([,u])=>getP(u,m.id)?.toss===m.result.toss).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          const winT=done.reduce((s,m)=>{if(isNR(m.result.win))return s;const c=ae.filter(([,u])=>getP(u,m.id)?.win===m.result.win).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          const motmT=done.reduce((s,m)=>{if(isNR(m.result.motm))return s;const c=ae.filter(([,u])=>motmMatch(getP(u,m.id)?.motm,m.result.motm)).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});
+          return<><p className="st">GROUP ACCURACY BY CATEGORY</p><div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{[["🪙 Toss",tossT,"#1D428A"],["🏆 Winner",winT,"#15803d"],["⭐ POTM",motmT,"#B8860B"]].map(([lbl,d,clr])=>{const pct=d.t?Math.round(d.c/d.t*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{d.c}/{d.t} ({pct}%)</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>;})} </div></>;
         })()}
-        <p className="st">CHAMPION PICKS DISTRIBUTION</p>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          {(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span style={{fontSize:12}}>🏆</span>}</div>;});})()}
-        </div>
-        <p className="st">PER-MATCH PICK SPLIT</p>
-        {ms.filter(m=>{const e=Object.entries(allPicks);return e.some(([,u])=>u[m.id]!=null||u[String(m.id)]!=null);}).map(m=>{
-          const allPicksEntries=Object.entries(allPicks);
-          const tot=allPicksEntries.filter(([,u])=>u[m.id]!=null||u[String(m.id)]!=null).length;
-          const sp2=tot?{tot,tA:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.home).length,tB:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.toss===m.away).length,wA:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.home).length,wB:allPicksEntries.filter(([,u])=>(u[m.id]??u[String(m.id)])?.win===m.away).length}:null;
+        <p className="st">CHAMPION PICKS</p>
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span style={{fontSize:12}}>🏆</span>}</div>;});})()}</div>
+        <p className="st">PER-MATCH SPLIT</p>
+        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{
+          const ae=Object.entries(allPicks);
+          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
+          const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;
+          const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;
           const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};
           return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{sp2?.tot||0} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
-            {io&&sp2&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp2.tA} cB={sp2.tB} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp2.wA} cB={sp2.wB} clA={hc.bg} clB={ac.bg}/></div>}
+            <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
+            {io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc.bg} clB={ac.bg}/></div>}
           </div>;
         })}
       </>}
 
-      {/* CONTROLS */}
       {admTab==="controls"&&<div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">APP CONTROLS</p>
@@ -1411,7 +1096,11 @@ export default function App(){
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">🔒 LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),                cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button></div>;})}
+          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button></div>;})}
+        </div>
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
+          <p className="st">💬 MUTE USERS</p>
+          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)];return<div key={u.email} className="ctrl-row"><div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div><button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button></div>;})}
         </div>
         <div style={{background:"#fff",border:"1px solid #fecaca",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st" style={{color:"#dc2626",borderColor:"#fecaca"}}>⚠️ DANGER ZONE</p>
@@ -1419,13 +1108,8 @@ export default function App(){
             <button onClick={async()=>{if(!confirm("RESET entire season? Cannot be undone."))return;await Promise.all([DB.set("ap",{}),DB.set("rm",{}),DB.set("sp",{}),DB.set("t4",{}),DB.set("ptsadj",{}),DB.set("doublematch",null),DB.set("sw",null),DB.set("matchptsoverride",{}),DB.set("manmatches",[]),DB.set("bracket",null),DB.set("lockedm",{})]);setAllPicks({});setMyPicks({});setMs(buildBaseMatches());setManualPtsAdj({});setSw(null);setDoubleMatch(null);setMatchPtsOverride({});setBracket(null);setLockedMatches({});setSpk({});setT4pk({});setMySp("");setMyT4([]);toast2("Season reset","ok");}} style={{padding:"7px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase",flexShrink:0}}>Reset</button>
           </div>
         </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">💬 MUTE USERS</p>
-          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)];return<div key={u.email} className="ctrl-row"><div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div><button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button></div>;})}
-        </div>
       </div>}
 
-      {/* BROADCAST */}
       {admTab==="broadcast"&&<>
         <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
         <p className="st" style={{marginTop:16}}>HISTORY</p>
