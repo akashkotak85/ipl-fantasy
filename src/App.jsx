@@ -129,18 +129,23 @@ function deepEncodeKeys(v){
   return r;
 }
 
-/* BUG FIX: normalizeAP — canonical email keys + all inner pick keys as strings */
+/* normalizeAP — canonical email keys + string pick keys + drop invalid/incomplete picks */
 function normalizeAP(raw){
   if(!raw)return{};
   const out={};
   Object.keys(raw).forEach(k=>{
     const ck=canonicalKey(k);
     const userPicks=raw[k];
-    if(userPicks&&typeof userPicks==="object"&&!Array.isArray(userPicks)){
-      const normalized={};
-      Object.keys(userPicks).forEach(mid=>{normalized[String(mid)]=userPicks[mid];});
-      out[ck]=normalized;
-    }else{out[ck]=userPicks||{};}
+    if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){out[ck]={};return;}
+    const normalized={};
+    Object.keys(userPicks).forEach(mid=>{
+      const pick=userPicks[mid];
+      // only keep picks that have all 3 required fields
+      if(pick&&typeof pick==="object"&&pick.toss&&pick.win&&pick.motm){
+        normalized[String(mid)]=pick;
+      }
+    });
+    out[ck]=normalized;
   });
   return out;
 }
@@ -154,11 +159,11 @@ async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new Te
 const isNR=v=>!v||v===NR;
 const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
 
-/* BUG FIX: always use string key for storing & retrieving picks */
+/* always use string key — no numeric fallback to avoid ghost picks */
 const pickKey=id=>String(id);
 const getP=(picks,id)=>{
   if(!picks||typeof picks!=="object")return null;
-  return picks[pickKey(id)]??picks[id]??null;
+  return picks[pickKey(id)]??null;
 };
 
 /* ─── FIREBASE ─── */
@@ -427,14 +432,16 @@ export default function App(){
     poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
   },[isAdmin,user]);// eslint-disable-line
 
-  /* BUG FIX: forceRepair uses normalizeAP */
+  /* forceRepair: normalize AP to string keys AND write back to Firebase so old number keys are gone */
   const forceRepair=useCallback(async()=>{
     try{
       const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
+      const cleanAP=normalizeAP(ap);
+      // write back so Firebase no longer has numeric pick keys
       await Promise.all([
         DB.set("sp",normalizeKeyMap(sp)),
         DB.set("t4",normalizeKeyMap(t4)),
-        DB.set("ap",normalizeAP(ap)),
+        DB.set("ap",cleanAP),
       ]);
     }catch(e){console.error("repair",e);}
   },[]);
