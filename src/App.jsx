@@ -422,6 +422,10 @@ export default function App(){
   const[pendingUsers,setPendingUsers]=useState({});
   const[reminders,setReminders]=useState({});
   const[bracket,setBracket]=useState(null);
+  const[dbRaw,setDbRaw]=useState(null);
+  const[dbLoading,setDbLoading]=useState(false);
+  const[fixLoading,setFixLoading]=useState(false);
+  const[expandUser,setExpandUser]=useState(null);
 
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const lastPendingCount=useRef(0);
@@ -1102,11 +1106,6 @@ export default function App(){
       {admTab==="pickstatus"&&(()=>{
         const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false);
         const relevantMs=[...ms.filter(m=>!m.result&&!isTBD(m)),...[...done].reverse().slice(0,5)];
-
-        const [dbRaw,setDbRaw]=useState(null);
-        const [dbLoading,setDbLoading]=useState(false);
-        const [fixLoading,setFixLoading]=useState(false);
-        const [expandUser,setExpandUser]=useState(null);
 
         const loadRaw=async()=>{
           setDbLoading(true);
