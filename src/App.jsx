@@ -1107,11 +1107,6 @@ export default function App(){
         const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false);
         const relevantMs=[...ms.filter(m=>!m.result&&!isTBD(m)),...[...done].reverse().slice(0,5)];
 
-        const [dbRaw,setDbRaw]=useState(null);
-        const [dbLoading,setDbLoading]=useState(false);
-        const [fixLoading,setFixLoading]=useState(false);
-        const [expandUser,setExpandUser]=useState(null);
-
         const loadRaw=async()=>{
           setDbLoading(true);
           const raw=await DB.get("ap");
