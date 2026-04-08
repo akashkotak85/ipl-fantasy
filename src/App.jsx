@@ -7,7 +7,6 @@ const TF={RCB:"Royal Challengers Bengaluru",SRH:"Sunrisers Hyderabad",MI:"Mumbai
 const TEAMS=Object.keys(TF);
 const SQ={RCB:["Rajat Patidar","Virat Kohli","Devdutt Padikkal","Phil Salt","Jitesh Sharma","Krunal Pandya","Tim David","Venkatesh Iyer","Jacob Bethell","Josh Hazlewood","Bhuvneshwar Kumar","Yash Dayal","Rasikh Dar","Jacob Duffy"],SRH:["Pat Cummins","Travis Head","Ishan Kishan","Heinrich Klaasen","Abhishek Sharma","Nitish Kumar Reddy","Liam Livingstone","Harshal Patel","Brydon Carse","Jaydev Unadkat","Shivam Mavi","David Payne"],MI:["Rohit Sharma","Hardik Pandya","Suryakumar Yadav","Jasprit Bumrah","Trent Boult","Tilak Varma","Ryan Rickelton","Quinton de Kock","Deepak Chahar","Shardul Thakur","Mitchell Santner","Will Jacks"],KKR:["Ajinkya Rahane","Sunil Narine","Rinku Singh","Cameron Green","Rachin Ravindra","Finn Allen","Varun Chakaravarthy","Matheesha Pathirana","Blessing Muzarabani","Rovman Powell","Vaibhav Arora"],CSK:["Ruturaj Gaikwad","MS Dhoni","Sanju Samson","Shivam Dube","Ayush Mhatre","Dewald Brevis","Khaleel Ahmed","Noor Ahmad","Anshul Kamboj","Prashant Veer","Kartik Sharma","Akeal Hosein"],RR:["Riyan Parag","Yashasvi Jaiswal","Vaibhav Suryavanshi","Jofra Archer","Ravindra Jadeja","Dhruv Jurel","Shimron Hetmyer","Ravi Bishnoi","Sandeep Sharma","Adam Milne","Nandre Burger"],PBKS:["Shreyas Iyer","Arshdeep Singh","Shashank Singh","Marcus Stoinis","Prabhsimran Singh","Marco Jansen","Yuzvendra Chahal","Priyansh Arya","Musheer Khan","Lockie Ferguson","Xavier Bartlett"],GT:["Shubman Gill","Jos Buttler","Rashid Khan","Kagiso Rabada","Mohammed Siraj","Sai Sudharsan","Washington Sundar","Prasidh Krishna","Rahul Tewatia","Jayant Yadav","Jason Holder"],LSG:["Rishabh Pant","Mitchell Marsh","Nicholas Pooran","Aiden Markram","Mohammad Shami","Avesh Khan","Wanindu Hasaranga","Mayank Yadav","Anrich Nortje","Abdul Samad","Ayush Badoni"],DC:["Axar Patel","KL Rahul","Kuldeep Yadav","Mitchell Starc","T. Natarajan","Karun Nair","Prithvi Shaw","Abishek Porel","Sameer Rizvi","David Miller","Tristan Stubbs","Nitish Rana"]};
 
-/* BUG FIX: KNOWN_RESULTS keys must be numbers to match BASE_MATCHES ids */
 const KNOWN_RESULTS={
   1:{toss:"SRH",win:"RCB",motm:"Phil Salt"},
   2:{toss:"MI",win:"MI",motm:"Suryakumar Yadav"},
@@ -115,23 +114,18 @@ const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const decodeKey=k=>{let d=k;for(let i=0;i<8;i++){const n=d.replace(/_at_/g,"@").replace(/_dot_/g,".");if(n===d)break;d=n;}return d;};
 const canonicalKey=k=>ek(decodeKey(k));
 
-/* BUG FIX: normalizeKeyMap also stringifies inner pick keys */
 function normalizeKeyMap(raw){if(!raw)return{};const out={};Object.keys(raw).forEach(k=>{out[canonicalKey(k)]=raw[k];});return out;}
 
-/* BUG FIX: deepEncodeKeys only encodes email-like keys, not match id keys */
 function deepEncodeKeys(v){
   if(!v||typeof v!=="object"||Array.isArray(v))return v;
   const r={};
   Object.keys(v).forEach(k=>{
-    // only encode keys that look like emails (contain @ or _at_)
     const isEmailKey=k.includes("@")||k.includes("_at_");
     r[isEmailKey?ek(k):k]=deepEncodeKeys(v[k]);
   });
   return r;
 }
 
-/* normalizeAP — canonical email keys + string pick keys + drop invalid/incomplete picks
-   Merges numeric and string keyed picks for same match (string wins), then writes only string keys */
 function normalizeAP(raw){
   if(!raw)return{};
   const out={};
@@ -140,12 +134,10 @@ function normalizeAP(raw){
     const userPicks=raw[k];
     if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){out[ck]={};return;}
     const normalized={};
-    // First pass: collect all picks keyed by string mid
     Object.keys(userPicks).forEach(mid=>{
       const pick=userPicks[mid];
       const smid=String(mid);
       if(pick&&typeof pick==="object"&&pick.toss&&pick.win&&pick.motm){
-        // string key wins over numeric key if both exist
         if(!normalized[smid]||typeof mid==="string"){
           normalized[smid]=pick;
         }
@@ -165,7 +157,6 @@ async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new Te
 const isNR=v=>!v||v===NR;
 const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
 
-/* always use string key — no numeric fallback to avoid ghost picks */
 const pickKey=id=>String(id);
 const getP=(picks,id)=>{
   if(!picks||typeof picks!=="object")return null;
@@ -227,6 +218,134 @@ function calcBadges(uPicks,ms,allP){
   return b;
 }
 
+/* ─── FORM GUIDE — last 5 results for a team ─── */
+function getFormGuide(team,ms){
+  const played=ms.filter(m=>m.result&&!isNR(m.result.win)&&(m.home===team||m.away===team));
+  return played.slice(-5).map(m=>({result:m.result.win===team?"W":"L",match:m}));
+}
+
+/* ─── SMART HINTS DATABASE ─── */
+const HINTS={
+  venue:{
+    "M.Chinnaswamy Stadium, Bengaluru":[
+      "Chinnaswamy is the highest-scoring ground in IPL history — 200 is never truly safe here.",
+      "Short boundaries mean every mis-hit can be a six. Batters love it; bowlers have therapy bills.",
+      "RCB have won 6 of their last 8 home games here in IPL 2026 — defending champions on home turf.",
+      "Spin struggles at Chinnaswamy — pace and power win here. POTM almost always goes to a batter or fast bowler.",
+    ],
+    "Wankhede Stadium, Mumbai":[
+      "Dew at Wankhede is serious business — teams chasing here win ~62% of the time. Toss could be decisive.",
+      "MI's home record at Wankhede is among the best in IPL history — opponents feel the crowd.",
+      "Sea breeze keeps humidity up — the ball doesn't swing much after the 10th over. Powerplay is king.",
+      "Five IPL titles worth of home advantage isn't nothing for MI here.",
+    ],
+    "MA Chidambaram Stadium, Chennai":[
+      "Chepauk is spin heaven. The dry, turning surface is the nightmare of every overseas batter.",
+      "CSK have won ~70% of home games at Chepauk over IPL history — the crowd treats it like a fortress.",
+      "Don't pick a pace POTM here unless it's the first 3 overs. Spinners dominate on this surface.",
+      "The pitch gets slower as the innings progresses — scoring 160+ here feels like climbing Everest.",
+    ],
+    "Eden Gardens, Kolkata":[
+      "Eden Gardens holds 68,000 fans. When KKR are chasing, the noise is genuinely a 12th man.",
+      "KKR's home record at Eden Gardens is among the best in IPL — over 70% win rate across all editions.",
+      "The pitch here tends to assist pacers early. First 6 overs are critical — openers set the tone completely.",
+      "KKR are yet to win in IPL 2026 — Eden will be electric with a desperate crowd.",
+    ],
+    "Rajiv Gandhi Intl. Stadium, Hyderabad":[
+      "SRH posted 260+ at this ground in IPL 2024 — one of the most batting-friendly venues in India.",
+      "The outfield at RGIS is lightning fast — expect high scores and a LOT of boundaries.",
+      "Travis Head destroyed KKR here in M6. He loves this ground.",
+      "Hyderabad evenings bring dew — teams prefer chasing here whenever possible.",
+    ],
+    "Narendra Modi Stadium, Ahmedabad":[
+      "World's largest stadium (130,000 seats). GT won two IPL titles here — home advantage is real.",
+      "The pitch is flat and true. Spinners get turn in the second half — big first innings scores are common.",
+      "PBKS beat GT here in M4 — home advantage isn't always enough, but GT will be motivated to correct that.",
+      "This ground hosted the 2023 World Cup final. High-pressure matches breed high-pressure performances.",
+    ],
+    "Sawai Mansingh Stadium, Jaipur":[
+      "RR's home fortress. The pitch tends to help spinners — Ravi Bishnoi (7 wickets this season) will relish it.",
+      "RR are on a winning streak after M13 — they're flying and coming home.",
+      "The ground sits at 431m elevation — the ball travels further here than at sea-level venues.",
+      "RR have the best record in the tournament right now. Picking against them at home is a brave choice.",
+    ],
+    "Barsapara Cricket Stadium, Guwahati":[
+      "M13 (RR vs MI) was delayed 2.5 hours by rain here — watch the weather carefully.",
+      "Guwahati is neutral territory for both teams — no true home advantage.",
+      "Jaiswal scored 77* off 32 here in M13. Barsapara has a flat track — batters go from ball one.",
+      "Small ground, big scores. When dew arrives at Guwahati, the second innings becomes a run-fest.",
+    ],
+    "Ekana Cricket Stadium, Lucknow":[
+      "LSG beat SRH here in M10 — Rishabh Pant's home ground and he made it count as POTM.",
+      "Ekana has a slower pitch — strokeplay is harder, but Pant makes it look easy.",
+      "Evening dew at Ekana helps batters in the second innings. Toss could matter significantly.",
+      "The Lucknow crowd is growing — Rishabh Pant has turned this city cricket-mad in one season.",
+    ],
+    "Arun Jaitley Stadium, Delhi":[
+      "DC's home ground — Sameer Rizvi has been in sensational form here (160 runs in 2 matches).",
+      "The Delhi pitch is a batting beauty — flat, fast, favours strokemakers. 180+ is par here.",
+      "Delhi evenings get dew-heavy — chasing teams historically do well here after the first 8 overs.",
+      "DC beat MI in M8 with a high-scoring performance at this ground. Home form is strong.",
+    ],
+    "Mullanpur Stadium, New Chandigarh":[
+      "PBKS's home — a batting beauty with true bounce and not-small boundaries.",
+      "PBKS are flying in IPL 2026. At home with Shreyas Iyer and a packed lineup, they're dangerous.",
+      "Priyansh Arya (2× POTM already) plays at his home base. Expect him to go big in front of his crowd.",
+      "Two aggressive batting sides on a flat track — this is a potential run-fest.",
+    ],
+    "HPCA Stadium, Dharamshala":[
+      "At 1,457m altitude, the ball flies further here than anywhere else in IPL — expect massive sixes.",
+      "Spinners struggle at altitude — thinner air means the ball doesn't grip. Pacers with bounce rule here.",
+      "The most scenic cricket ground on Earth — and the batting conditions are as beautiful as the view.",
+      "Morning mist can delay starts, but once underway the conditions are magnificent for batting.",
+    ],
+    "SVNS Intl. Stadium, Raipur":[
+      "A relatively new IPL venue — Raipur has a reputation for flat pitches and high scores.",
+      "Neutral territory for both teams — no home advantage, conditions unknown to both sides.",
+      "The outfield is quick and boundaries are reasonably short. Expect a high-scoring game.",
+      "With no strong home advantage, team composition and day's form will decide this one.",
+    ],
+  },
+  toss:{
+    RCB:["RCB won the toss in M1 vs SRH and elected to field — SRH still lost. Chasing at Chinnaswamy suits RCB with dew.","RCB's toss record in 2026: 1W so far — Rajat Patidar typically reads conditions calmly.","At Chinnaswamy, the dew factor is real — whoever wins the toss will likely field first."],
+    SRH:["SRH won the toss in M1 and M6 — winning both. The orange army is coin-flip royalty this season.","SRH elected to field in M1 (lost) and bat in M6 (won big). They adapt strategy to conditions smartly.","Travis Head loves batting first and setting targets — expect SRH to bat if they win the toss."],
+    MI:["MI won the toss in M2 and M13 — electing to field both times. Classic MI toss strategy under Pandya.","MI chose to field in M13 at Guwahati — it backfired. Jaiswal 77* happened. Sometimes toss doesn't matter.","Hardik Pandya likes bowling first and trusting Bumrah to defend targets. Expect MI to field if they win."],
+    KKR:["KKR are winless in IPL 2026 so far — their toss decisions haven't been the problem.","Ajinkya Rahane is a pragmatic captain who reads the surface carefully before calling bat or field.","At Eden Gardens, Rahane knows the pitch inside out — expect a shrewd toss call from the experienced skipper."],
+    CSK:["CSK are 0W from 2 toss wins so far and 0W from 3 matches — the toss isn't their biggest problem right now.","Ruturaj Gaikwad is a thoughtful captain who prefers to bat first at home to control the innings.","Fun fact: Dhoni had a legendary toss record. Ruturaj is building his own, though 2026 has started rough."],
+    RR:["RR won 2/3 tosses and all 3 matches in IPL 2026 — Riyan Parag's toss reading has been sharp.","Parag elected to field in M9 and M13, winning both. Chasing suits RR's aggressive top order.","RR are top of the table. Their openers Jaiswal and Suryavanshi make chasing look easy — expect them to field."],
+    PBKS:["PBKS won the toss in M4 and M7 — 2/2 tosses and 2/2 match wins. Toss = win for PBKS so far.","Shreyas Iyer has backed his batters by electing to bowl first in both PBKS wins.","PBKS under Iyer chase without fear. Priyansh Arya hits sixes regardless of match situation."],
+    GT:["GT lost the toss in M4 and M9 — 0/2 on toss wins and 0/2 on match wins. Tough start.","Shubman Gill has had a quiet 2026. GT are desperate for a win — they'll be highly motivated.","GT love batting first and building big totals with Gill and Buttler — they'll bat if they win the toss."],
+    LSG:["LSG won the toss in M5 and M10 — 2/2 tosses and 2/2 matches. Rishabh Pant's instincts have been sharp.","LSG under Pant love chasing — they've done it twice in 2026 and won both. Expect them to field after winning.","Pant won the toss in M5 vs DC and won POTM — he leads decisively from the front."],
+    DC:["DC won the toss in M5 (lost match) and M8 (won big vs MI) — the performances, not the toss, have varied.","Axar Patel won the toss in M8, chose to bat, DC posted a big score and bowled MI out. Clean execution.","Sameer Rizvi (Orange Cap leader, 160 runs in 2 matches) — if DC win the toss and bat, watch out."],
+  },
+  potm:{
+    RCB:["Phil Salt smashed a brutal knock in M1 to win POTM. He's RCB's explosive opener — a big score from him is always possible.","Tim David hit a 106m six in the 30-run over vs CSK in M11. If David gets going, he wins games singlehandedly.","Bhuvneshwar Kumar became the first pacer to 200 IPL wickets in M11. He's always in POTM contention.","Devdutt Padikkal scored 50 off 29 vs CSK. When RCB win, he's usually involved.","Rajat Patidar scored 48* off 19 vs CSK. The skipper loves stepping up in big moments."],
+    SRH:["Travis Head is SRH's POTM machine — won it in M6, been explosive at the top. First pick if SRH win.","Abhishek Sharma hit a century (first Indian to do it for SRH) in IPL 2026. When SRH fire, he goes ballistic.","Heinrich Klaasen is among the top run-scorers in IPL 2026 with 145 runs. A big Klaasen knock seals a SRH win.","Pat Cummins himself is always a POTM threat — quick, smart bowling at the death has won him awards before."],
+    MI:["Jasprit Bumrah is always the POTM threat with the ball — 2 wickets in a crucial over changes any game.","Suryakumar Yadav won POTM in M2 — he bats in situations others can't handle. If SKY plays an innings, pick him.","Rohit Sharma is 5th in the IPL 2026 run charts with 118 runs. A vintage Rohit knock screams POTM.","Hardik Pandya does it with bat AND ball. A Pandya all-round day (30 runs + 2 wickets) is prime POTM territory.","Tilak Varma is quietly becoming MI's best batter in 2026 — watch him if MI win."],
+    KKR:["Sunil Narine can win games with bat OR ball. He's the wild card — 50 runs or 5 wickets, both are possible.","Varun Chakaravarthy was KKR's MVP in 2024–25. He bowls the mystery ball that world-class batters edge.","Cameron Green (₹25.2Cr) has been quiet this season — he's due a big performance. When it comes, it'll be POTM-worthy.","Rinku Singh is the king of finishing. A Rinku cameo in a chase often wins him the award."],
+    CSK:["Ruturaj Gaikwad won POTM in M3 — but CSK have lost 3 straight. He'll be desperate to drag his team home.","Ayush Mhatre won POTM in M7 for CSK. The young opener has been outstanding — a second big performance is coming.","Khaleel Ahmed has been CSK's most effective bowler. On a spinning Chepauk track, he can be lethal early.","Noor Ahmad is CSK's mystery spinner. In home conditions at Chennai, he can be unplayable."],
+    RR:["Yashasvi Jaiswal is the Orange Cap leader with 170 runs — POTM favourite whenever RR win. He's in ridiculous form.","Vaibhav Suryavanshi hit TWO sixes off Bumrah in M13. A 14-year-old smashing the world's best bowler — pick him.","Ravi Bishnoi is the Purple Cap leader with 7 wickets. When RR bowl, he's your POTM candidate every single match.","Jofra Archer took the first wicket in M13 and has been RR's most dangerous bowler. A 3-wicket haul = easy POTM."],
+    PBKS:["Priyansh Arya has won POTM twice in 2026 already — M4 and M7. He's on fire and he's barely 20 years old.","Arshdeep Singh is India's best left-arm pacer. In power play and death overs, he takes wickets and wins awards.","Shreyas Iyer scored big in the IPL 2025 final. The big-game experience shows — he rises when it matters most.","Yuzvendra Chahal is still the trickiest leg-spinner in the IPL. On a turning pitch, 3 wickets from him is routine."],
+    GT:["Shubman Gill is GT's anchor and best batter. When GT win, it's usually because Gill played an innings of class.","Rashid Khan has taken wickets in EVERY GT game in IPL 2026. He is always, always a POTM candidate.","Jos Buttler was bought to explode at the top — he hasn't hit best form yet, but when he does it'll be spectacular.","Kagiso Rabada is among the most dangerous pace bowlers in T20 cricket. 3 wickets from him shuts any team down."],
+    LSG:["Rishabh Pant won POTM in M5 vs DC — not just as captain but as match-winner. He's the heartbeat of LSG.","Nicholas Pooran hits 100m sixes like most people hit singles. One big over from him changes any game instantly.","Wanindu Hasaranga is a mystery spinner AND a handy lower-order batter. Both roles can produce a POTM.","Mayank Yadav when fit is the fastest bowler in the IPL. If he's playing, he's your pace POTM pick."],
+    DC:["Sameer Rizvi has 160 runs in 2 matches — Orange Cap holder and DC's most explosive batter right now.","Axar Patel is DC's captain AND best all-rounder. A typical Axar day: 30 runs and 2 economical wickets.","Kuldeep Yadav is among the smartest spinners in world cricket. On a turning Delhi pitch, he's unplayable.","Mitchell Starc brings extra pace. On a bouncy Delhi track, a 3-wicket haul from Starc is always possible.","KL Rahul is DC's most experienced batter. A composed 60 from him keeps DC in POTM contention."],
+  },
+};
+
+function getHints(home,away,venue){
+  const vH=HINTS.venue[venue]||["This venue has a batting-friendly reputation — expect a high-scoring game.","Toss could be decisive depending on dew and pitch conditions."];
+  const tH=[...(HINTS.toss[home]||["Watch the toss carefully — conditions here can influence the decision significantly.",...(HINTS.toss[away]||[])]),...(HINTS.toss[away]||[])];
+  const pH=[...(HINTS.potm[home]||["The home team's best batter or bowler is always a strong POTM pick."]),...(HINTS.potm[away]||["Watch the away team's key performer — upsets often come with a standout individual display."])];
+  return{venue:vH,toss:tH,potm:pH};
+}
+
+/* pick one hint per category deterministically (rotates by date+matchId so it changes each day) */
+function pickHint(arr,seed){
+  if(!arr||!arr.length)return"";
+  const idx=Math.abs(seed)%arr.length;
+  return arr[idx];
+}
+
 /* ─── CSS ─── */
 const CSS=`
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;600;700&display=swap');
@@ -283,6 +402,10 @@ body{background:#F4F6FB;}
 .stat-mini{flex:1;background:rgba(255,255,255,.12);border-radius:10px;padding:8px 4px;text-align:center;}
 .bar-bg{height:7px;border-radius:4px;background:#e2e8f0;overflow:hidden;}
 .bar-fill{height:100%;border-radius:4px;transition:width .6s;}
+.form-dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;}
+.hint-card{background:linear-gradient(135deg,#EBF0FA,#f0f7ff);border:1px solid #bfdbfe;border-radius:12px;padding:13px 14px;margin-bottom:10px;}
+.hint-tab{flex:1;padding:7px 4px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
+.hint-tab.on{color:#1D428A;border-bottom:2px solid #1D428A;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn .4s ease forwards;}
@@ -296,156 +419,66 @@ function Tst({t}){const bg=t.type==="error"?"#fef2f2":t.type==="ok"?"#f0fdf4":"#
 function Toggle({on,onChange}){return<button className="tog" onClick={()=>onChange(!on)} style={{background:on?"#1D428A":"#e2e8f0"}}><div className="tog-knob" style={{left:on?"23px":"3px"}}/></button>;}
 function useCd(ts){const[tl,sT]=useState("");useEffect(()=>{const tick=()=>{const d=ts-Date.now();if(d<=0){sT("NOW");return;}const h=Math.floor(d/3600000),m=Math.floor((d%3600000)/60000),s=Math.floor((d%60000)/1000);sT(h>0?h+"h "+m+"m":m>0?m+"m "+s+"s":s+"s");};tick();const id=setInterval(tick,1000);return()=>clearInterval(id);},[ts]);return tl;}
 function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot*100);return<div style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:10,color:"#94a3b8"}}>{cA+cB} picks</span></div><div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28,textAlign:"right"}}>{pA}%</span><div className="bar-bg" style={{flex:1,display:"flex"}}><div className="bar-fill" style={{width:pA+"%",background:clA}}/><div style={{flex:1,background:clB}}/></div><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28}}>{100-pA}%</span></div><div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{fontSize:10,color:"#94a3b8"}}>{tA}</span><span style={{fontSize:10,color:"#94a3b8"}}>{tB}</span></div></div>;}
+
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
-/* ─── FORM GUIDE: compute last 5 results for a team from completed matches ─── */
-function getFormGuide(team,ms){
-  const played=ms.filter(m=>m.result&&!isNR(m.result.win)&&(m.home===team||m.away===team));
-  return played.slice(-5).map(m=>m.result.win===team?"W":"L");
+/* ─── FORM GUIDE COMPONENT ─── */
+function FormGuide({team,ms,label}){
+  const guide=getFormGuide(team,ms);
+  if(!guide.length)return<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>{label}:</span><span style={{fontSize:11,color:"#94a3b8"}}>No results yet</span></div>;
+  return<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+    <span style={{fontSize:11,color:"#64748b",fontWeight:600,minWidth:28}}>{label}:</span>
+    {guide.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff"}} title={g.match.home+" vs "+g.match.away+" ("+g.match.date+")"}>{g.result}</span>)}
+    <span style={{fontSize:10,color:"#94a3b8"}}>last {guide.length}</span>
+  </div>;
 }
 
-/* ─── SMART HINTS DATABASE — factual + cheeky, multiple per match ─── */
-const HINTS={
-  // ─ VENUE hints ─
-  venue:{
-    "M.Chinnaswamy Stadium, Bengaluru":[
-      "Chinnaswamy is the highest-scoring ground in IPL history. If you think 200 is safe here, think again — it isn't.",
-      "The short boundaries at Chinnaswamy mean every mis-hit can be a six. Batters love it; bowlers have therapy bills.",
-      "RCB have won 6 of their last 8 home games here in IPL 2026 — defending champions on home turf is a dangerous combo.",
-      "In IPL 2026 M11, RCB posted 250/3 here vs CSK. The pitch has basically declared itself a batting paradise.",
-      "Spin struggles at Chinnaswamy — pace and power win here. POTM almost always goes to a batter or a fast bowler.",
-    ],
-    "Wankhede Stadium, Mumbai":[
-      "Wankhede has hosted MI's greatest moments. Five IPL titles worth of home advantage isn't nothing.",
-      "Dew at Wankhede is serious business — teams chasing here win 62% of the time. Toss could be decisive.",
-      "The Wankhede crowd is relentless. MI's home record here is among the best in IPL history — opponents feel it.",
-      "Sea breeze off the Arabian Sea keeps the air humid — the ball doesn't swing as much after the 10th over. Powerplay is king.",
-      "Both the fastest IPL hundreds (AB de Villiers 2015, Chris Gayle 2013) were scored at grounds exactly like this — high-scoring, short boundaries.",
-    ],
-    "MA Chidambaram Stadium, Chennai":[
-      "Chepauk is spin heaven. The dry, turning surface makes this ground the nightmare of every overseas batter.",
-      "CSK have won 70% of home games at Chepauk over IPL history. The crowd treats it like a fortress.",
-      "Don't pick a pace POTM here unless it's the first 3 overs. Spinners take 60% of wickets at this ground.",
-      "The pitch gets slower as the innings progresses. Scoring 160+ here feels like climbing Everest in flip-flops.",
-      "CSK have lost 3 straight in IPL 2026 — they are DESPERATE for a home win. Expect full intensity.",
-    ],
-    "Eden Gardens, Kolkata":[
-      "Eden Gardens holds 68,000 fans. When KKR are chasing, the noise is genuinely a 12th man.",
-      "KKR's home record at Eden Gardens is among the best in the IPL — 70% win rate over all editions.",
-      "M12 KKR vs PBKS was washed out here on April 6 — Eden has a drainage issue that has cost points before.",
-      "The pitch here tends to assist pacers early. First 6 overs are critical — openers set the tone completely.",
-      "KKR are yet to win in IPL 2026. Eden Gardens will be electric — desperate crowd, desperate team.",
-    ],
-    "Rajiv Gandhi Intl. Stadium, Hyderabad":[
-      "SRH posted 260+ at this ground in IPL 2024 — it is one of the most batting-friendly venues in India.",
-      "SRH beat KKR by 65 runs here in M6. When SRH bat first at home, they rarely show mercy.",
-      "The outfield at RGIS is lightning fast — expect high scores and a LOT of boundaries.",
-      "Travis Head destroyed KKR here in M6, setting the platform for SRH's dominant win. He loves this ground.",
-      "Hyderabad evenings can get humid — dew factor is real. Teams prefer chasing here whenever possible.",
-    ],
-    "Narendra Modi Stadium, Ahmedabad":[
-      "The world's largest cricket stadium with 130,000 seats. GT's home ground — and they used it to win two IPL titles.",
-      "The NM Stadium pitch is flat and true. Spinners get good turn here in the second half — big first innings scores are common.",
-      "GT have home advantage at the world's biggest cricket ground. The crowd noise in a full house is otherworldly.",
-      "PBKS beat GT here in M4 — so home advantage isn't always enough. But GT will be fired up to correct that.",
-      "This ground hosted the 2023 World Cup final. High-pressure matches produce high-pressure performances here.",
-    ],
-    "Sawai Mansingh Stadium, Jaipur":[
-      "RR's home fortress. The Jaipur crowd is passionate, knowledgeable, and fiercely behind Riyan Parag's men.",
-      "The pitch at Sawai Mansingh tends to help spinners — Ravi Bishnoi (7 wickets this season) will relish this surface.",
-      "RR are on a 3-match winning streak after M13. They're flying — and they're coming home.",
-      "The ground sits at 431m elevation — the ball travels further here than at sea-level venues. Batters love Jaipur.",
-      "RR have the best record in the tournament right now. Picking against them at home seems like a brave choice.",
-    ],
-    "Barsapara Cricket Stadium, Guwahati":[
-      "M13 (RR vs MI) was delayed 2.5 hours by rain here and reduced to 11 overs — watch the weather carefully.",
-      "Guwahati is neutral territory for both teams — no true home advantage. The pitch is relatively unknown.",
-      "Jaiswal scored 77* off 32 here in M13. Barsapara has a flat track — batters can go from ball one.",
-      "RR have now played at Guwahati twice and won both. The ground seems to suit their aggressive batting style.",
-      "Small ground, big scores. When the dew comes in at Guwahati, the second innings becomes a run-fest.",
-    ],
-    "Ekana Cricket Stadium, Lucknow":[
-      "LSG beat SRH here in M10 — Rishabh Pant's home ground and he made it count as POTM.",
-      "Ekana has a slower pitch compared to other venues — strokeplay is harder, but Pant makes it look easy.",
-      "LSG have a strong home record at Ekana. The pitch favours teams with a solid spin attack.",
-      "The Lucknow crowd is growing — Rishabh Pant has turned this city into a cricket-mad fanbase in one season.",
-      "Evening dew at Ekana helps batters in the second innings. Toss could matter significantly here.",
-    ],
-    "Arun Jaitley Stadium, Delhi":[
-      "DC's home ground and they came flying in IPL 2026 — Sameer Rizvi has been in sensational form here.",
-      "The Delhi pitch is a batting beauty — flat, fast, and favours strokemakers. 180+ is par here.",
-      "DC beat MI in M8 with a high-scoring performance at this ground. Home form is strong.",
-      "Delhi evenings get dew-heavy — chasing teams historically do well here after the first 8 overs.",
-      "Axar Patel captaining at his home ground with home fans — captains tend to dig deep at home.",
-    ],
-    "Mullanpur Stadium, New Chandigarh":[
-      "PBKS's home ground is the brand new Mullanpur Stadium — a batting beauty with true bounce.",
-      "PBKS are flying in IPL 2026. At home, with Shreyas Iyer and a packed lineup, they're dangerous.",
-      "Mullanpur is a high-scoring ground — expect totals above 190. The boundaries are not small.",
-      "Priyansh Arya (2× POTM already) plays at his home base. The young gun will want to perform in front of his crowd.",
-      "SRH vs PBKS here — two aggressive batting sides on a flat track. This could be a run-fest.",
-    ],
-    "HPCA Stadium, Dharamshala":[
-      "Dharamshala is the most scenic cricket ground on Earth — but don't let the mountains fool you, the cricket is fierce.",
-      "At 1,457m altitude, the ball flies further here than anywhere else in IPL. Expect massive sixes and bigger totals.",
-      "Spinners struggle at altitude — the air is thinner, the ball doesn't grip. Pacers with extra bounce rule here.",
-      "RCB played MI here in IPL 2024 — high-scoring game. This ground and big batting performances go hand in hand.",
-      "The morning mist can delay starts at Dharamshala, but once underway, the conditions are magnificent for batting.",
-    ],
-    "SVNS Intl. Stadium, Raipur":[
-      "A relatively new IPL venue — Raipur has a reputation for flat pitches and high scores.",
-      "MI play here in M54 and M57 — neutral territory for both teams. Conditions will be unknown to both sides.",
-      "Raipur tends to produce batting-friendly surfaces. The outfield is quick and the boundaries are reasonably short.",
-      "With no strong home advantage for either team, team composition and form on the day will decide this one.",
-      "It's one of IPL's newer venues — less historical data, which makes prediction trickier but more exciting.",
-    ],
-  },
+/* ─── SMART HINTS PANEL (used in pick screen) ─── */
+function SmartHintsPanel({home,away,venue,matchId}){
+  const[tab,setTab]=useState("venue");
+  const hints=useMemo(()=>getHints(home,away,venue),[home,away,venue]);
+  // seed = matchId + current day-of-year so hints rotate daily
+  const seed=useMemo(()=>{
+    const now=new Date();
+    const doy=Math.floor((now-(new Date(now.getFullYear(),0,0)))/86400000);
+    return(Number(matchId)||0)+doy;
+  },[matchId]);
 
-  // ─ TOSS hints per team ─
-  toss:{
-    RCB:["RCB won the toss in M1 vs SRH and elected to field — SRH batted first and still lost. Make of that what you will.","RCB's toss record in 2026: 1W 0L so far — but at Chinnaswamy they typically prefer to chase to harness dew.","Rajat Patidar at the toss — calm, composed, usually goes with the conditions. Expect him to field if he wins it.","RCB won the IPL 2025 title in part by reading match situations smartly. Patidar's toss decisions have been sound."],
-    SRH:["SRH won the toss in M1 and M6 — winning 2/2 tosses so far in IPL 2026. The orange army is coin-flip royalty.","SRH elected to field in M1 (lost) and bat in M6 (won big). They adapt toss strategy to conditions.","Travis Head loves batting first and setting targets — expect SRH to bat if they win the toss.","Pat Cummins reads conditions well. He'll factor in dew, pitch, and opposition strengths before deciding."],
-    MI:["MI won the toss in M2 and M13 — winning both, electing to field both times. Classic MI strategy.","MI chose to field in M13 at Guwahati — it backfired spectacularly. Jaiswal 77* happened. Sometimes the toss decision is irrelevant.","Hardik Pandya is MI's captain — he likes bowling conditions and setting up his pacers. Expect MI to field if they win.","MI's toss strategy under Pandya: field first, trust Bumrah, and chase. It's been their MO all season."],
-    KKR:["KKR won the toss in M12 vs PBKS and elected to bat — but the match was washed out. Saved by rain.","KKR are winless in IPL 2026 so far. Their toss decisions haven't hurt them — the execution has.","Ajinkya Rahane is a pragmatic captain. He'll read the surface carefully before calling bat or field.","KKR at Eden Gardens — Rahane knows this ground inside out. Expect a shrewd toss call from the experienced campaigner."],
-    CSK:["CSK lost the toss in M3 (batted, lost) and M7 (didn't even win it). They're 0/2 on toss wins — and 0/3 on match wins.","CSK are winless in IPL 2026. The toss has not been kind, but the bigger issue is their batting hasn't fired.","Ruturaj Gaikwad is a thoughtful captain. He'll want to bat first at home to control the innings.","Fun fact: MS Dhoni had a legendary toss record — Ruturaj is building his own, though it's started rough in 2026."],
-    RR:["RR lost the toss in M3 (lost match) but won in M9 and M13 — winning 2/3 tosses and all 3 matches in IPL 2026.","Riyan Parag elected to field in M9 and M13, both times winning. Chasing suits RR's aggressive top order.","RR's openers Jaiswal and Sooryavanshi are so good they make chasing look easy. Parag loves to field first.","RR are top of the table with 6 points. Their toss reading has been sharp — Parag is becoming a sharp captain."],
-    PBKS:["PBKS won the toss in M4 and M7 — winning 2/2, and also winning both those matches. Toss = win for PBKS so far.","Shreyas Iyer is a composed toss-caller. He's backed his batters by electing to bowl first in both PBKS wins.","PBKS have 5 points including a NR in M12. They're doing everything right — including the coin flip.","Priyansh Arya hits sixes regardless of match situation. PBKS under Iyer chase without fear."],
-    GT:["GT lost the toss in M4 (lost) and M9 (lost) — 0 from 2 on toss wins and 0 from 2 on match wins. Tough start.","Shubman Gill has had a quiet 2026 by his standards. GT are 0 points from 2 games — they desperately need a win.","GT love batting first and building big totals with Gill and Buttler — but they haven't had the chance to set the tempo yet.","GT won two IPL titles (2022, 2023) by being clinical. They'll be back — the class is still there."],
-    LSG:["LSG won the toss in M5 (Rishabh Pant POTM, LSG won) and M10 (beat SRH). 2/2 tosses and 2/2 matches in 2026.","Rishabh Pant's captaincy has been sharp — he reads conditions quickly and his instincts have been correct so far.","LSG under Pant love chasing — they've done it twice in 2026 and won both. Don't be surprised if they field after winning the toss.","Pant won the toss in M5 vs DC and made it count personally — POTM with a match-winning knock. He leads from the front."],
-    DC:["DC won the toss in M5 (lost), M8 (won big vs MI) — their toss record is fine, the performances are what matter.","Axar Patel won the toss in M8 and chose to bat — DC posted a big score and bowled MI out. Clean execution.","Sameer Rizvi is DC's orange-cap leader with 160 runs in 2 matches. If DC win the toss and bat, watch out.","DC are 2/2 in matches so far. They're flying — and Axar's tactical calls have been strong."],
-  },
+  const hintText=useMemo(()=>{
+    if(tab==="venue")return pickHint(hints.venue,seed);
+    if(tab==="toss")return pickHint(hints.toss,seed+1);
+    return pickHint(hints.potm,seed+2);
+  },[tab,hints,seed]);
 
-  // ─ POTM hints per team ─
-  potm:{
-    RCB:["Phil Salt smashed a brutal knock in M1 to win POTM. He's RCB's explosive opener — a big score from him is always possible.","Tim David hit a 106m six in the 30-run over vs CSK in M11. If David gets going, he wins games singlehandedly.","Bhuvneshwar Kumar became the first pacer to 200 IPL wickets in M11. He's always in the POTM hunt with the ball.","Devdutt Padikkal scored 50 off 29 vs CSK. He's consistent and elegant — when RCB win, he's usually involved.","Rajat Patidar scored 48* off 19 vs CSK. The skipper loves stepping up in big moments — keep an eye on him."],
-    SRH:["Travis Head is SRH's POTM machine — won it in M6, been explosive at the top. He's your first pick if SRH win.","Abhishek Sharma hit a century (first Indian to do it for SRH) in IPL 2026. When SRH fire, he goes ballistic.","Harshal Patel and Eshan Malinga cleaned up KKR in M6. SRH's bowling POTM candidates are real — don't ignore them.","Heinrich Klaasen is among the top run-scorers in IPL 2026 with 145 runs. A big Klaasen knock usually seals a SRH win.","Pat Cummins himself is always a POTM threat — quick, smart bowling at the death has won him awards before."],
-    MI:["Jasprit Bumrah is always the POTM threat with the ball — 2 wickets in a crucial over changes any game.","Suryakumar Yadav won POTM in M2 — he bats in situations others can't handle. If SKY plays an innings, he's the pick.","Rohit Sharma is 5th in the IPL 2026 run charts with 118 runs. A vintage Rohit knock would seal a POTM for sure.","Hardik Pandya does it with bat AND ball. A Pandya all-round day (30 runs + 2 wickets) screams POTM.","Tilak Varma is quietly becoming MI's best batter in 2026. Watch him for the POTM if MI win."],
-    KKR:["Sunil Narine can win games with bat OR ball. He's the wild card — a 50 or a 5-wicket haul, both possible.","Varun Chakaravarthy was KKR's MVP in 2024 and 2025. He bowls the mystery ball that even world-class batters edge.","Cameron Green (₹25.2Cr) has been quiet this season. He's due a big performance — when it comes, it'll be POTM-worthy.","Rinku Singh is the king of finishing. If KKR are chasing, a Rinku cameo at the end wins him awards.","Matheesha Pathirana has genuine pace. On a lively pitch, he can tear through any batting lineup."],
-    CSK:["Ruturaj Gaikwad won POTM in M3 — but CSK have lost 3 straight. He'll be desperate to drag his team to victory.","CSK are missing MS Dhoni due to injury. Gaikwad needs to step up as both captain and batter — pressure = POTM moments.","Ayush Mhatre won POTM in M7 for CSK. The young opener has been outstanding — a second big performance is coming.","Khaleel Ahmed has been CSK's most effective bowler. On a spinning Chepauk track, he can be lethal early.","Noor Ahmad is CSK's mystery spinner. In home conditions at Chennai, he can be unplayable — watch for a bowling POTM."],
-    RR:["Yashasvi Jaiswal is the Orange Cap leader with 170 runs — POTM favourite whenever RR win. He's in ridiculous form.","Vaibhav Sooryavanshi hit TWO sixes off Bumrah in M13. A 14-year-old smashing the world's best bowler — pick him for POTM.","Ravi Bishnoi is the Purple Cap leader with 7 wickets. When RR bowl, he's your POTM candidate every single match.","Jofra Archer took the first wicket in M13 and has been RR's most dangerous bowler. A 3-wicket haul = easy POTM.","Nandre Burger took 2 wickets in M13. He's emerging as RR's best death bowler — a consistent threat for POTM."],
-    PBKS:["Priyansh Arya has won POTM twice in 2026 already — in M4 and M7. He's on fire and he's barely 20 years old.","Arshdeep Singh is India's best left-arm pacer. In power play and death overs, he takes wickets and wins awards.","Shreyas Iyer scored big in the IPL 2025 final. The big-game experience shows — he rises when it matters most.","Yuzvendra Chahal is still the trickiest leg-spinner in the IPL. On a turning pitch, 3 wickets from him is routine.","Cooper Connolly scored 108 runs in 2 games for PBKS. The Australian opener has been sensational — a genuine POTM threat."],
-    GT:["Shubman Gill is GT's anchor and best batter. When GT win, it's usually because Gill played an innings of class.","Rashid Khan has taken wickets in EVERY GT game in IPL 2026. He is always, always, always a POTM candidate.","Jos Buttler was bought to explode at the top — he hasn't hit his best form yet, but when he does, it'll be spectacular.","Kagiso Rabada is among the most dangerous pace bowlers in T20 cricket. 3 wickets from him shuts any team down.","Sai Sudharsan has been quietly consistent for GT. He doesn't win POTM often, but he wins matches. Watch him."],
-    LSG:["Rishabh Pant won POTM in M5 vs DC — not just as captain but as match-winner. He's the heartbeat of LSG.","Avesh Khan has been LSG's best death bowler. In the final 4 overs, he's wicket-taking and economical.","Nicholas Pooran hits 100m sixes like most people hit singles. One big over from him changes any game instantly.","Wanindu Hasaranga is a mystery spinner AND a handy lower-order batter. Both roles can produce a POTM.","Mayank Yadav when fit is the fastest bowler in the IPL. If he's playing, he's your pace POTM pick."],
-    DC:["Sameer Rizvi has 160 runs in 2 matches — he's the Orange Cap holder and DC's most explosive batter right now.","Axar Patel is DC's captain AND best all-rounder. A typical Axar day: 30 runs and 2 wickets for economical figures.","Kuldeep Yadav is among the smartest spinners in world cricket. At Arun Jaitley, on a turning pitch, he's unplayable.","Mitchell Starc brings extra pace. On a bouncy Delhi track, a 3-wicket haul from Starc is always possible.","KL Rahul is DC's most experienced batter. A composed 60 from him always keeps DC in and around POTM contention."],
-  },
-};
+  const secondHint=useMemo(()=>{
+    const arr=tab==="venue"?hints.venue:tab==="toss"?hints.toss:hints.potm;
+    if(!arr||arr.length<2)return null;
+    const idx=(Math.abs(seed)+(tab==="venue"?0:tab==="toss"?1:2)+1)%arr.length;
+    return arr[idx];
+  },[tab,hints,seed]);
 
-function getHints(home,away,venue){
-  const vHints=HINTS.venue[venue]||["This venue has a batting-friendly reputation — expect a high-scoring game."];
-  const tHome=HINTS.toss[home]||["Watch the toss carefully — conditions here can influence the decision significantly."];
-  const tAway=HINTS.toss[away]||["Both captains are shrewd — whoever wins the toss will make it count."];
-  const pHome=HINTS.potm[home]||["The home team's best batter or bowler is always a strong POTM pick."];
-  const pAway=HINTS.potm[away]||["Watch the away team's key performer — upsets often come with a standout individual display."];
-  return{
-    venue:vHints,
-    toss:[...tHome,...tAway],
-    potm:[...pHome,...pAway],
-  };
+  const tabColor={"venue":"#1D428A","toss":"#FF822A","potm":"#B8860B"};
+  const tabLabel={"venue":"🏟️ Venue","toss":"🪙 Toss","potm":"⭐ POTM"};
+
+  return<div style={{background:"#f0f7ff",border:"1px solid #bfdbfe",borderRadius:14,overflow:"hidden",marginBottom:14}}>
+    <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"8px 14px",display:"flex",alignItems:"center",gap:8}}>
+      <span style={{fontSize:14}}>💡</span>
+      <span style={{color:"#FFE57F",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,textTransform:"uppercase"}}>Smart Hints</span>
+      <span style={{color:"#bfdbfe",fontSize:10,marginLeft:"auto"}}>AI-curated for this match</span>
+    </div>
+    <div style={{display:"flex",borderBottom:"1px solid #bfdbfe",background:"#fff"}}>
+      {["venue","toss","potm"].map(t=><button key={t} className={"hint-tab"+(tab===t?" on":"")} onClick={()=>setTab(t)} style={{color:tab===t?tabColor[t]:undefined,borderBottomColor:tab===t?tabColor[t]:undefined}}>{tabLabel[t]}</button>)}
+    </div>
+    <div style={{padding:"12px 14px"}}>
+      <p style={{color:"#1e40af",fontSize:13,lineHeight:1.6,margin:0,fontWeight:500}}>💬 {hintText}</p>
+      {secondHint&&secondHint!==hintText&&<p style={{color:"#3b5fc0",fontSize:12,lineHeight:1.55,margin:"10px 0 0",paddingTop:10,borderTop:"1px dashed #bfdbfe",fontWeight:400}}>💬 {secondHint}</p>}
+    </div>
+  </div>;
 }
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact,allMs}){
   const lk=isMatchLocked(m,lockedMatches);
   const mp=getP(myPicks,m.id);
   const ct=cutoff(m);
@@ -459,7 +492,6 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const mOv=((matchPtsOverride[myEmk]||{})[m.id])??((matchPtsOverride[myEmk]||{})[String(m.id)])??0;
   const isWashout=m.result&&(isNR(m.result.win)||isNR(m.result.motm));
 
-  /* BUG FIX: earned pts calc consistent with calcScore */
   let earned=0;
   if(m.result&&mp){
     let base=0;
@@ -473,8 +505,6 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
   const ae=Object.entries(allPicks);
   const tot=ae.filter(([,up])=>getP(up,m.id)!=null).length;
-
-  /* group split — only shown after result is entered */
   const sp=lk&&tot>0&&m.result&&!isNR(m.result.toss)?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
@@ -482,6 +512,11 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     wA:ae.filter(([,up])=>getP(up,m.id)?.win===m.home).length,
     wB:ae.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
   }:null;
+
+  // Form guide — derive from allMs (all matches with results)
+  const homeForm=allMs?getFormGuide(m.home,allMs):[];
+  const awayForm=allMs?getFormGuide(m.away,allMs):[];
+  const showForm=!m.result&&(homeForm.length>0||awayForm.length>0);
 
   return<div className="mcard fade-in">
     <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
@@ -501,6 +536,13 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       <p className="C" style={{color:"#cbd5e1",fontSize:18,fontWeight:800,letterSpacing:2,margin:"0 6px"}}>VS</p>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1}}><TLogo t={m.away} sz={48}/><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.away}</p><p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.away]||""}</p></div>
     </div>
+
+    {/* FORM GUIDE — shown on open matches in home cards */}
+    {showForm&&<div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"8px 12px",marginBottom:10,display:"flex",flexDirection:"column",gap:5}}>
+      <FormGuide team={m.home} ms={allMs} label={m.home}/>
+      <FormGuide team={m.away} ms={allMs} label={m.away}/>
+    </div>}
+
     <p style={{color:"#94a3b8",fontSize:11,borderTop:"1px solid #f1f5f9",paddingTop:8,marginBottom:10}}>📍 {m.venue}</p>
     {m.result&&<div style={{background:"#F4F6FB",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
       <span style={{color:"#64748b"}}>Toss: </span><b>{showVal(m.result.toss)}</b>
@@ -547,6 +589,7 @@ export default function App(){
   const[htab,setHtab]=useState("today");
   const[ptab,setPtab]=useState("pending");
   const[am,setAm]=useState(null);const[draft,setDraft]=useState({});
+  const[hintTab,setHintTab]=useState("venue"); // hint tab state for pick screen
   const[admTab,setAdmTab]=useState("approvals");
   const[bcMsg,setBcMsg]=useState("");
   const[exU,setExU]=useState(null);const[anM,setAnM]=useState(null);
@@ -587,21 +630,14 @@ export default function App(){
     poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
   },[isAdmin,user]);// eslint-disable-line
 
-  /* forceRepair: normalize AP to string keys AND write back to Firebase so old number keys are gone */
   const forceRepair=useCallback(async()=>{
     try{
       const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
       const cleanAP=normalizeAP(ap);
-      // write back so Firebase no longer has numeric pick keys
-      await Promise.all([
-        DB.set("sp",normalizeKeyMap(sp)),
-        DB.set("t4",normalizeKeyMap(t4)),
-        DB.set("ap",cleanAP),
-      ]);
+      await Promise.all([DB.set("sp",normalizeKeyMap(sp)),DB.set("t4",normalizeKeyMap(t4)),DB.set("ap",cleanAP)]);
     }catch(e){console.error("repair",e);}
   },[]);
 
-  /* BUG FIX: reloadShared uses normalizeAP */
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
     const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu]=await Promise.all([
@@ -613,17 +649,14 @@ export default function App(){
     ]);
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
-
     const freshAP=normalizeAP(ap);
     setAllPicks(freshAP);
     if(em)setMyPicks(freshAP[emk]||{});
-
     let allMs=buildBaseMatches();
     if(rm)allMs=allMs.map(m=>{const r=rm[m.id]??rm[String(m.id)];return r?{...m,...r}:m;});
     if(br){setBracket(br);allMs=resolvePlayoffSlots(allMs,br);}else setBracket(null);
     const extraMs=(mn||[]).map(m=>{const mid=Number(m.id)||m.id;const r=rm&&(rm[mid]??rm[String(mid)]);return r?{...m,id:mid,...r}:{...m,id:mid};});
     setMs([...allMs,...extraMs]);
-
     if(b)setBc(b);if(cm)setChat(cm);
     const nsp=normalizeKeyMap(sp);setSpk(nsp);if(em)setMySp(nsp[emk]||"");
     if(sw2!=null)setSw(sw2);
@@ -647,35 +680,20 @@ export default function App(){
         const saved=await DB.get("session");
         if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
         const storedToken=await DB.get("token_"+ek(saved.email));
-        if(!storedToken||storedToken!==saved.token){
-          await DB.set("session",null);
-          if(!cancelled)setSc("login");return;
-        }
+        if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         const u2=await DB.get("u")||{};
-        // try both raw email and encoded email key
         const ex=u2[saved.email]||u2[ek(saved.email)]||null;
-        if(!ex||ex.approved===false){
-          await DB.set("session",null);
-          if(!cancelled)setSc("login");return;
-        }
+        if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         await forceRepair();
         if(cancelled)return;
-        setUser(ex);
-        setEmail(saved.email);
-        setIsAdmin(saved.email===SUPER_ADMIN);
-        setSessionEmail(saved.email);
+        setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
         const{freshAP,hasOnboarded}=await reloadShared(saved.email);
         if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
-        setBcSeenTs(Date.now());
-        setChatSeenTs(Date.now());
+        setBcSeenTs(Date.now());setChatSeenTs(Date.now());
         setSc(hasOnboarded?"home":"onboard");
-      }catch(e){
-        console.error("auto-login",e);
-        if(!cancelled)setSc("login");
-      }
+      }catch(e){console.error("auto-login",e);if(!cancelled)setSc("login");}
     };
-    // Give Firebase 15 seconds before giving up — slow connections in India need more time
     const t=setTimeout(()=>{if(!cancelled){console.warn("auto-login timeout");setSc("login");}},15000);
     go().finally(()=>clearTimeout(t));
     return()=>{cancelled=true;clearTimeout(t);};
@@ -699,7 +717,6 @@ export default function App(){
   useEffect(()=>{chatRef.current?.scrollIntoView({behavior:"smooth"});},[chat,sc]);
 
   async function persistSession(em){
-    // always store normalised lowercase email so auto-login lookup is consistent
     const nem=normalizeEmail(em);
     const token=Math.random().toString(36).slice(2)+Date.now().toString(36);
     await DB.set("token_"+ek(nem),token);
@@ -707,7 +724,6 @@ export default function App(){
     setSessionEmail(nem);
   }
 
-  /* COMPUTED */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
   const todayMs=useMemo(()=>ms.filter(isToday),[ms]);
   const upMs=useMemo(()=>ms.filter(m=>!m.result&&!isToday(m)&&!isTBD(m)),[ms]);
@@ -735,7 +751,6 @@ export default function App(){
 
   const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
-  /* AUTH */
   function clearAuthForm(){setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setShowForgotPw(false);setShowForgotPw2(false);}
 
   async function doLogin(){
@@ -806,11 +821,8 @@ export default function App(){
     if(sessionEmail){
       try{
         const nem=normalizeEmail(sessionEmail);
-        const ou=await DB.get("online")||{};
-        delete ou[ek(nem)];
-        await DB.set("online",ou);
-        await DB.set("token_"+ek(nem),null);
-        await DB.set("session",null);
+        const ou=await DB.get("online")||{};delete ou[ek(nem)];await DB.set("online",ou);
+        await DB.set("token_"+ek(nem),null);await DB.set("session",null);
       }catch(e){console.error(e);}
     }
     setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);
@@ -843,7 +855,6 @@ export default function App(){
     setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");
   }
 
-  /* BUG FIX: submitPick — string key, no editing guard, fresh lock check */
   async function submitPick(){
     if(!am)return;
     if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}
@@ -884,7 +895,6 @@ export default function App(){
     toast2("Saved ✓","ok");
   }
 
-  /* BUG FIX: setManualResult uses normalizeAP and string key lookup */
   async function setManualResult(mid){
     const f=admResultForm[mid];
     if(!f?.toss||!f?.win||!f?.motm){toast2("Fill all result fields","error");return;}
@@ -947,7 +957,7 @@ export default function App(){
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
-      setAm(m);setDraft({});setSc("picks");
+      setAm(m);setDraft({});setHintTab("venue");setSc("picks");
     }
   };
 
@@ -1037,28 +1047,102 @@ export default function App(){
     {toast&&<Tst t={toast}/>}
   </div>;
 
-  if(sc==="picks"&&am){return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
-    <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
-      <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
-      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/>
-    </div>
-    <div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}><span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final. No edits allowed.</span></div>
-    <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
-      {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
-        <div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
-          <div style={{display:"flex",gap:10}}>{[am.home,am.away].map(t=><button key={t} className={"tmbtn"+(draft[field]===t?" on":"")} onClick={()=>setDraft(d=>({...d,[field]:t}))}><TLogo t={t} sz={50}/><p className="C" style={{color:draft[field]===t?"#1D428A":"#64748b",fontSize:14,fontWeight:700,margin:0}}>{t}</p>{draft[field]===t&&<span style={{background:"#1D428A",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:12}}>SELECTED</span>}</button>)}</div>
+  /* ─── PICK SCREEN with Smart Hints + Form Guide ─── */
+  if(sc==="picks"&&am){
+    const hints=getHints(am.home,am.away,am.venue);
+    const homeForm=getFormGuide(am.home,ms);
+    const awayForm=getFormGuide(am.away,ms);
+    const seed=(()=>{const now=new Date();const doy=Math.floor((now-(new Date(now.getFullYear(),0,0)))/86400000);return(Number(am.id)||0)+doy;})();
+
+    // pick 2 hints per tab to show
+    const getTwo=(arr)=>{
+      if(!arr||!arr.length)return[];
+      const i0=Math.abs(seed)%arr.length;
+      const i1=(i0+1)%arr.length;
+      return i0===i1?[arr[i0]]:[arr[i0],arr[i1]];
+    };
+    const venueHints=getTwo(hints.venue);
+    const tossHints=getTwo(hints.toss);
+    const potmHints=getTwo(hints.potm);
+    const activeHints=hintTab==="venue"?venueHints:hintTab==="toss"?tossHints:potmHints;
+    const hintColor={"venue":"#1e40af","toss":"#92400E","potm":"#166534"};
+    const hintBg={"venue":"#EBF0FA","toss":"#FFF9E6","potm":"#f0fdf4"};
+    const hintBorder={"venue":"#bfdbfe","toss":"#FDE68A","potm":"#bbf7d0"};
+
+    return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
+        <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
+        <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST · {am.mn}</p></div><TLogo t={am.away} sz={28}/>
+      </div>
+      <div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}><span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final. No edits allowed.</span></div>
+
+      <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:16}}>
+
+        {/* FORM GUIDE SECTION */}
+        {(homeForm.length>0||awayForm.length>0)&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:14,padding:"13px 14px"}}>
+          <p className="st" style={{marginBottom:10}}>📊 FORM GUIDE — LAST 5</p>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {homeForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <TLogo t={am.home} sz={22}/>
+              <span style={{fontSize:12,fontWeight:700,color:"#1a2540",minWidth:40}}>{am.home}</span>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                {homeForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff"}} title={g.match.home+" vs "+g.match.away+" ("+g.match.date+")"}>{g.result}</span>)}
+              </div>
+              <span style={{fontSize:10,color:"#94a3b8"}}>← recent</span>
+            </div>}
+            {awayForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <TLogo t={am.away} sz={22}/>
+              <span style={{fontSize:12,fontWeight:700,color:"#1a2540",minWidth:40}}>{am.away}</span>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                {awayForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff"}} title={g.match.home+" vs "+g.match.away+" ("+g.match.date+")"}>{g.result}</span>)}
+              </div>
+              <span style={{fontSize:10,color:"#94a3b8"}}>← recent</span>
+            </div>}
+          </div>
+          {homeForm.length===0&&awayForm.length===0&&<p style={{color:"#94a3b8",fontSize:12,margin:0}}>Season just started — no form data yet.</p>}
+        </div>}
+
+        {/* SMART HINTS SECTION */}
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:14,overflow:"hidden"}}>
+          <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:15}}>💡</span>
+            <span style={{color:"#FFE57F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,textTransform:"uppercase"}}>Smart Hints</span>
+            <span style={{color:"rgba(255,255,255,.5)",fontSize:10,marginLeft:"auto"}}>Tap a tab to explore</span>
+          </div>
+          <div style={{display:"flex",borderBottom:"1px solid #e2e8f0"}}>
+            {[["venue","🏟 Venue"],["toss","🪙 Toss"],["potm","⭐ POTM"]].map(([t,l])=>(
+              <button key={t} onClick={()=>setHintTab(t)} style={{flex:1,padding:"9px 4px",border:"none",background:hintTab===t?hintBg[t]:"#fff",color:hintTab===t?hintColor[t]:"#94a3b8",borderBottom:hintTab===t?"2px solid "+hintColor[t]:"2px solid transparent",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:10,cursor:"pointer",textTransform:"uppercase",letterSpacing:.3,transition:"all .15s"}}>{l}</button>
+            ))}
+          </div>
+          <div style={{padding:"12px 14px",background:hintBg[hintTab],display:"flex",flexDirection:"column",gap:10}}>
+            {activeHints.length>0
+              ?activeHints.map((h,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:13,flexShrink:0,marginTop:1}}>💬</span>
+                  <p style={{color:hintColor[hintTab],fontSize:12,lineHeight:1.6,margin:0,fontWeight:i===0?600:400}}>{h}</p>
+                </div>)
+              :<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No hints for this tab yet.</p>
+            }
+          </div>
         </div>
-      ))}
-      <div><p className="st">PLAYER OF THE MATCH <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.motm}pts</span></p><PotmDropdown homeTeam={am.home} awayTeam={am.away} value={draft.motm||""} onChange={v=>setDraft(d=>({...d,motm:v}))}/></div>
-      {draft.toss&&draft.win&&draft.motm&&<div style={{background:"#EBF0FA",border:"1px solid #dbeafe",borderRadius:12,padding:"14px 16px"}}>
-        <p className="st" style={{marginBottom:12}}>YOUR PREDICTION</p>
-        {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
-        <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
-      </div>}
-      <button className="lbtn" disabled={!draft.toss||!draft.win||!draft.motm} onClick={submitPick} style={{opacity:draft.toss&&draft.win&&draft.motm?1:.4}}>Lock Prediction 🔒</button>
-    </div>
-    {toast&&<Tst t={toast}/>}
-  </div>;}
+
+        {/* PREDICTION FIELDS */}
+        {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
+          <div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
+            <div style={{display:"flex",gap:10}}>{[am.home,am.away].map(t=><button key={t} className={"tmbtn"+(draft[field]===t?" on":"")} onClick={()=>setDraft(d=>({...d,[field]:t}))}><TLogo t={t} sz={50}/><p className="C" style={{color:draft[field]===t?"#1D428A":"#64748b",fontSize:14,fontWeight:700,margin:0}}>{t}</p>{draft[field]===t&&<span style={{background:"#1D428A",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:12}}>SELECTED</span>}</button>)}</div>
+          </div>
+        ))}
+        <div><p className="st">PLAYER OF THE MATCH <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.motm}pts</span></p><PotmDropdown homeTeam={am.home} awayTeam={am.away} value={draft.motm||""} onChange={v=>setDraft(d=>({...d,motm:v}))}/></div>
+
+        {draft.toss&&draft.win&&draft.motm&&<div style={{background:"#EBF0FA",border:"1px solid #dbeafe",borderRadius:12,padding:"14px 16px"}}>
+          <p className="st" style={{marginBottom:12}}>YOUR PREDICTION</p>
+          {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
+          <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
+        </div>}
+        <button className="lbtn" disabled={!draft.toss||!draft.win||!draft.motm} onClick={submitPick} style={{opacity:draft.toss&&draft.win&&draft.motm?1:.4}}>Lock Prediction 🔒</button>
+      </div>
+      {toast&&<Tst t={toast}/>}
+    </div>;
+  }
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🔧</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline.</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>← Sign Out</button></div></div>;
 
@@ -1081,9 +1165,16 @@ export default function App(){
         {htab==="done"&&(done.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40,marginBottom:12}}>⏳</p><p className="C" style={{color:"#94a3b8",fontSize:18,fontWeight:700,letterSpacing:1}}>NO RESULTS YET</p></div>:[...done].reverse().map(m=><MCard key={m.id} m={m} pred={false} {...cardProps}/>))}
         {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>{
           const hasPick=!!getP(myPicks,m.id);
+          const homeForm=getFormGuide(m.home,ms);
+          const awayForm=getFormGuide(m.away,ms);
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span>}</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.home}</p></div><p className="C" style={{color:"#e2e8f0",fontSize:16,fontWeight:800,padding:"0 8px",margin:0}}>VS</p><div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.away}</p></div></div>
+            {/* Form guide in schedule tab */}
+            {(homeForm.length>0||awayForm.length>0)&&<div style={{marginTop:10,background:"#f8faff",borderRadius:8,padding:"7px 10px",display:"flex",flexDirection:"column",gap:5}}>
+              {homeForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#64748b",fontWeight:600,minWidth:36}}>{m.home}:</span><div style={{display:"flex",gap:3}}>{homeForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff",width:18,height:18,fontSize:9}}>{g.result}</span>)}</div></div>}
+              {awayForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#64748b",fontWeight:600,minWidth:36}}>{m.away}:</span><div style={{display:"flex",gap:3}}>{awayForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff",width:18,height:18,fontSize:9}}>{g.result}</span>)}</div></div>}
+            </div>}
             <p style={{color:"#cbd5e1",fontSize:11,marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:8}}>📍 {m.venue}</p>
           </div>;
         }))}
@@ -1159,7 +1250,7 @@ export default function App(){
             {mOv!==0&&<p style={{color:"#FF822A",fontSize:10,fontWeight:600,margin:"6px 0 0"}}>Admin adj: {mOv>0?"+":""}{mOv} pts</p>}
           </div>
         ))}</>}
-        {ptab==="schedule"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start.</span></div>{schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>:schedule.map(m=>{const hasPick=!!getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}</div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div><span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span><div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div></div><p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p></div>;})}</>}
+        {ptab==="schedule"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#1e40af",display:"flex",gap:8,alignItems:"center"}}><span>📅</span><span>Predictions open on match day only, 5 mins before start.</span></div>{schedule.length===0?<div style={{textAlign:"center",padding:"30px 16px"}}><p style={{fontSize:32}}>🏁</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No upcoming matches left.</p></div>:schedule.map(m=>{const hasPick=!!getP(myPicks,m.id);const homeForm=getFormGuide(m.home,ms);const awayForm=getFormGuide(m.away,ms);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Opens match day</span>}</div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.home}</span></div><span className="C" style={{color:"#e2e8f0",fontSize:14,fontWeight:800}}>VS</span><div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={30}/><span className="C" style={{color:"#475569",fontSize:13,fontWeight:700}}>{m.away}</span></div></div>{(homeForm.length>0||awayForm.length>0)&&<div style={{background:"#f8faff",borderRadius:8,padding:"6px 10px",marginBottom:8,display:"flex",flexDirection:"column",gap:4}}>{homeForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:10,color:"#64748b",fontWeight:600,minWidth:36}}>{m.home}:</span>{homeForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff",width:18,height:18,fontSize:9}}>{g.result}</span>)}</div>}{awayForm.length>0&&<div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:10,color:"#64748b",fontWeight:600,minWidth:36}}>{m.away}:</span>{awayForm.map((g,i)=><span key={i} className="form-dot" style={{background:g.result==="W"?"#15803d":"#dc2626",color:"#fff",width:18,height:18,fontSize:9}}>{g.result}</span>)}</div>}</div>}<p style={{color:"#cbd5e1",fontSize:11,margin:0}}>📍 {m.venue}</p></div>;})}</>}
       </div>;
     })()}
 
@@ -1235,10 +1326,8 @@ export default function App(){
         ))}
       </div>
 
-      {/* APPROVALS */}
       {admTab==="approvals"&&<>{pendingCount===0?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p></div>:<>{Object.entries(pendingUsers).map(([emk,u])=><div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p></div></div><div style={{display:"flex",gap:10}}><button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>✅ Approve</button><button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>❌ Reject</button></div></div>)}</> }</>}
 
-      {/* RESULTS */}
       {admTab==="results"&&<>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
@@ -1279,31 +1368,12 @@ export default function App(){
         })}
       </>}
 
-      {/* PICK STATUS */}
       {admTab==="pickstatus"&&(()=>{
         const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false);
         const relevantMs=[...ms.filter(m=>!m.result&&!isTBD(m)),...[...done].reverse().slice(0,5)];
-
-        const loadRaw=async()=>{
-          setDbLoading(true);
-          const raw=await DB.get("ap");
-          setDbRaw(raw||{});
-          setDbLoading(false);
-        };
-
-        const forceFixDB=async()=>{
-          setFixLoading(true);
-          const raw=await DB.get("ap")||{};
-          const fixed=normalizeAP(raw);
-          await DB.set("ap",fixed);
-          await reloadShared(email);
-          setDbRaw(fixed);
-          setFixLoading(false);
-          toast2("DB fixed & reloaded ✅","ok");
-        };
-
+        const loadRaw=async()=>{setDbLoading(true);const raw=await DB.get("ap");setDbRaw(raw||{});setDbLoading(false);};
+        const forceFixDB=async()=>{setFixLoading(true);const raw=await DB.get("ap")||{};const fixed=normalizeAP(raw);await DB.set("ap",fixed);await reloadShared(email);setDbRaw(fixed);setFixLoading(false);toast2("DB fixed & reloaded ✅","ok");};
         return<div>
-          {/* Force Fix Banner */}
           <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
             <p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>⚠️ Ghost Pick Fix</p>
             <p style={{color:"#dc2626",fontSize:11,margin:"0 0 10px"}}>If a user shows as predicted but DB has no pick, click Force Fix. It normalises all Firebase pick keys (converts numeric→string) and removes invalid entries.</p>
@@ -1312,8 +1382,6 @@ export default function App(){
               <button onClick={forceFixDB} disabled={fixLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fixLoading?"Fixing…":"🔧 Force Fix DB"}</button>
             </div>
           </div>
-
-          {/* Raw DB View */}
           {dbRaw&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
             <p className="st">RAW DB STATE ({Object.keys(dbRaw).length} users)</p>
             {Object.keys(dbRaw).length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No picks in DB.</p>}
@@ -1346,155 +1414,25 @@ export default function App(){
               </div>;
             })}
           </div>}
-
           <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Upcoming + last 5 completed. ✓ = all 3 fields saved. ⚠️ = partial.</div>
-          {!relevantMs.length&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:32}}>📋</p></div>}
           {relevantMs.map(m=>{
-            const isDone=!!m.result;
-            const lk=isMatchLocked(m,lockedMatches);
+            const isDone=!!m.result;const lk=isMatchLocked(m,lockedMatches);
             const predicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)!=null);
             const notPredicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)==null);
             const pct=approvedUsers.length?Math.round(predicted.length/approvedUsers.length*100):0;
             return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <TLogo t={m.home} sz={22}/>
-                <div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p></div>
-                <TLogo t={m.away} sz={22}/>
-              </div>
-              <div style={{display:"flex",gap:6,marginBottom:8}}>
-                <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p><p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p></div>
-                <div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p><p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p></div>
-                <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p><p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p></div>
-              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><TLogo t={m.home} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p></div><TLogo t={m.away} sz={22}/></div>
+              <div style={{display:"flex",gap:6,marginBottom:8}}><div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p><p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p></div><div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p><p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p></div><div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p><p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p></div></div>
               <div className="bar-bg" style={{marginBottom:10}}><div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/></div>
-              {predicted.length>0&&<div style={{marginBottom:8}}>
-                <p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {predicted.map(u=>{
-                    const pick=getP(allPicks[ek(u.email)]||{},m.id);
-                    const dbOk=!!(pick&&pick.toss&&pick.win&&pick.motm);
-                    return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:dbOk?"#f0fdf4":"#FFF9E6",border:"1px solid "+(dbOk?"#bbf7d0":"#FDE68A"),borderRadius:20,padding:"3px 9px"}}>
-                      <Av name={u.name} sz={16}/>
-                      <span style={{fontSize:11,fontWeight:600,color:dbOk?"#15803d":"#92400E"}}>{u.name.split(" ")[0]}</span>
-                      <span style={{fontSize:9,color:dbOk?"#15803d":"#92400E"}}>{dbOk?"✓":"⚠️"}</span>
-                    </div>;
-                  })}
-                </div>
-              </div>}
-              {notPredicted.length>0&&<div>
-                <p style={{color:"#dc2626",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{lk||isDone?"❌ Missed":"⏳ Not Yet"}</p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {notPredicted.map(u=><div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"3px 9px"}}>
-                    <Av name={u.name} sz={16}/>
-                    <span style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{u.name.split(" ")[0]}</span>
-                  </div>)}
-                </div>
-              </div>}
+              {predicted.length>0&&<div style={{marginBottom:8}}><p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{predicted.map(u=>{const pick=getP(allPicks[ek(u.email)]||{},m.id);const dbOk=!!(pick&&pick.toss&&pick.win&&pick.motm);return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:dbOk?"#f0fdf4":"#FFF9E6",border:"1px solid "+(dbOk?"#bbf7d0":"#FDE68A"),borderRadius:20,padding:"3px 9px"}}><Av name={u.name} sz={16}/><span style={{fontSize:11,fontWeight:600,color:dbOk?"#15803d":"#92400E"}}>{u.name.split(" ")[0]}</span><span style={{fontSize:9,color:dbOk?"#15803d":"#92400E"}}>{dbOk?"✓":"⚠️"}</span></div>;})}</div></div>}
+              {notPredicted.length>0&&<div><p style={{color:"#dc2626",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{lk||isDone?"❌ Missed":"⏳ Not Yet"}</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{notPredicted.map(u=><div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"3px 9px"}}><Av name={u.name} sz={16}/><span style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{u.name.split(" ")[0]}</span></div>)}</div></div>}
             </div>;
           })}
         </div>;
       })()}
 
-      {/* USERS */}
       {admTab==="users"&&<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><p style={{color:"#64748b",fontSize:12,margin:0}}>{Object.keys(users).length} players</p><button onClick={exportCSV} style={{padding:"6px 12px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Export CSV</button></div>
         <input className="inp" value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by name or email…" style={{marginBottom:12,fontSize:13}}/>
         {Object.values(users).filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.email?.toLowerCase().includes(userSearch.toLowerCase())).sort((a,b)=>(lbScores[b.email]?.pts||0)-(lbScores[a.email]?.pts||0)).map(u=>{
-          const st=lbScores[u.email]||{pts:0,acc:0};const up=allPicks[ek(u.email)]||{};const ex2=exU===u.email;const adj=getManualAdj(u.email);const mOv=getMatchOverride(u.email);
-          return<div key={u.email} style={{background:"#fff",border:"1px solid "+(u.email===email?"#1D428A40":"#e2e8f0"),borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex2?null:u.email)}>
-              <Av name={u.name} sz={34}/>
-              <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}%</p></div>
-              <div style={{textAlign:"right"}}><p className="C" style={{color:"#1D428A",fontSize:17,fontWeight:800,margin:0}}>{st.pts}</p>{(adj+mOv)!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{adj+mOv>0?"+":""}{adj+mOv} adj</p>}<p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex2?"▲":"▼"}</p></div>
-            </div>
-            {ex2&&<div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
-              <p className="st" style={{marginTop:12}}>POINTS ADJUSTMENT</p>
-              <div style={{display:"flex",gap:8,marginBottom:8}}>{[-50,-25,-10,10,25,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>{d>0?"+":""}{d}</button>)}</div>
-              {adj!==0&&<p style={{color:"#FF822A",fontSize:11,fontWeight:600,marginBottom:12}}>Current adj: {adj>0?"+":""}{adj} pts</p>}
-              <p className="st">PER-MATCH OVERRIDE</p>
-              {ms.filter(m=>getP(up,m.id)).map(m=>{const emk2=ek(u.email);const mOvM=((matchPtsOverride[emk2]||{})[m.id])||0;return<div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div><div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div></div>;})}
-              {u.email!==SUPER_ADMIN&&u.email!==email&&<button onClick={()=>deleteUser(u.email)} className="dbtn" style={{marginTop:12}}>🗑️ Delete Account</button>}
-            </div>}
-          </div>;
-        })}
-      </>}
-
-      {/* MATCHES */}
-      {admTab==="matches"&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
-        <p className="st">ADD CUSTOM MATCH</p>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <input className="inp" value={manMatchForm.mn} onChange={e=>setManMatchForm(f=>({...f,mn:e.target.value}))} placeholder="Match label e.g. M75" style={{fontSize:13}}/>
-          <div style={{display:"flex",gap:8}}><select className="sel" value={manMatchForm.home} onChange={e=>setManMatchForm(f=>({...f,home:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select><select className="sel" value={manMatchForm.away} onChange={e=>setManMatchForm(f=>({...f,away:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-          <div style={{display:"flex",gap:8}}><input className="inp" type="date" value={manMatchForm.date} onChange={e=>setManMatchForm(f=>({...f,date:e.target.value}))} style={{flex:1,fontSize:13}}/><input className="inp" value={manMatchForm.time} onChange={e=>setManMatchForm(f=>({...f,time:e.target.value}))} placeholder="19:30" style={{flex:1,fontSize:13}}/></div>
-          <input className="inp" value={manMatchForm.venue} onChange={e=>setManMatchForm(f=>({...f,venue:e.target.value}))} placeholder="Stadium, City" style={{fontSize:13}}/>
-          <button onClick={addManualMatch} className="pbtn">Add Match</button>
-        </div>
-      </div>}
-
-      {/* ANALYTICS */}
-      {admTab==="analytics"&&<>
-        <p className="st">GROUP OVERVIEW</p>
-        {(()=>{const lb=getLb();const ae=Object.entries(allPicks);const totalPredictions=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPredictions,"Predictions"],["🎯",totalPerfs,"All Correct"],["📊",avgAcc+"%","Avg Acc"],["👥",lb.length,"Players"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
-        {done.length>0&&(()=>{const ae=Object.entries(allPicks);const tossT=done.reduce((s,m)=>{if(isNR(m.result.toss))return s;const c=ae.filter(([,u])=>getP(u,m.id)?.toss===m.result.toss).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});const winT=done.reduce((s,m)=>{if(isNR(m.result.win))return s;const c=ae.filter(([,u])=>getP(u,m.id)?.win===m.result.win).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});const motmT=done.reduce((s,m)=>{if(isNR(m.result.motm))return s;const c=ae.filter(([,u])=>motmMatch(getP(u,m.id)?.motm,m.result.motm)).length,t=ae.filter(([,u])=>getP(u,m.id)!=null).length;return{c:s.c+c,t:s.t+t};},{c:0,t:0});return<><p className="st">GROUP ACCURACY</p><div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{[["🪙 Toss",tossT,"#1D428A"],["🏆 Winner",winT,"#15803d"],["⭐ POTM",motmT,"#B8860B"]].map(([lbl,d,clr])=>{const pct=d.t?Math.round(d.c/d.t*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:12,color:clr,fontWeight:700}}>{d.c}/{d.t} ({pct}%)</span></div><div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clr}}/></div></div>;})}</div></>;})()}
-        <p className="st">CHAMPION PICKS</p>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span>🏆</span>}</div>;});})()}</div>
-        <p className="st">PER-MATCH SPLIT</p>
-        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{
-          const ae=Object.entries(allPicks);
-          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
-          const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;
-          const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;
-          const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};
-          return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
-            {io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc.bg} clB={ac.bg}/></div>}
-          </div>;
-        })}
-      </>}
-
-      {/* CONTROLS */}
-      {admTab==="controls"&&<div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">APP CONTROLS</p>
-          <div className="ctrl-row"><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🔧 Maintenance Mode</p><Toggle on={maintenance} onChange={toggleMaintenance}/></div>
-          <div className="ctrl-row"><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>📤 Export CSV</p><button onClick={exportCSV} style={{padding:"7px 14px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>Export</button></div>
-          <div className="ctrl-row"><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🔇 Mute All Chat</p><Toggle on={!!chatMuted} onChange={async v=>{setChatMuted(v);await DB.set("chatmuted",v);toast2(v?"Chat muted":"Chat reopened");}}/></div>
-        </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">⚡ DOUBLE POINTS MATCH</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,8).map(m=>{const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);return<div key={m.id} className="ctrl-row" style={{padding:"10px 0"}}><div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}><TLogo t={m.home} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.home}</span><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.away}</span><span style={{color:"#94a3b8",fontSize:10,marginLeft:4}}>{m.mn}</span></div><button onClick={async()=>{const v=isDouble?null:m.id;setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⚡ 2× set":"Removed");}} style={{padding:"5px 10px",borderRadius:8,background:isDouble?"linear-gradient(135deg,#FF822A,#D4AF37)":"#f8faff",color:isDouble?"#fff":"#64748b",border:"1px solid "+(isDouble?"#FF822A":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>{isDouble?"2× ON":"Set 2×"}</button></div>;})}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">SET CHAMPION</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>{TEAMS.map(t=><button key={t} onClick={()=>setSeasonWinner(t)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sw===t?"#1D428A":"#f8faff",border:"1.5px solid "+(sw===t?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw===t?"#fff":"#475569"}}>{t}</span>{sw===t&&<span style={{fontSize:10}}>🏆</span>}</button>)}</div>
-          {sw&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>Champion: <b>{sw}</b></div>}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">🔒 LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button></div>;})}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st">💬 MUTE USERS</p>
-          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)];return<div key={u.email} className="ctrl-row"><div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div><button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button></div>;})}
-        </div>
-        <div style={{background:"#fff",border:"1px solid #fecaca",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p className="st" style={{color:"#dc2626",borderColor:"#fecaca"}}>⚠️ DANGER ZONE</p>
-          <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🗑️ Reset Season</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Wipes all picks, results, pts.</p></div>
-            <button onClick={async()=>{if(!confirm("RESET entire season? Cannot be undone."))return;await Promise.all([DB.set("ap",{}),DB.set("rm",{}),DB.set("sp",{}),DB.set("t4",{}),DB.set("ptsadj",{}),DB.set("doublematch",null),DB.set("sw",null),DB.set("matchptsoverride",{}),DB.set("manmatches",[]),DB.set("bracket",null),DB.set("lockedm",{})]);setAllPicks({});setMyPicks({});setMs(buildBaseMatches());setManualPtsAdj({});setSw(null);setDoubleMatch(null);setMatchPtsOverride({});setBracket(null);setLockedMatches({});setSpk({});setT4pk({});setMySp("");setMyT4([]);toast2("Season reset","ok");}} style={{padding:"7px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase",flexShrink:0}}>Reset</button>
-          </div>
-        </div>
-      </div>}
-
-      {/* BROADCAST */}
-      {admTab==="broadcast"&&<>
-        <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
-        <p className="st" style={{marginTop:16}}>HISTORY</p>
-        {bc.length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No broadcasts yet</p>}
-        {[...bc].reverse().map(b=><div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}><span style={{fontSize:15,flexShrink:0}}>📢</span><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div><button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button></div>)}
-      </>}
-    </div>}
-
-    <Nav/>
-    {toast&&<Tst t={toast}/>}
-  </div>;
-}
+          const st=lbScores[u.email]||{pts:0,acc:0};const up=allPicks[ek(u.email
