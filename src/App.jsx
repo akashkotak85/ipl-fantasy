@@ -1,5 +1,6 @@
 import * as React from "react";
 import{useState,useEffect,useRef,useCallback,useMemo}from"react";
+import MatchIntelPanel from"./MatchIntelPanel.jsx";
 
 const LOGOS={IPL:"https://documents.iplt20.com/ipl/assets/images/ipl-logo-new-old.png",RCB:"https://documents.iplt20.com/ipl/RCB/Logos/Logooutline/RCBoutline.png",SRH:"https://documents.iplt20.com/ipl/SRH/Logos/Logooutline/SRHoutline.png",MI:"https://documents.iplt20.com/ipl/MI/Logos/Logooutline/MIoutline.png",KKR:"https://documents.iplt20.com/ipl/KKR/Logos/Logooutline/KKRoutline.png",CSK:"https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png",RR:"https://documents.iplt20.com/ipl/RR/Logos/Logooutline/RRoutline.png",PBKS:"https://documents.iplt20.com/ipl/PBKS/Logos/Logooutline/PBKSoutline.png",GT:"https://documents.iplt20.com/ipl/GT/Logos/Logooutline/GToutline.png",LSG:"https://documents.iplt20.com/ipl/LSG/Logos/Logooutline/LSGoutline.png",DC:"https://documents.iplt20.com/ipl/DC/Logos/LogoOutline/DCoutline.png"};
 const TC={RCB:{bg:"#C8102E",dk:"#FFD700"},SRH:{bg:"#FF822A",dk:"#1B1B1B"},MI:{bg:"#004BA0",dk:"#fff"},KKR:{bg:"#3A225D",dk:"#FFD700"},CSK:{bg:"#F5C600",dk:"#003566"},RR:{bg:"#2D0A6B",dk:"#E91E8C"},PBKS:{bg:"#ED1B24",dk:"#fff"},GT:{bg:"#1B3A6B",dk:"#B5985A"},LSG:{bg:"#A72056",dk:"#fff"},DC:{bg:"#00008B",dk:"#fff"}};
@@ -7,7 +8,6 @@ const TF={RCB:"Royal Challengers Bengaluru",SRH:"Sunrisers Hyderabad",MI:"Mumbai
 const TEAMS=Object.keys(TF);
 const SQ={RCB:["Rajat Patidar","Virat Kohli","Devdutt Padikkal","Phil Salt","Jitesh Sharma","Krunal Pandya","Tim David","Venkatesh Iyer","Jacob Bethell","Josh Hazlewood","Bhuvneshwar Kumar","Yash Dayal","Rasikh Dar","Jacob Duffy"],SRH:["Pat Cummins","Travis Head","Ishan Kishan","Heinrich Klaasen","Abhishek Sharma","Nitish Kumar Reddy","Liam Livingstone","Harshal Patel","Brydon Carse","Jaydev Unadkat","Shivam Mavi","David Payne"],MI:["Rohit Sharma","Hardik Pandya","Suryakumar Yadav","Jasprit Bumrah","Trent Boult","Tilak Varma","Ryan Rickelton","Quinton de Kock","Deepak Chahar","Shardul Thakur","Mitchell Santner","Will Jacks"],KKR:["Ajinkya Rahane","Sunil Narine","Rinku Singh","Cameron Green","Rachin Ravindra","Finn Allen","Varun Chakaravarthy","Matheesha Pathirana","Blessing Muzarabani","Rovman Powell","Vaibhav Arora"],CSK:["Ruturaj Gaikwad","MS Dhoni","Sanju Samson","Shivam Dube","Ayush Mhatre","Dewald Brevis","Khaleel Ahmed","Noor Ahmad","Anshul Kamboj","Prashant Veer","Kartik Sharma","Akeal Hosein"],RR:["Riyan Parag","Yashasvi Jaiswal","Vaibhav Suryavanshi","Jofra Archer","Ravindra Jadeja","Dhruv Jurel","Shimron Hetmyer","Ravi Bishnoi","Sandeep Sharma","Adam Milne","Nandre Burger"],PBKS:["Shreyas Iyer","Arshdeep Singh","Shashank Singh","Marcus Stoinis","Prabhsimran Singh","Marco Jansen","Yuzvendra Chahal","Priyansh Arya","Musheer Khan","Lockie Ferguson","Xavier Bartlett"],GT:["Shubman Gill","Jos Buttler","Rashid Khan","Kagiso Rabada","Mohammed Siraj","Sai Sudharsan","Washington Sundar","Prasidh Krishna","Rahul Tewatia","Jayant Yadav","Jason Holder"],LSG:["Rishabh Pant","Mitchell Marsh","Nicholas Pooran","Aiden Markram","Mohammad Shami","Avesh Khan","Wanindu Hasaranga","Mayank Yadav","Anrich Nortje","Abdul Samad","Ayush Badoni"],DC:["Axar Patel","KL Rahul","Kuldeep Yadav","Mitchell Starc","T. Natarajan","Karun Nair","Prithvi Shaw","Abishek Porel","Sameer Rizvi","David Miller","Tristan Stubbs","Nitish Rana"]};
 
-/* BUG FIX: KNOWN_RESULTS keys must be numbers to match BASE_MATCHES ids */
 const KNOWN_RESULTS={
   1:{toss:"SRH",win:"RCB",motm:"Phil Salt"},
   2:{toss:"MI",win:"MI",motm:"Suryakumar Yadav"},
@@ -113,63 +113,27 @@ const normalizeEmail=e=>(e||"").trim().toLowerCase();
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const decodeKey=k=>{let d=k;for(let i=0;i<8;i++){const n=d.replace(/_at_/g,"@").replace(/_dot_/g,".");if(n===d)break;d=n;}return d;};
 const canonicalKey=k=>ek(decodeKey(k));
-
-/* BUG FIX: normalizeKeyMap also stringifies inner pick keys */
 function normalizeKeyMap(raw){if(!raw)return{};const out={};Object.keys(raw).forEach(k=>{out[canonicalKey(k)]=raw[k];});return out;}
-
-/* BUG FIX: deepEncodeKeys only encodes email-like keys, not match id keys */
-function deepEncodeKeys(v){
-  if(!v||typeof v!=="object"||Array.isArray(v))return v;
-  const r={};
-  Object.keys(v).forEach(k=>{
-    // only encode keys that look like emails (contain @ or _at_)
-    const isEmailKey=k.includes("@")||k.includes("_at_");
-    r[isEmailKey?ek(k):k]=deepEncodeKeys(v[k]);
-  });
-  return r;
-}
-
-/* normalizeAP — canonical email keys + string pick keys + drop invalid/incomplete picks
-   Merges numeric and string keyed picks for same match (string wins), then writes only string keys */
-function normalizeAP(raw){
-  if(!raw)return{};
-  const out={};
-  Object.keys(raw).forEach(k=>{
-    const ck=canonicalKey(k);
-    const userPicks=raw[k];
-    if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){out[ck]={};return;}
-    const normalized={};
-    // First pass: collect all picks keyed by string mid
-    Object.keys(userPicks).forEach(mid=>{
-      const pick=userPicks[mid];
-      const smid=String(mid);
-      if(pick&&typeof pick==="object"&&pick.toss&&pick.win&&pick.motm){
-        // string key wins over numeric key if both exist
-        if(!normalized[smid]||typeof mid==="string"){
-          normalized[smid]=pick;
-        }
-      }
-    });
-    out[ck]=normalized;
-  });
-  return out;
-}
-
+function deepEncodeKeys(v){if(!v||typeof v!=="object"||Array.isArray(v))return v;const r={};Object.keys(v).forEach(k=>{const isEmailKey=k.includes("@")||k.includes("_at_");r[isEmailKey?ek(k):k]=deepEncodeKeys(v[k]);});return r;}
+function normalizeAP(raw){if(!raw)return{};const out={};Object.keys(raw).forEach(k=>{const ck=canonicalKey(k);const userPicks=raw[k];if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){out[ck]={};return;}const normalized={};Object.keys(userPicks).forEach(mid=>{const pick=userPicks[mid];const smid=String(mid);if(pick&&typeof pick==="object"&&pick.toss&&pick.win&&pick.motm){if(!normalized[smid]||typeof mid==="string"){normalized[smid]=pick;}}});out[ck]=normalized;});return out;}
 function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
 function validatePassword(p,mode="login"){if(!p)return"Password is required";if(mode==="register"){if(p.length<8)return"Min 8 characters";if(!/[A-Z]/.test(p))return"Add an uppercase letter";if(!/[0-9]/.test(p))return"Add a number";if(!/[^A-Za-z0-9]/.test(p))return"Add a special character";}return"";}
 function validateName(n){if(!n||n.trim().length<2)return"Name must be at least 2 characters";return"";}
 function capChat(arr){return arr.length>CHAT_CAP?arr.slice(arr.length-CHAT_CAP):arr;}
 async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
-
 const isNR=v=>!v||v===NR;
 const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
-
-/* always use string key — no numeric fallback to avoid ghost picks */
 const pickKey=id=>String(id);
-const getP=(picks,id)=>{
-  if(!picks||typeof picks!=="object")return null;
-  return picks[pickKey(id)]??null;
-};
+const getP=(picks,id)=>{if(!picks||typeof picks!=="object")return null;return picks[pickKey(id)]??null;};
+
+/* ─── FORM HELPER ─── */
+// Returns last N results oldest→newest for a team from completed matches
+function getTeamForm(team,matches,n=5){
+  return matches
+    .filter(m=>m.result&&!isNR(m.result.win)&&(m.home===team||m.away===team))
+    .slice(-n)
+    .map(m=>m.result.win===team?"W":"L");
+}
 
 /* ─── FIREBASE ─── */
 const firebaseConfig={apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"};
@@ -208,7 +172,6 @@ function calcScore(uPicks,ms,dbl=null){
   const last=played[played.length-1];
   return{pts,acc:tot?Math.round(ok/tot*100):0,ms2,hot:!!(last&&ms2[last.id]?.perf)};
 }
-
 function calcBadges(uPicks,ms,allP){
   const b=[];const{ms2}=calcScore(uPicks,ms);const done=ms.filter(m=>m.result);
   const perf=done.filter(m=>ms2[m.id]?.perf).length;
@@ -261,7 +224,7 @@ body{background:#F4F6FB;}
 .bubble.sys{background:#EBF0FA;color:#1D428A;border:1px solid #1D428A20;border-radius:10px;padding:8px 14px;font-size:11px;text-align:center;font-weight:600;}
 .bd{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#ef4444;border:1.5px solid #fff;}
 .bp{display:inline-flex;align-items:center;gap:4px;background:#EBF0FA;border:1px solid #bfdbfe;border-radius:20px;padding:3px 9px;font-size:11px;color:#1e40af;font-weight:600;margin:3px 3px 0 0;}
-.ot{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;width:76px;transition:all .15s;}
+.ot{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;width:76px;transition:all .15px;}
 .ot.on{border-color:#1D428A;background:#EBF0FA;}
 .ac{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:14px;}
 .at{flex:1;padding:8px 2px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
@@ -298,8 +261,21 @@ function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
+/* ─── FORM DOTS ─── */
+function FormDots({form,align="left"}){
+  if(!form||form.length===0)return null;
+  const dots=form.map((r,i)=>(
+    <div key={i} style={{width:9,height:9,borderRadius:"50%",flexShrink:0,
+      background:r==="W"?"#22c55e":"#ef4444"}}/>
+  ));
+  return<div style={{display:"flex",gap:3,alignItems:"center",
+    justifyContent:align==="right"?"flex-end":"flex-start"}}>
+    {dots}
+  </div>;
+}
+
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onPredict,onReact}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact}){
   const lk=isMatchLocked(m,lockedMatches);
   const mp=getP(myPicks,m.id);
   const ct=cutoff(m);
@@ -313,7 +289,10 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const mOv=((matchPtsOverride[myEmk]||{})[m.id])??((matchPtsOverride[myEmk]||{})[String(m.id)])??0;
   const isWashout=m.result&&(isNR(m.result.win)||isNR(m.result.motm));
 
-  /* BUG FIX: earned pts calc consistent with calcScore */
+  // Form dots — oldest→newest
+  const homeForm=getTeamForm(m.home,allMs||[],5);
+  const awayForm=getTeamForm(m.away,allMs||[],5);
+
   let earned=0;
   if(m.result&&mp){
     let base=0;
@@ -328,8 +307,17 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const ae=Object.entries(allPicks);
   const tot=ae.filter(([,up])=>getP(up,m.id)!=null).length;
 
-  /* group split — only shown after result is entered */
+  // Group split — after result
   const sp=lk&&tot>0&&m.result&&!isNR(m.result.toss)?{
+    tot,
+    tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
+    tB:ae.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
+    wA:ae.filter(([,up])=>getP(up,m.id)?.win===m.home).length,
+    wB:ae.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
+  }:null;
+
+  // Group leans hint — only after lock, before result
+  const hints=lk&&!m.result&&tot>0?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
     tB:ae.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
@@ -339,6 +327,8 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
   return<div className="mcard fade-in">
     <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
+
+    {/* Header */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
       <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -349,13 +339,39 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         :!m.result?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>:null}
       </div>
     </div>
-    {!lk&&!m.result&&<div style={{textAlign:"center",marginBottom:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span></div>}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 10px"}}>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1}}><TLogo t={m.home} sz={48}/><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home}</p><p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.home]||""}</p></div>
+
+    {/* Countdown */}
+    {!lk&&!m.result&&<div style={{textAlign:"center",marginBottom:8}}>
+      <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span>
+    </div>}
+
+    {/* Teams + form dots */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 6px"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
+        <TLogo t={m.home} sz={48}/>
+        <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home}</p>
+        <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.home]||""}</p>
+        {homeForm.length>0&&<FormDots form={homeForm} align="left"/>}
+      </div>
       <p className="C" style={{color:"#cbd5e1",fontSize:18,fontWeight:800,letterSpacing:2,margin:"0 6px"}}>VS</p>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1}}><TLogo t={m.away} sz={48}/><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.away}</p><p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.away]||""}</p></div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
+        <TLogo t={m.away} sz={48}/>
+        <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.away}</p>
+        <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.away]||""}</p>
+        {awayForm.length>0&&<FormDots form={awayForm} align="right"/>}
+      </div>
     </div>
+
+    {/* Form legend */}
+    {(homeForm.length>0||awayForm.length>0)&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#22c55e"}}/><span style={{color:"#94a3b8",fontSize:9}}>W</span></div>
+      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444"}}/><span style={{color:"#94a3b8",fontSize:9}}>L</span></div>
+      <span style={{color:"#94a3b8",fontSize:9}}>· last {Math.max(homeForm.length,awayForm.length)} (oldest→newest)</span>
+    </div>}
+
     <p style={{color:"#94a3b8",fontSize:11,borderTop:"1px solid #f1f5f9",paddingTop:8,marginBottom:10}}>📍 {m.venue}</p>
+
+    {/* Result */}
     {m.result&&<div style={{background:"#F4F6FB",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
       <span style={{color:"#64748b"}}>Toss: </span><b>{showVal(m.result.toss)}</b>
       <span style={{color:"#94a3b8",margin:"0 6px"}}>·</span>
@@ -364,15 +380,48 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       <span style={{color:"#64748b"}}>POTM: </span><b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b>
       {mp&&<span style={{color:earned+mOv>0?"#15803d":"#94a3b8",fontWeight:700,float:"right",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14}}>+{earned+mOv}pts</span>}
     </div>}
+
+    {/* My pick */}
     {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
+
+    {/* Group leans — locked, no result, toss + win */}
+    {hints&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+      <p style={{color:"#92400E",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>💡 Group Leans · {hints.tot} pick{hints.tot!==1?"s":""}</p>
+      {[["Toss",hints.tA,hints.tB],["Winner",hints.wA,hints.wB]].map(([lbl,cA,cB])=>{
+        const tot2=cA+cB||1,pA=Math.round(cA/tot2*100),pB=100-pA;
+        return<div key={lbl} style={{marginBottom:lbl==="Toss"?8:0}}>
+          <span style={{fontSize:10,fontWeight:600,color:"#92400E",display:"block",marginBottom:3}}>{lbl}</span>
+          <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:2}}>
+            <span style={{fontSize:10,fontWeight:700,color:hc.bg,minWidth:32}}>{m.home}</span>
+            <div style={{flex:1,height:8,borderRadius:4,overflow:"hidden",background:"#e2e8f0",display:"flex"}}>
+              <div style={{width:pA+"%",background:hc.bg,transition:"width .6s",borderRadius:"4px 0 0 4px"}}/>
+              <div style={{width:pB+"%",background:ac.bg,borderRadius:"0 4px 4px 0"}}/>
+            </div>
+            <span style={{fontSize:10,fontWeight:700,color:ac.bg,minWidth:32,textAlign:"right"}}>{m.away}</span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"0 36px"}}>
+            <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pA}%</span>
+            <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pB}%</span>
+          </div>
+        </div>;
+      })}
+    </div>}
+
+    {/* Group split — after result */}
     {sp&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
       <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
       <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
       <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
     </div>}
+
+    {/* Match Intel Panel — locked, no result, non-TBD */}
+    {lk&&!m.result&&!isTBD(m)&&<MatchIntelPanel m={m}/>}
+
+    {/* Reactions */}
     {m.result&&<div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
       {EMOJIK.map(k=>{const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);return<button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>{EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}</button>;})}
     </div>}
+
     {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
     {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
   </div>;
@@ -434,28 +483,10 @@ export default function App(){
 
   useEffect(()=>{if(!email||!user)return;const ping=async()=>{const now=Date.now();const ou=await DB.get("online")||{};ou[ek(email)]={name:user.name,ts:now};Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});await DB.set("online",ou);setOnlineUsers({...ou});};ping();const id=setInterval(ping,30000);return()=>clearInterval(id);},[email,user]);
   useEffect(()=>{if(!user)return;const id=setInterval(async()=>{const ou=await DB.get("online")||{};const now=Date.now();Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});setOnlineUsers({...ou});},15000);return()=>clearInterval(id);},[user]);
+  useEffect(()=>{if(!isAdmin||!user)return;const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current)toast2("🔔 New registration pending approval","info");lastPendingCount.current=cnt;};poll();const id=setInterval(poll,20000);return()=>clearInterval(id);},[isAdmin,user]);// eslint-disable-line
 
-  useEffect(()=>{
-    if(!isAdmin||!user)return;
-    const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current)toast2("🔔 New registration pending approval","info");lastPendingCount.current=cnt;};
-    poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
-  },[isAdmin,user]);// eslint-disable-line
+  const forceRepair=useCallback(async()=>{try{const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);const cleanAP=normalizeAP(ap);await Promise.all([DB.set("sp",normalizeKeyMap(sp)),DB.set("t4",normalizeKeyMap(t4)),DB.set("ap",cleanAP)]);}catch(e){console.error("repair",e);}},[]);
 
-  /* forceRepair: normalize AP to string keys AND write back to Firebase so old number keys are gone */
-  const forceRepair=useCallback(async()=>{
-    try{
-      const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);
-      const cleanAP=normalizeAP(ap);
-      // write back so Firebase no longer has numeric pick keys
-      await Promise.all([
-        DB.set("sp",normalizeKeyMap(sp)),
-        DB.set("t4",normalizeKeyMap(t4)),
-        DB.set("ap",cleanAP),
-      ]);
-    }catch(e){console.error("repair",e);}
-  },[]);
-
-  /* BUG FIX: reloadShared uses normalizeAP */
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
     const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu]=await Promise.all([
@@ -467,17 +498,12 @@ export default function App(){
     ]);
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
-
-    const freshAP=normalizeAP(ap);
-    setAllPicks(freshAP);
-    if(em)setMyPicks(freshAP[emk]||{});
-
+    const freshAP=normalizeAP(ap);setAllPicks(freshAP);if(em)setMyPicks(freshAP[emk]||{});
     let allMs=buildBaseMatches();
     if(rm)allMs=allMs.map(m=>{const r=rm[m.id]??rm[String(m.id)];return r?{...m,...r}:m;});
     if(br){setBracket(br);allMs=resolvePlayoffSlots(allMs,br);}else setBracket(null);
     const extraMs=(mn||[]).map(m=>{const mid=Number(m.id)||m.id;const r=rm&&(rm[mid]??rm[String(mid)]);return r?{...m,id:mid,...r}:{...m,id:mid};});
     setMs([...allMs,...extraMs]);
-
     if(b)setBc(b);if(cm)setChat(cm);
     const nsp=normalizeKeyMap(sp);setSpk(nsp);if(em)setMySp(nsp[emk]||"");
     if(sw2!=null)setSw(sw2);
@@ -502,14 +528,11 @@ export default function App(){
         if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
         const storedToken=await DB.get("token_"+ek(saved.email));
         if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
-        const u2=await DB.get("u")||{};
-        const ex=u2[saved.email]||null;
+        const u2=await DB.get("u")||{};const ex=u2[saved.email]||null;
         if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
-        await forceRepair();
-        if(cancelled)return;
+        await forceRepair();if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-        const{freshAP,hasOnboarded}=await reloadShared(saved.email);
-        if(cancelled)return;
+        const{freshAP,hasOnboarded}=await reloadShared(saved.email);if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
         setBcSeenTs(Date.now());setChatSeenTs(Date.now());
         setSc(hasOnboarded?"home":"onboard");
@@ -549,217 +572,31 @@ export default function App(){
   const getMatchOverride=useCallback(em=>Object.values(matchPtsOverride[ek(em)]||{}).reduce((a,b)=>a+b,0),[matchPtsOverride]);
   const myS=useMemo(()=>calcScore(myPicks,ms,doubleMatch),[myPicks,ms,doubleMatch]);
   const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email),[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email]);
-
-  const lbScores=useMemo(()=>{
-    const scores={};
-    Object.values(users).forEach(u=>{
-      if(!u?.email||u.approved===false)return;
-      const emk=ek(u.email);
-      const up=allPicks[emk]||{};
-      const st=calcScore(up,ms,doubleMatch);
-      const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];
-      const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
-      const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
-      scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};
-    });
-    return scores;
-  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride]);
-
+  const lbScores=useMemo(()=>{const scores={};Object.values(users).forEach(u=>{if(!u?.email||u.approved===false)return;const emk=ek(u.email);const up=allPicks[emk]||{};const st=calcScore(up,ms,doubleMatch);const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};});return scores;},[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride]);
   const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
   /* AUTH */
   function clearAuthForm(){setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setShowForgotPw(false);setShowForgotPw2(false);}
-
-  async function doLogin(){
-    setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};
-    const eErr=validateEmail(em);if(eErr)errs.email=eErr;if(!authPw)errs.pw="Password is required";
-    if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
-    try{
-      const u2=await DB.get("u")||{};const storedHash=await DB.get("pw_"+ek(em));
-      const userEntry=u2[em]||u2[ek(em)];
-      if(!userEntry||storedHash==null){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}
-      if(userEntry.approved===false){setAuthErrors({email:"Account pending admin approval."});setAuthLoading(false);return;}
-      const inputHash=await sha256(authPw);const match=storedHash===inputHash||storedHash===authPw;
-      if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}
-      if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);
-      await forceRepair();setUsers(u2);await doSignIn(em,userEntry);
-    }catch(e){console.error("login",e);setAuthErrors({email:"Something went wrong."});}
-    setAuthLoading(false);
-  }
-
-  async function doRegister(){
-    const now=Date.now();regAttempts.current=regAttempts.current.filter(t=>now-t<REG_WINDOW);
-    if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts."});return;}
-    regAttempts.current.push(now);setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};
-    const eErr=validateEmail(em);if(eErr)errs.email=eErr;
-    const nErr=validateName(authName);if(nErr)errs.name=nErr;
-    const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;
-    if(authPw!==authPw2)errs.pw2="Passwords do not match";
-    if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}
-    try{
-      const u2=await DB.get("u")||{};
-      if(u2[em]||u2[ek(em)]){setAuthErrors({email:"Account already exists."});setAuthLoading(false);return;}
-      const existingPending=await DB.get("pending")||{};
-      if(existingPending[ek(em)]){setAuthErrors({email:"Registration already pending."});setAuthLoading(false);return;}
-      const isFirstUser=Object.keys(u2).length===0||em===SUPER_ADMIN;
-      if(isFirstUser){
-        const ex={email:em,name:authName.trim(),joined:new Date().toISOString(),approved:true};
-        await DB.set("u",{...u2,[em]:ex});await DB.set("pw_"+ek(em),await sha256(authPw));
-        const verify=await DB.get("u")||{};const entry=verify[em]||verify[ek(em)];
-        if(!entry){setAuthErrors({email:"Registration failed."});setAuthLoading(false);return;}
-        setUsers(verify);await doSignIn(em,entry,true);
-      }else{
-        await DB.set("pw_"+ek(em),await sha256(authPw));
-        const pending=await DB.get("pending")||{};
-        pending[ek(em)]={email:em,name:authName.trim(),joined:new Date().toISOString()};
-        await DB.set("pending",pending);setSc("pending_approval");
-      }
-    }catch(err){console.error("register",err);setAuthErrors({email:"Registration failed."});}
-    setAuthLoading(false);
-  }
-
+  async function doLogin(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;if(!authPw)errs.pw="Password is required";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};const storedHash=await DB.get("pw_"+ek(em));const userEntry=u2[em]||u2[ek(em)];if(!userEntry||storedHash==null){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}if(userEntry.approved===false){setAuthErrors({email:"Account pending admin approval."});setAuthLoading(false);return;}const inputHash=await sha256(authPw);const match=storedHash===inputHash||storedHash===authPw;if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);await forceRepair();setUsers(u2);await doSignIn(em,userEntry);}catch(e){console.error("login",e);setAuthErrors({email:"Something went wrong."});}setAuthLoading(false);}
+  async function doRegister(){const now=Date.now();regAttempts.current=regAttempts.current.filter(t=>now-t<REG_WINDOW);if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts."});return;}regAttempts.current.push(now);setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;const nErr=validateName(authName);if(nErr)errs.name=nErr;const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;if(authPw!==authPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};if(u2[em]||u2[ek(em)]){setAuthErrors({email:"Account already exists."});setAuthLoading(false);return;}const existingPending=await DB.get("pending")||{};if(existingPending[ek(em)]){setAuthErrors({email:"Registration already pending."});setAuthLoading(false);return;}const isFirstUser=Object.keys(u2).length===0||em===SUPER_ADMIN;if(isFirstUser){const ex={email:em,name:authName.trim(),joined:new Date().toISOString(),approved:true};await DB.set("u",{...u2,[em]:ex});await DB.set("pw_"+ek(em),await sha256(authPw));const verify=await DB.get("u")||{};const entry=verify[em]||verify[ek(em)];if(!entry){setAuthErrors({email:"Registration failed."});setAuthLoading(false);return;}setUsers(verify);await doSignIn(em,entry,true);}else{await DB.set("pw_"+ek(em),await sha256(authPw));const pending=await DB.get("pending")||{};pending[ek(em)]={email:em,name:authName.trim(),joined:new Date().toISOString()};await DB.set("pending",pending);setSc("pending_approval");}}catch(err){console.error("register",err);setAuthErrors({email:"Registration failed."});}setAuthLoading(false);}
   async function doForgotStep1(){setAuthLoading(true);const em=normalizeEmail(authEmail);const eErr=validateEmail(em);if(eErr){setAuthErrors({email:eErr});setAuthLoading(false);return;}const u2=await DB.get("u")||{};if(!u2[em]&&!u2[ek(em)]){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}setAuthErrors({});setForgotStep(2);setAuthLoading(false);}
   async function doForgotStep2(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const pErr=validatePassword(forgotNewPw,"register");if(pErr)errs.pw=pErr;if(forgotNewPw!==forgotNewPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}await DB.set("pw_"+ek(em),await sha256(forgotNewPw));toast2("Password reset! Please sign in.","ok");const se=authEmail;clearAuthForm();setAuthMode("login");setAuthEmail(se);setAuthLoading(false);}
-
-  async function doSignIn(em,ex,isNew=false){
-    setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
-    setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
-    await persistSession(em);
-    const{freshAP,hasOnboarded}=await reloadShared(em);
-    setMyPicks(freshAP[ek(em)]||{});
-    setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-    if(isNew||!hasOnboarded)setSc("onboard");
-    else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
-  }
-
-  async function logout(){
-    Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};
-    if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}clearTimeout(tRef.current);
-    if(sessionEmail){try{const ou=await DB.get("online")||{};delete ou[ek(sessionEmail)];await DB.set("online",ou);await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}catch(e){console.error(e);}}
-    setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);
-    setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");
-  }
-
-  async function approveUser(emk){
-    const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;
-    delete pu[emk];const u2=await DB.get("u")||{};u2[entry.email]={...entry,approved:true};
-    await DB.set("u",u2);await DB.set("pending",pu);
-    setUsers({...users,[entry.email]:{...entry,approved:true}});setPendingUsers({...pu});
-    toast2(entry.name+" approved! ✅","ok");
-    const latest=await DB.get("ch")||[];
-    const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"🎉 "+entry.name+" has joined! Welcome!",ts:Date.now(),sys:true}]);
-    setChat(nc);await DB.set("ch",nc);
-  }
-  async function rejectUser(emk){
-    const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;
-    delete pu[emk];await DB.set("pending",pu);await DB.set("pw_"+emk,null);
-    setPendingUsers({...pu});toast2(entry.name+" rejected","error");
-  }
-
+  async function doSignIn(em,ex,isNew=false){setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);await persistSession(em);const{freshAP,hasOnboarded}=await reloadShared(em);setMyPicks(freshAP[ek(em)]||{});setBcSeenTs(Date.now());setChatSeenTs(Date.now());if(isNew||!hasOnboarded)setSc("onboard");else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}}
+  async function logout(){Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}clearTimeout(tRef.current);if(sessionEmail){try{const ou=await DB.get("online")||{};delete ou[ek(sessionEmail)];await DB.set("online",ou);await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}catch(e){console.error(e);}}setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");}
+  async function approveUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];const u2=await DB.get("u")||{};u2[entry.email]={...entry,approved:true};await DB.set("u",u2);await DB.set("pending",pu);setUsers({...users,[entry.email]:{...entry,approved:true}});setPendingUsers({...pu});toast2(entry.name+" approved! ✅","ok");const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"🎉 "+entry.name+" has joined! Welcome!",ts:Date.now(),sys:true}]);setChat(nc);await DB.set("ch",nc);}
+  async function rejectUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];await DB.set("pending",pu);await DB.set("pw_"+emk,null);setPendingUsers({...pu});toast2(entry.name+" rejected","error");}
   async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+myEk,{step,sp,t4});}
-  async function doneOnboard(){
-    if(!obSp){toast2("Pick a champion first","error");return;}
-    if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}
-    const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};
-    setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);
-    await DB.set("sp",sp2);await DB.set("t4",t42);await DB.set("ob_"+myEk,null);
-    setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");
-  }
-
-  /* BUG FIX: submitPick — string key, no editing guard, fresh lock check */
-  async function submitPick(){
-    if(!am)return;
-    if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}
-    const freshRm=await DB.get("rm")||{};
-    const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
-    if(KNOWN_RESULTS[am.id])freshMatch.result=KNOWN_RESULTS[am.id];
-    if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}
-    if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 fields","error");return;}
-    const np={...myPicks,[pickKey(am.id)]:draft};
-    const na={...allPicks,[myEk]:np};
-    setMyPicks(np);setAllPicks(na);
-    await DB.set("ap",na);
-    toast2("Prediction locked! 🎯","ok");setAm(null);setSc("home");
-  }
-
-  async function reactFn(mid,key){
-    const mr=rxns[mid]||{},list=mr[key]||[];
-    const upd={...rxns,[mid]:{...mr,[key]:list.includes(email)?list.filter(e=>e!==email):[...list,email]}};
-    setRxns(upd);await DB.set("rx",upd);
-  }
-
-  async function sendChat(){
-    if(!chatIn.trim()||!user)return;
-    if(chatMuted){toast2("Chat is muted","error");return;}
-    if((mutedUsers||{})[myEk]){toast2("You have been muted","error");return;}
-    const text=chatIn.trim().slice(0,CHAT_MAX);
-    const latest=await DB.get("ch")||[];
-    const nc=capChat([...latest,{id:Date.now(),email:user.email,name:user.name,text,ts:Date.now()}]);
-    setChat(nc);setChatIn("");await DB.set("ch",nc);setChatSeenTs(Date.now());
-  }
+  async function doneOnboard(){if(!obSp){toast2("Pick a champion first","error");return;}if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);await DB.set("sp",sp2);await DB.set("t4",t42);await DB.set("ob_"+myEk,null);setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");}
+  async function submitPick(){if(!am)return;if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};if(KNOWN_RESULTS[am.id])freshMatch.result=KNOWN_RESULTS[am.id];if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 fields","error");return;}const np={...myPicks,[pickKey(am.id)]:draft};const na={...allPicks,[myEk]:np};setMyPicks(np);setAllPicks(na);await DB.set("ap",na);toast2("Prediction locked! 🎯","ok");setAm(null);setSc("home");}
+  async function reactFn(mid,key){const mr=rxns[mid]||{},list=mr[key]||[];const upd={...rxns,[mid]:{...mr,[key]:list.includes(email)?list.filter(e=>e!==email):[...list,email]}};setRxns(upd);await DB.set("rx",upd);}
+  async function sendChat(){if(!chatIn.trim()||!user)return;if(chatMuted){toast2("Chat is muted","error");return;}if((mutedUsers||{})[myEk]){toast2("You have been muted","error");return;}const text=chatIn.trim().slice(0,CHAT_MAX);const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:user.email,name:user.name,text,ts:Date.now()}]);setChat(nc);setChatIn("");await DB.set("ch",nc);setChatSeenTs(Date.now());}
   async function delMsg(id){const latest=await DB.get("ch")||[];const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);}
-
-  async function savePartialResult(mid,field,value){
-    const numMid=Number(mid)||mid;const rm=(await DB.get("rm"))||{};
-    const existing=rm[numMid]||{};const updated={...existing,[field]:value};
-    rm[numMid]=updated;await DB.set("rm",rm);
-    setMs(prev=>prev.map(m=>Number(m.id)===Number(mid)?{...m,...updated}:m));
-    toast2("Saved ✓","ok");
-  }
-
-  /* BUG FIX: setManualResult uses normalizeAP and string key lookup */
-  async function setManualResult(mid){
-    const f=admResultForm[mid];
-    if(!f?.toss||!f?.win||!f?.motm){toast2("Fill all result fields","error");return;}
-    const result={toss:f.toss,win:f.win,motm:f.motm};
-    const numMid=Number(mid)||mid;
-    const nm=ms.map(m=>Number(m.id)===Number(mid)?{...m,result,status:"completed"}:m);
-    setMs(nm);
-    const rm=(await DB.get("rm"))||{};rm[numMid]={result,status:"completed"};await DB.set("rm",rm);
-    setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});
-    const freshAP=normalizeAP(await DB.get("ap")||{});
-    const cu=await DB.get("u")||{};
-    const sidStr=String(numMid);
-    const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);
-    const avail=[tA,wA,mA].filter(Boolean).length;
-    const perfs=Object.entries(freshAP).filter(([,up])=>{
-      const p=up[sidStr];if(!p)return false;
-      const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;
-      return avail>0&&correct===avail;
-    }).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
-    const matchObj=nm.find(x=>Number(x.id)===Number(mid));
-    const isWR=isNR(result.win)||isNR(result.motm);
-    const latest=await DB.get("ch")||[];
-    const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",
-      text:(isWR?"🌧 Washout: ":"Result: ")+matchObj.home+" vs "+matchObj.away+"\nToss: "+showVal(result.toss)+" · Win: "+showVal(result.win)+" · POTM: "+showVal(result.motm)+(perfs.length?"\n🎯 All correct: "+perfs.join(", "):"\nNo all-correct picks"),
-      ts:Date.now(),sys:true}]);
-    setChat(newCh);await DB.set("ch",newCh);
-    toast2("Result saved! ✅","ok");
-    await reloadShared(email);
-  }
-
-  async function deleteUser(ue){
-    if(!confirm("Delete "+users[ue]?.name+"?"))return;const uek=ek(ue);
-    const nu={...users};delete nu[ue];delete nu[uek];
-    const na={...allPicks};delete na[uek];
-    const ns={...spk};delete ns[uek];const nt={...t4pk};delete nt[uek];
-    const np={...manualPtsAdj};delete np[uek];const nmpo={...matchPtsOverride};delete nmpo[uek];
-    setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setManualPtsAdj(np);setMatchPtsOverride(nmpo);
-    await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);
-    setExU(null);toast2("User deleted","ok");
-  }
+  async function savePartialResult(mid,field,value){const numMid=Number(mid)||mid;const rm=(await DB.get("rm"))||{};const existing=rm[numMid]||{};const updated={...existing,[field]:value};rm[numMid]=updated;await DB.set("rm",rm);setMs(prev=>prev.map(m=>Number(m.id)===Number(mid)?{...m,...updated}:m));toast2("Saved ✓","ok");}
+  async function setManualResult(mid){const f=admResultForm[mid];if(!f?.toss||!f?.win||!f?.motm){toast2("Fill all result fields","error");return;}const result={toss:f.toss,win:f.win,motm:f.motm};const numMid=Number(mid)||mid;const nm=ms.map(m=>Number(m.id)===Number(mid)?{...m,result,status:"completed"}:m);setMs(nm);const rm=(await DB.get("rm"))||{};rm[numMid]={result,status:"completed"};await DB.set("rm",rm);setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});const freshAP=normalizeAP(await DB.get("ap")||{});const cu=await DB.get("u")||{};const sidStr=String(numMid);const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[sidStr];if(!p)return false;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});const matchObj=nm.find(x=>Number(x.id)===Number(mid));const isWR=isNR(result.win)||isNR(result.motm);const latest=await DB.get("ch")||[];const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:(isWR?"🌧 Washout: ":"Result: ")+matchObj.home+" vs "+matchObj.away+"\nToss: "+showVal(result.toss)+" · Win: "+showVal(result.win)+" · POTM: "+showVal(result.motm)+(perfs.length?"\n🎯 All correct: "+perfs.join(", "):"\nNo all-correct picks"),ts:Date.now(),sys:true}]);setChat(newCh);await DB.set("ch",newCh);toast2("Result saved! ✅","ok");await reloadShared(email);}
+  async function deleteUser(ue){if(!confirm("Delete "+users[ue]?.name+"?"))return;const uek=ek(ue);const nu={...users};delete nu[ue];delete nu[uek];const na={...allPicks};delete na[uek];const ns={...spk};delete ns[uek];const nt={...t4pk};delete nt[uek];const np={...manualPtsAdj};delete np[uek];const nmpo={...matchPtsOverride};delete nmpo[uek];setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setManualPtsAdj(np);setMatchPtsOverride(nmpo);await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);setExU(null);toast2("User deleted","ok");}
   async function sendBc(pin=false){if(!bcMsg.trim())return;const nb=[...bc,{id:Date.now(),msg:bcMsg.trim(),ts:Date.now(),type:"admin"}];setBc(nb);await DB.set("bc",nb);if(pin){setPinnedBc(bcMsg.trim());await DB.set("pinnedbc",bcMsg.trim());}setBcMsg("");toast2(pin?"📌 Pinned!":"Sent!","ok");}
   async function clearPin(){setPinnedBc(null);await DB.set("pinnedbc",null);toast2("Pin cleared");}
-  async function addManualMatch(){
-    const{mn,home,away,date,time,venue}=manMatchForm;
-    if(!mn||!home||!away||!date||!time){toast2("Fill all fields","error");return;}
-    if(home===away){toast2("Teams must differ","error");return;}
-    const pt=time.length===4?"0"+time:time;
-    const existing=await DB.get("manmatches")||[];
-    const nm={id:Date.now(),mn:mn.trim(),home,away,date,time:pt,venue:venue||"Custom Venue",result:null,manual:true};
-    await DB.set("manmatches",[...existing,nm]);setMs(prev=>[...prev,nm]);
-    setManMatchForm({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});toast2("Match added!","ok");
-  }
+  async function addManualMatch(){const{mn,home,away,date,time,venue}=manMatchForm;if(!mn||!home||!away||!date||!time){toast2("Fill all fields","error");return;}if(home===away){toast2("Teams must differ","error");return;}const pt=time.length===4?"0"+time:time;const existing=await DB.get("manmatches")||[];const nm={id:Date.now(),mn:mn.trim(),home,away,date,time:pt,venue:venue||"Custom Venue",result:null,manual:true};await DB.set("manmatches",[...existing,nm]);setMs(prev=>[...prev,nm]);setManMatchForm({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});toast2("Match added!","ok");}
   async function toggleMatchLock(mid){const cur=lockedMatches[mid]??lockedMatches[String(mid)];const next=cur==="locked"?"unlocked":cur==="unlocked"?null:"locked";const upd={...lockedMatches};if(next===null)delete upd[mid];else upd[mid]=next;setLockedMatches(upd);await DB.set("lockedm",upd);toast2(next==="locked"?"🔒 Locked":next==="unlocked"?"🔓 Unlocked":"↩️ Auto");}
   async function adjustPts(em,delta){const emk=ek(em);const cur=manualPtsAdj[emk]||0;const upd={...manualPtsAdj,[emk]:cur+delta};setManualPtsAdj(upd);await DB.set("ptsadj",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
   async function setMatchPts(em,mid,delta){const emk=ek(em);const cur=((matchPtsOverride[emk]||{})[mid])||0;const upd={...matchPtsOverride,[emk]:{...(matchPtsOverride[emk]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
@@ -767,7 +604,8 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,onReact:reactFn,
+  // cardProps — note allMs passed so form dots work
+  const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
       setAm(m);setDraft({});setSc("picks");
@@ -1058,10 +896,8 @@ export default function App(){
         ))}
       </div>
 
-      {/* APPROVALS */}
       {admTab==="approvals"&&<>{pendingCount===0?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p></div>:<>{Object.entries(pendingUsers).map(([emk,u])=><div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p></div></div><div style={{display:"flex",gap:10}}><button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>✅ Approve</button><button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>❌ Reject</button></div></div>)}</> }</>}
 
-      {/* RESULTS */}
       {admTab==="results"&&<>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
@@ -1081,8 +917,7 @@ export default function App(){
         })}
         <p className="st" style={{marginTop:16}}>COMPLETED ({done.length})</p>
         {[...done].reverse().map(m=>{
-          const ae=Object.entries(allPicks);
-          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
+          const ae=Object.entries(allPicks);const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
           const tossC=ae.filter(([,u])=>!isNR(m.result.toss)&&getP(u,m.id)?.toss===m.result.toss).length;
           const winC=ae.filter(([,u])=>!isNR(m.result.win)&&getP(u,m.id)?.win===m.result.win).length;
           const motmC=ae.filter(([,u])=>!isNR(m.result.motm)&&motmMatch(getP(u,m.id)?.motm,m.result.motm)).length;
@@ -1102,123 +937,30 @@ export default function App(){
         })}
       </>}
 
-      {/* PICK STATUS */}
       {admTab==="pickstatus"&&(()=>{
         const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false);
         const relevantMs=[...ms.filter(m=>!m.result&&!isTBD(m)),...[...done].reverse().slice(0,5)];
-
-        const loadRaw=async()=>{
-          setDbLoading(true);
-          const raw=await DB.get("ap");
-          setDbRaw(raw||{});
-          setDbLoading(false);
-        };
-
-        const forceFixDB=async()=>{
-          setFixLoading(true);
-          const raw=await DB.get("ap")||{};
-          const fixed=normalizeAP(raw);
-          await DB.set("ap",fixed);
-          await reloadShared(email);
-          setDbRaw(fixed);
-          setFixLoading(false);
-          toast2("DB fixed & reloaded ✅","ok");
-        };
-
+        const loadRaw=async()=>{setDbLoading(true);const raw=await DB.get("ap");setDbRaw(raw||{});setDbLoading(false);};
+        const forceFixDB=async()=>{setFixLoading(true);const raw=await DB.get("ap")||{};const fixed=normalizeAP(raw);await DB.set("ap",fixed);await reloadShared(email);setDbRaw(fixed);setFixLoading(false);toast2("DB fixed & reloaded ✅","ok");};
         return<div>
-          {/* Force Fix Banner */}
           <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
             <p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>⚠️ Ghost Pick Fix</p>
-            <p style={{color:"#dc2626",fontSize:11,margin:"0 0 10px"}}>If a user shows as predicted but DB has no pick, click Force Fix. It normalises all Firebase pick keys (converts numeric→string) and removes invalid entries.</p>
+            <p style={{color:"#dc2626",fontSize:11,margin:"0 0 10px"}}>If a user shows as predicted but DB has no pick, click Force Fix.</p>
             <div style={{display:"flex",gap:8}}>
               <button onClick={loadRaw} disabled={dbLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{dbLoading?"Loading…":"🔍 Load Raw DB"}</button>
               <button onClick={forceFixDB} disabled={fixLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fixLoading?"Fixing…":"🔧 Force Fix DB"}</button>
             </div>
           </div>
-
-          {/* Raw DB View */}
           {dbRaw&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
             <p className="st">RAW DB STATE ({Object.keys(dbRaw).length} users)</p>
             {Object.keys(dbRaw).length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No picks in DB.</p>}
-            {Object.entries(dbRaw).map(([emk,picks])=>{
-              const u=Object.values(users).find(u=>ek(u.email)===canonicalKey(emk));
-              const name=u?.name||emk;
-              const pickCount=picks&&typeof picks==="object"?Object.keys(picks).length:0;
-              const isExpanded=expandUser===emk;
-              return<div key={emk} style={{borderBottom:"1px solid #f1f5f9",paddingBottom:8,marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpandUser(isExpanded?null:emk)}>
-                  <Av name={name} sz={24}/>
-                  <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{name}</p><p style={{color:"#94a3b8",fontSize:10,margin:0}}>{emk} · {pickCount} picks in DB</p></div>
-                  <span style={{color:"#1D428A",fontSize:12}}>{isExpanded?"▲":"▼"}</span>
-                </div>
-                {isExpanded&&<div style={{marginTop:8,background:"#f8faff",borderRadius:8,padding:"8px 10px"}}>
-                  {pickCount===0&&<p style={{color:"#94a3b8",fontSize:11,margin:0}}>No picks stored.</p>}
-                  {Object.entries(picks||{}).map(([mid,pick])=>{
-                    const matchObj=ms.find(m=>String(m.id)===String(mid));
-                    const isNumKey=!isNaN(Number(mid))&&typeof mid!=="string";
-                    const isComplete=pick&&pick.toss&&pick.win&&pick.motm;
-                    return<div key={mid} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6,padding:"5px 8px",borderRadius:6,background:isComplete?"#f0fdf4":"#fef2f2",border:"1px solid "+(isComplete?"#bbf7d0":"#fecaca")}}>
-                      <span style={{fontSize:10,fontWeight:700,color:"#64748b",minWidth:28}}>M{mid}</span>
-                      {matchObj&&<span style={{fontSize:10,color:"#94a3b8",minWidth:60}}>{matchObj.home} v {matchObj.away}</span>}
-                      <span style={{fontSize:10,color:"#475569",flex:1}}>🪙{pick?.toss||"?"} 🏆{pick?.win||"?"} ⭐{pick?.motm?.split(" ").slice(-1)[0]||"?"}</span>
-                      {isNumKey&&<span style={{fontSize:9,background:"#fef2f2",color:"#dc2626",padding:"1px 5px",borderRadius:4,fontWeight:700}}>NUM KEY</span>}
-                      {!isComplete&&<span style={{fontSize:9,background:"#fef2f2",color:"#dc2626",padding:"1px 5px",borderRadius:4,fontWeight:700}}>INCOMPLETE</span>}
-                    </div>;
-                  })}
-                </div>}
-              </div>;
-            })}
+            {Object.entries(dbRaw).map(([emk,picks])=>{const u=Object.values(users).find(u=>ek(u.email)===canonicalKey(emk));const name=u?.name||emk;const pickCount=picks&&typeof picks==="object"?Object.keys(picks).length:0;const isExpanded=expandUser===emk;return<div key={emk} style={{borderBottom:"1px solid #f1f5f9",paddingBottom:8,marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpandUser(isExpanded?null:emk)}><Av name={name} sz={24}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{name}</p><p style={{color:"#94a3b8",fontSize:10,margin:0}}>{emk} · {pickCount} picks in DB</p></div><span style={{color:"#1D428A",fontSize:12}}>{isExpanded?"▲":"▼"}</span></div>{isExpanded&&<div style={{marginTop:8,background:"#f8faff",borderRadius:8,padding:"8px 10px"}}>{pickCount===0&&<p style={{color:"#94a3b8",fontSize:11,margin:0}}>No picks stored.</p>}{Object.entries(picks||{}).map(([mid,pick])=>{const matchObj=ms.find(m=>String(m.id)===String(mid));const isComplete=pick&&pick.toss&&pick.win&&pick.motm;return<div key={mid} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6,padding:"5px 8px",borderRadius:6,background:isComplete?"#f0fdf4":"#fef2f2",border:"1px solid "+(isComplete?"#bbf7d0":"#fecaca")}}><span style={{fontSize:10,fontWeight:700,color:"#64748b",minWidth:28}}>M{mid}</span>{matchObj&&<span style={{fontSize:10,color:"#94a3b8",minWidth:60}}>{matchObj.home} v {matchObj.away}</span>}<span style={{fontSize:10,color:"#475569",flex:1}}>🪙{pick?.toss||"?"} 🏆{pick?.win||"?"} ⭐{pick?.motm?.split(" ").slice(-1)[0]||"?"}</span>{!isComplete&&<span style={{fontSize:9,background:"#fef2f2",color:"#dc2626",padding:"1px 5px",borderRadius:4,fontWeight:700}}>INCOMPLETE</span>}</div>;})}}</div>}</div>;})}
           </div>}
-
           <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Upcoming + last 5 completed. ✓ = all 3 fields saved. ⚠️ = partial.</div>
-          {!relevantMs.length&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:32}}>📋</p></div>}
-          {relevantMs.map(m=>{
-            const isDone=!!m.result;
-            const lk=isMatchLocked(m,lockedMatches);
-            const predicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)!=null);
-            const notPredicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)==null);
-            const pct=approvedUsers.length?Math.round(predicted.length/approvedUsers.length*100):0;
-            return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <TLogo t={m.home} sz={22}/>
-                <div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p></div>
-                <TLogo t={m.away} sz={22}/>
-              </div>
-              <div style={{display:"flex",gap:6,marginBottom:8}}>
-                <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p><p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p></div>
-                <div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p><p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p></div>
-                <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p><p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p></div>
-              </div>
-              <div className="bar-bg" style={{marginBottom:10}}><div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/></div>
-              {predicted.length>0&&<div style={{marginBottom:8}}>
-                <p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {predicted.map(u=>{
-                    const pick=getP(allPicks[ek(u.email)]||{},m.id);
-                    const dbOk=!!(pick&&pick.toss&&pick.win&&pick.motm);
-                    return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:dbOk?"#f0fdf4":"#FFF9E6",border:"1px solid "+(dbOk?"#bbf7d0":"#FDE68A"),borderRadius:20,padding:"3px 9px"}}>
-                      <Av name={u.name} sz={16}/>
-                      <span style={{fontSize:11,fontWeight:600,color:dbOk?"#15803d":"#92400E"}}>{u.name.split(" ")[0]}</span>
-                      <span style={{fontSize:9,color:dbOk?"#15803d":"#92400E"}}>{dbOk?"✓":"⚠️"}</span>
-                    </div>;
-                  })}
-                </div>
-              </div>}
-              {notPredicted.length>0&&<div>
-                <p style={{color:"#dc2626",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{lk||isDone?"❌ Missed":"⏳ Not Yet"}</p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {notPredicted.map(u=><div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"3px 9px"}}>
-                    <Av name={u.name} sz={16}/>
-                    <span style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{u.name.split(" ")[0]}</span>
-                  </div>)}
-                </div>
-              </div>}
-            </div>;
-          })}
+          {relevantMs.map(m=>{const isDone=!!m.result;const lk=isMatchLocked(m,lockedMatches);const predicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)!=null);const notPredicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)==null);const pct=approvedUsers.length?Math.round(predicted.length/approvedUsers.length*100):0;return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><TLogo t={m.home} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p></div><TLogo t={m.away} sz={22}/></div><div style={{display:"flex",gap:6,marginBottom:8}}><div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p><p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p></div><div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p><p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p></div><div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p><p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p></div></div><div className="bar-bg" style={{marginBottom:10}}><div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/></div>{predicted.length>0&&<div style={{marginBottom:8}}><p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{predicted.map(u=>{const pick=getP(allPicks[ek(u.email)]||{},m.id);const dbOk=!!(pick&&pick.toss&&pick.win&&pick.motm);return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:dbOk?"#f0fdf4":"#FFF9E6",border:"1px solid "+(dbOk?"#bbf7d0":"#FDE68A"),borderRadius:20,padding:"3px 9px"}}><Av name={u.name} sz={16}/><span style={{fontSize:11,fontWeight:600,color:dbOk?"#15803d":"#92400E"}}>{u.name.split(" ")[0]}</span><span style={{fontSize:9,color:dbOk?"#15803d":"#92400E"}}>{dbOk?"✓":"⚠️"}</span></div>;})}</div></div>}{notPredicted.length>0&&<div><p style={{color:"#dc2626",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{lk||isDone?"❌ Missed":"⏳ Not Yet"}</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{notPredicted.map(u=><div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"3px 9px"}}><Av name={u.name} sz={16}/><span style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{u.name.split(" ")[0]}</span></div>)}</div></div>}</div>;})}
         </div>;
       })()}
 
-      {/* USERS */}
       {admTab==="users"&&<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><p style={{color:"#64748b",fontSize:12,margin:0}}>{Object.keys(users).length} players</p><button onClick={exportCSV} style={{padding:"6px 12px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Export CSV</button></div>
         <input className="inp" value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by name or email…" style={{marginBottom:12,fontSize:13}}/>
@@ -1242,7 +984,6 @@ export default function App(){
         })}
       </>}
 
-      {/* MATCHES */}
       {admTab==="matches"&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
         <p className="st">ADD CUSTOM MATCH</p>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -1254,7 +995,6 @@ export default function App(){
         </div>
       </div>}
 
-      {/* ANALYTICS */}
       {admTab==="analytics"&&<>
         <p className="st">GROUP OVERVIEW</p>
         {(()=>{const lb=getLb();const ae=Object.entries(allPicks);const totalPredictions=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPredictions,"Predictions"],["🎯",totalPerfs,"All Correct"],["📊",avgAcc+"%","Avg Acc"],["👥",lb.length,"Players"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
@@ -1262,20 +1002,9 @@ export default function App(){
         <p className="st">CHAMPION PICKS</p>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span>🏆</span>}</div>;});})()}</div>
         <p className="st">PER-MATCH SPLIT</p>
-        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{
-          const ae=Object.entries(allPicks);
-          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
-          const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;
-          const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;
-          const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};
-          return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
-            {io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc.bg} clB={ac.bg}/></div>}
-          </div>;
-        })}
+        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{const ae=Object.entries(allPicks);const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}><div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>{io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc.bg} clB={ac.bg}/></div>}</div>;})}
       </>}
 
-      {/* CONTROLS */}
       {admTab==="controls"&&<div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">APP CONTROLS</p>
@@ -1308,7 +1037,6 @@ export default function App(){
         </div>
       </div>}
 
-      {/* BROADCAST */}
       {admTab==="broadcast"&&<>
         <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
         <p className="st" style={{marginTop:16}}>HISTORY</p>
