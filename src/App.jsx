@@ -116,7 +116,7 @@ const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
 const pickKey=id=>String(id);
 const getP=(picks,id)=>{if(!picks||typeof picks!=="object")return null;return picks[pickKey(id)]??null;};
 
-/* ─── FORM HELPER — W / L / NR, oldest→newest ─── */
+/* ─── FORM HELPER ─── */
 function getTeamForm(team,matches,n=5){
   return matches
     .filter(m=>m.result&&(m.home===team||m.away===team))
@@ -144,6 +144,32 @@ const isToday=m=>m.date===new Date().toLocaleDateString("en-CA",{timeZone:"Asia/
 const isTBD=m=>(m.home||"").startsWith("TBD")||(m.away||"").startsWith("TBD");
 const motmMatch=(a,b)=>{if(!a||!b||isNR(a)||isNR(b))return false;const n=s=>s.trim().toLowerCase();const na=n(a),nb=n(b);return na===nb||na.endsWith(" "+nb)||nb.endsWith(" "+na)||na.includes(nb)||nb.includes(na);};
 function resolvePlayoffSlots(base,br){if(!br)return base;return base.map(m=>{let{home,away}={...m};if(m.mn==="Q1"&&br.q1?.length===2){[home,away]=[br.q1[0],br.q1[1]];}if(m.mn==="EL1"&&br.el?.length===2){[home,away]=[br.el[0],br.el[1]];}if(m.mn==="Q2"&&br.q2?.length===2){[home,away]=[br.q2[0],br.q2[1]];}if(m.mn==="Final"&&br.final?.length===2){[home,away]=[br.final[0],br.final[1]];}return{...m,home,away};});}
+
+/* ─── BUILD MATCH FROM rm ENTRY ─── */
+// FIX 2: Centralised helper so both allMs and extraMs use the same logic.
+// rm entries can be:
+//   a) {result:{toss,win,motm}, status:"completed"}  — fully finalised
+//   b) {toss, win, motm, status:"completed"}          — old flat format
+//   c) {toss?, win?, motm?}                           — partial save, not yet finalised
+function applyRmEntry(base,r){
+  if(!r)return base;
+  // Case (a): nested result object — fully done
+  if(r.result&&typeof r.result==="object"){
+    return{...base,...r,result:r.result,_partial:null};
+  }
+  // Cases (b) and (c): fields stored flat
+  const partialResult={};
+  if(r.toss!=null)partialResult.toss=r.toss;
+  if(r.win!=null)partialResult.win=r.win;
+  if(r.motm!=null)partialResult.motm=r.motm;
+  const hasPartial=Object.keys(partialResult).length>0;
+  if(r.status==="completed"&&hasPartial){
+    // Fully finalised flat format → wrap into result
+    return{...base,...r,result:partialResult,_partial:null};
+  }
+  // Partial — not yet finalised
+  return{...base,...r,result:null,_partial:hasPartial?partialResult:null};
+}
 
 /* ─── SCORING ─── */
 function calcScore(uPicks,ms,dbl=null){
@@ -254,7 +280,6 @@ function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
-/* ─── FORM DOTS — W=green L=red NR=grey ─── */
 function FormDots({form,align="left"}){
   if(!form||form.length===0)return null;
   return(
@@ -300,7 +325,9 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const ae=Object.entries(allPicks);
   const tot=ae.filter(([,up])=>getP(up,m.id)!=null).length;
 
-  const sp=m.result&&!isNR(m.result.toss)&&tot>0?{
+  // FIX 3: Show Group Leans whenever match is locked (auto or manual) and no result yet
+  const autoLocked=new Date()>=cutoff(m);
+  const hints=!m.result&&(lk||autoLocked)&&tot>0?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
     tB:ae.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
@@ -308,7 +335,8 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     wB:ae.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
   }:null;
 
-  const hints=lk&&!m.result&&tot>0?{
+  // Group Split: shown after result is entered and toss is known
+  const sp=m.result&&!isNR(m.result.toss)&&tot>0?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
     tB:ae.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
@@ -322,6 +350,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     <div className="mcard fade-in">
       <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
 
+      {/* ── Status bar ── */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -330,19 +359,22 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
           {m.result&&!isWashout
             ?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>
             :!m.result&&lk
-            ?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>
+            // FIX 1: Only show "Locked" badge — never show "Closes in NOW"
+            ?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🔒 Locked</span>
             :!m.result
             ?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>
             :null}
         </div>
       </div>
 
-      {!lk&&!m.result&&(
+      {/* FIX 1: Countdown only shown when match is genuinely open and cd is a real value */}
+      {!lk&&!m.result&&cd&&cd!=="NOW"&&(
         <div style={{textAlign:"center",marginBottom:8}}>
           <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span>
         </div>
       )}
 
+      {/* ── Teams ── */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 6px"}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
           <TLogo t={m.home} sz={48}/>
@@ -370,6 +402,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
       <p style={{color:"#94a3b8",fontSize:11,borderTop:"1px solid #f1f5f9",paddingTop:8,marginBottom:10}}>📍 {m.venue}</p>
 
+      {/* ── Full result ── */}
       {m.result&&(
         <div style={{background:"#F4F6FB",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
           <span style={{color:"#64748b"}}>Toss: </span><b>{showVal(m.result.toss)}</b>
@@ -381,12 +414,26 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         </div>
       )}
 
+      {/* FIX 2: Partial result banner — shown when admin has saved some fields but not finalised */}
+      {!m.result&&m._partial&&(
+        <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
+          <span style={{color:"#92400E",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:6}}>⏳ Partial result entered</span>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+            {m._partial.toss&&<span style={{color:"#92400E"}}><b>Toss:</b> {m._partial.toss}</span>}
+            {m._partial.win&&<span style={{color:"#92400E"}}><b>Win:</b> {m._partial.win}</span>}
+            {m._partial.motm&&<span style={{color:"#92400E"}}><b>POTM:</b> {m._partial.motm?.split(" ").slice(-1)[0]}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── My pick ── */}
       {mp&&(
         <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>
           My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}
         </div>
       )}
 
+      {/* FIX 3: Group Leans — visible from lock time until result entered */}
       {hints&&(
         <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
           <p style={{color:"#92400E",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>
@@ -415,6 +462,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         </div>
       )}
 
+      {/* Group Split — shown after full result with toss known */}
       {sp&&(
         <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
           <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
@@ -425,6 +473,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
       {showIntel&&<MatchIntelPanel m={m}/>}
 
+      {/* Reactions */}
       {m.result&&(
         <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
           {EMOJIK.map(k=>{
@@ -456,7 +505,7 @@ export default function App(){
   const[sc,setSc]=useState("splash");
   const[email,setEmail]=useState("");const[user,setUser]=useState(null);const[isAdmin,setIsAdmin]=useState(false);
   const[users,setUsers]=useState({});const[myPicks,setMyPicks]=useState({});const[allPicks,setAllPicks]=useState({});
-  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null})),[]);
+  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null,_partial:null})),[]);
   const[ms,setMs]=useState(()=>buildBaseMatches());
   const[spk,setSpk]=useState({});const[mySp,setMySp]=useState("");
   const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
@@ -520,11 +569,21 @@ export default function App(){
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
     const freshAP=normalizeAP(ap);setAllPicks(freshAP);if(em)setMyPicks(freshAP[emk]||{});
+
+    // FIX 2: Use applyRmEntry helper for both base and extra matches
     let allMs=buildBaseMatches();
-    if(rm)allMs=allMs.map(m=>{const r=rm[m.id]??rm[String(m.id)];return r?{...m,...r}:m;});
+    if(rm)allMs=allMs.map(m=>{
+      const r=rm[m.id]??rm[String(m.id)];
+      return applyRmEntry(m,r);
+    });
     if(br){setBracket(br);allMs=resolvePlayoffSlots(allMs,br);}else setBracket(null);
-    const extraMs=(mn||[]).map(m=>{const mid=Number(m.id)||m.id;const r=rm&&(rm[mid]??rm[String(mid)]);return r?{...m,id:mid,...r}:{...m,id:mid};});
+    const extraMs=(mn||[]).map(m=>{
+      const mid=Number(m.id)||m.id;
+      const r=rm&&(rm[mid]??rm[String(mid)]);
+      return applyRmEntry({...m,id:mid},r);
+    });
     setMs([...allMs,...extraMs]);
+
     if(b)setBc(b);if(cm)setChat(cm);
     const nsp=normalizeKeyMap(sp);setSpk(nsp);if(em)setMySp(nsp[emk]||"");
     if(sw2!=null)setSw(sw2);
@@ -624,12 +683,58 @@ export default function App(){
   async function reactFn(mid,key){const mr=rxns[mid]||{},list=mr[key]||[];const upd={...rxns,[mid]:{...mr,[key]:list.includes(email)?list.filter(e=>e!==email):[...list,email]}};setRxns(upd);await DB.set("rx",upd);}
   async function sendChat(){if(!chatIn.trim()||!user)return;if(chatMuted){toast2("Chat is muted","error");return;}if((mutedUsers||{})[myEk]){toast2("You have been muted","error");return;}const text=chatIn.trim().slice(0,CHAT_MAX);const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:user.email,name:user.name,text,ts:Date.now()}]);setChat(nc);setChatIn("");await DB.set("ch",nc);setChatSeenTs(Date.now());}
   async function delMsg(id){const latest=await DB.get("ch")||[];const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);}
-  async function savePartialResult(mid,field,value){const numMid=Number(mid)||mid;const rm=(await DB.get("rm"))||{};const existing=rm[numMid]||{};const updated={...existing,[field]:value};rm[numMid]=updated;await DB.set("rm",rm);setMs(prev=>prev.map(m=>Number(m.id)===Number(mid)?{...m,...updated}:m));toast2("Saved ✓","ok");}
-  async function setManualResult(mid){const f=admResultForm[mid];if(!f?.toss||!f?.win||!f?.motm){toast2("Fill all result fields","error");return;}const result={toss:f.toss,win:f.win,motm:f.motm};const numMid=Number(mid)||mid;const nm=ms.map(m=>Number(m.id)===Number(mid)?{...m,result,status:"completed"}:m);setMs(nm);const rm=(await DB.get("rm"))||{};rm[numMid]={result,status:"completed"};await DB.set("rm",rm);setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});const freshAP=normalizeAP(await DB.get("ap")||{});const cu=await DB.get("u")||{};const sidStr=String(numMid);const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);const avail=[tA,wA,mA].filter(Boolean).length;const perfs=Object.entries(freshAP).filter(([,up])=>{const p=up[sidStr];if(!p)return false;const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;return avail>0&&correct===avail;}).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});const matchObj=nm.find(x=>Number(x.id)===Number(mid));const isWR=isNR(result.win)||isNR(result.motm);const latest=await DB.get("ch")||[];const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:(isWR?"🌧 Washout: ":"Result: ")+matchObj.home+" vs "+matchObj.away+"\nToss: "+showVal(result.toss)+" · Win: "+showVal(result.win)+" · POTM: "+showVal(result.motm)+(perfs.length?"\n🎯 All correct: "+perfs.join(", "):"\nNo all-correct picks"),ts:Date.now(),sys:true}]);setChat(newCh);await DB.set("ch",newCh);toast2("Result saved! ✅","ok");await reloadShared(email);}
+
+  // FIX 2: savePartialResult now stores fields flat (as before) but reloadShared
+  // correctly interprets them via applyRmEntry — no change needed here.
+  async function savePartialResult(mid,field,value){
+    const numMid=Number(mid)||mid;
+    const rm=(await DB.get("rm"))||{};
+    const existing=rm[numMid]||{};
+    // Strip any nested result object so we don't mix formats during partial entry
+    const{result:_r,...existingFlat}=existing;
+    const updated={...existingFlat,[field]:value};
+    rm[numMid]=updated;
+    await DB.set("rm",rm);
+    // Update local state via applyRmEntry so card shows partial immediately
+    setMs(prev=>prev.map(m=>Number(m.id)===Number(mid)?applyRmEntry(m,updated):m));
+    toast2("Saved ✓","ok");
+  }
+
+  async function setManualResult(mid){
+    const f=admResultForm[mid];
+    if(!f?.toss||!f?.win||!f?.motm){toast2("Fill all result fields","error");return;}
+    const result={toss:f.toss,win:f.win,motm:f.motm};
+    const numMid=Number(mid)||mid;
+    // FIX 2: Store as flat + status so applyRmEntry wraps it into result:{}
+    const rm=(await DB.get("rm"))||{};
+    rm[numMid]={toss:result.toss,win:result.win,motm:result.motm,status:"completed"};
+    await DB.set("rm",rm);
+    const nm=ms.map(m=>Number(m.id)===Number(mid)?{...m,result,_partial:null,status:"completed"}:m);
+    setMs(nm);
+    setAdmResultForm(prev=>{const n={...prev};delete n[mid];return n;});
+    const freshAP=normalizeAP(await DB.get("ap")||{});
+    const cu=await DB.get("u")||{};
+    const sidStr=String(numMid);
+    const tA=!isNR(result.toss),wA=!isNR(result.win),mA=!isNR(result.motm);
+    const avail=[tA,wA,mA].filter(Boolean).length;
+    const perfs=Object.entries(freshAP).filter(([,up])=>{
+      const p=up[sidStr];if(!p)return false;
+      const correct=[tA&&p.toss===result.toss,wA&&p.win===result.win,mA&&motmMatch(p.motm,result.motm)].filter(Boolean).length;
+      return avail>0&&correct===avail;
+    }).map(([emk])=>{const u=Object.values(cu).find(u=>ek(u.email)===emk);return u?.name||emk;});
+    const matchObj=nm.find(x=>Number(x.id)===Number(mid));
+    const isWR=isNR(result.win)||isNR(result.motm);
+    const latest=await DB.get("ch")||[];
+    const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:(isWR?"🌧 Washout: ":"Result: ")+matchObj.home+" vs "+matchObj.away+"\nToss: "+showVal(result.toss)+" · Win: "+showVal(result.win)+" · POTM: "+showVal(result.motm)+(perfs.length?"\n🎯 All correct: "+perfs.join(", "):"\nNo all-correct picks"),ts:Date.now(),sys:true}]);
+    setChat(newCh);await DB.set("ch",newCh);
+    toast2("Result saved! ✅","ok");
+    await reloadShared(email);
+  }
+
   async function deleteUser(ue){if(!confirm("Delete "+users[ue]?.name+"?"))return;const uek=ek(ue);const nu={...users};delete nu[ue];delete nu[uek];const na={...allPicks};delete na[uek];const ns={...spk};delete ns[uek];const nt={...t4pk};delete nt[uek];const np={...manualPtsAdj};delete np[uek];const nmpo={...matchPtsOverride};delete nmpo[uek];setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setManualPtsAdj(np);setMatchPtsOverride(nmpo);await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);setExU(null);toast2("User deleted","ok");}
   async function sendBc(pin=false){if(!bcMsg.trim())return;const nb=[...bc,{id:Date.now(),msg:bcMsg.trim(),ts:Date.now(),type:"admin"}];setBc(nb);await DB.set("bc",nb);if(pin){setPinnedBc(bcMsg.trim());await DB.set("pinnedbc",bcMsg.trim());}setBcMsg("");toast2(pin?"📌 Pinned!":"Sent!","ok");}
   async function clearPin(){setPinnedBc(null);await DB.set("pinnedbc",null);toast2("Pin cleared");}
-  async function addManualMatch(){const{mn,home,away,date,time,venue}=manMatchForm;if(!mn||!home||!away||!date||!time){toast2("Fill all fields","error");return;}if(home===away){toast2("Teams must differ","error");return;}const pt=time.length===4?"0"+time:time;const existing=await DB.get("manmatches")||[];const nm={id:Date.now(),mn:mn.trim(),home,away,date,time:pt,venue:venue||"Custom Venue",result:null,manual:true};await DB.set("manmatches",[...existing,nm]);setMs(prev=>[...prev,nm]);setManMatchForm({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});toast2("Match added!","ok");}
+  async function addManualMatch(){const{mn,home,away,date,time,venue}=manMatchForm;if(!mn||!home||!away||!date||!time){toast2("Fill all fields","error");return;}if(home===away){toast2("Teams must differ","error");return;}const pt=time.length===4?"0"+time:time;const existing=await DB.get("manmatches")||[];const nm={id:Date.now(),mn:mn.trim(),home,away,date,time:pt,venue:venue||"Custom Venue",result:null,_partial:null,manual:true};await DB.set("manmatches",[...existing,nm]);setMs(prev=>[...prev,nm]);setManMatchForm({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});toast2("Match added!","ok");}
   async function toggleMatchLock(mid){const cur=lockedMatches[mid]??lockedMatches[String(mid)];const next=cur==="locked"?"unlocked":cur==="unlocked"?null:"locked";const upd={...lockedMatches};if(next===null)delete upd[mid];else upd[mid]=next;setLockedMatches(upd);await DB.set("lockedm",upd);toast2(next==="locked"?"🔒 Locked":next==="unlocked"?"🔓 Unlocked":"↩️ Auto");}
   async function adjustPts(em,delta){const emk=ek(em);const cur=manualPtsAdj[emk]||0;const upd={...manualPtsAdj,[emk]:cur+delta};setManualPtsAdj(upd);await DB.set("ptsadj",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
   async function setMatchPts(em,mid,delta){const emk=ek(em);const cur=((matchPtsOverride[emk]||{})[mid])||0;const upd={...matchPtsOverride,[emk]:{...(matchPtsOverride[emk]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
@@ -839,7 +944,7 @@ export default function App(){
 
     {sc==="rules"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p style={{fontSize:28,margin:"0 0 6px"}}>📖</p><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p></div>
-      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, locking 5 minutes before start.","Predict Toss Winner, Match Winner, and Player of the Match.","Once submitted, predictions are final — no edits allowed."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct POTM → +30 pts","All 3 correct → +15 pts bonus","Max per match: 75 pts (150 on 2× match)"]},{icon:"🌧",title:"Washouts",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["Only fields with a real result score. Streak bonus never awarded on washouts."]},{icon:"🏆",title:"Season Picks",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["Pick Champion (+200 pts) and Top 4 (+50 pts each) at signup. Locked forever."]},{icon:"⚡",title:"Double Points",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can mark any match as 2× — all points including streak are doubled."]},{icon:"📋",title:"General",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval.","Picks are final once submitted.","Leaderboard updates in real time."]}].map(({icon,title,color,border,tc,items})=>(
+      {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, locking 35 minutes before start.","Predict Toss Winner, Match Winner, and Player of the Match.","Once submitted, predictions are final — no edits allowed."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct POTM → +30 pts","All 3 correct → +15 pts bonus","Max per match: 75 pts (150 on 2× match)"]},{icon:"🌧",title:"Washouts",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["Only fields with a real result score. Streak bonus never awarded on washouts."]},{icon:"🏆",title:"Season Picks",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["Pick Champion (+200 pts) and Top 4 (+50 pts each) at signup. Locked forever."]},{icon:"⚡",title:"Double Points",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can mark any match as 2× — all points including streak are doubled."]},{icon:"📋",title:"General",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval.","Picks are final once submitted.","Leaderboard updates in real time."]}].map(({icon,title,color,border,tc,items})=>(
         <div key={title} style={{background:color,border:"1px solid "+border,borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{icon}</span><p className="C" style={{color:tc,fontSize:15,fontWeight:800,margin:0,textTransform:"uppercase"}}>{title}</p></div>{items.map((item,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:i<items.length-1?8:0}}><span style={{color:tc,fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>•</span><p style={{color:tc,fontSize:13,margin:0,lineHeight:1.55,opacity:.9}}>{item}</p></div>)}</div>
       ))}
     </div>}
@@ -869,7 +974,13 @@ export default function App(){
       {admTab==="results"&&<>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
-          const rf=admResultForm[m.id]||{};const prefill={toss:"",win:"",motm:"",...rf};
+          // Pre-fill form from existing _partial if admin has already saved some fields
+          const rf=admResultForm[m.id]||{};
+          const prefill={
+            toss:rf.toss||(m._partial?.toss||""),
+            win:rf.win||(m._partial?.win||""),
+            motm:rf.motm||(m._partial?.motm||""),
+          };
           const allFilled=!!(prefill.toss&&prefill.win&&prefill.motm);
           const isWashout=prefill.win===NR||prefill.motm===NR;
           return(
@@ -1186,17 +1297,4 @@ export default function App(){
         <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
         <p className="st" style={{marginTop:16}}>HISTORY</p>
         {bc.length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No broadcasts yet</p>}
-        {[...bc].reverse().map(b=>(
-          <div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}>
-            <span style={{fontSize:15,flexShrink:0}}>📢</span>
-            <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div>
-            <button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button>
-          </div>
-        ))}
-      </>}
-    </div>}
-
-    <Nav/>
-    {toast&&<Tst t={toast}/>}
-  </div>;
-}
+        {[
