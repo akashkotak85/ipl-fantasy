@@ -15,7 +15,6 @@ function FactItem({icon,text}){return(<div style={{display:"flex",alignItems:"fl
 
 function SuggestedPick({label,team,color,textColor,note}){return(<div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 6px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{label}</p><div style={{width:30,height:30,borderRadius:7,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:textColor,fontSize:9,fontWeight:700,margin:"0 auto 5px",fontFamily:"'Barlow Condensed',sans-serif"}}>{team}</div><p style={{fontSize:11,fontWeight:600,color:"#1a2540",margin:"0 0 2px"}}>{team}</p><p style={{fontSize:9,color:"#22c55e",margin:0}}>{note}</p></div>);}
 
-function Shimmer(){return(<div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"14px"}}>{[88,72,80,65,76,60].map((w,i)=><div key={i} style={{height:11,borderRadius:4,background:"#e2e8f0",width:w+"%",marginBottom:i<5?8:0,animation:"ipl-shimmer 1.3s ease-in-out infinite",animationDelay:(i*0.1)+"s"}}/>)}<style>{`@keyframes ipl-shimmer{0%,100%{opacity:.35}50%{opacity:.85}}`}</style></div>);}
 
 export default function MatchIntelPanel({m}){
   const[open,setOpen]=useState(false);
