@@ -359,18 +359,36 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
           {m.result&&!isWashout
             ?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>
             :!m.result&&lk
-            // FIX 1: Only show "Locked" badge — never show "Closes in NOW"
             ?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🔒 Locked</span>
             :!m.result
-            ?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>
+            ?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🟢 Open</span>
             :null}
         </div>
       </div>
 
-      {/* FIX 1: Countdown only shown when match is genuinely open and cd is a real value */}
-      {!lk&&!m.result&&cd&&cd!=="NOW"&&(
-        <div style={{textAlign:"center",marginBottom:8}}>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span>
+      {/* FIX 1: Live countdown timer — only shown when match is open, disappears and badge flips to Locked at cutoff */}
+      {!m.result&&!lk&&cd&&cd!=="NOW"&&(
+        <div style={{
+          background:"linear-gradient(135deg,#FFF9E6,#FEF3C7)",
+          border:"1px solid #FDE68A",
+          borderRadius:10,
+          padding:"8px 14px",
+          marginBottom:8,
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"space-between"
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:14}}>⏱</span>
+            <span style={{fontFamily:"'Barlow',sans-serif",fontSize:12,fontWeight:600,color:"#92400E"}}>Locks at {cStr}</span>
+          </div>
+          <span style={{
+            fontFamily:"'Barlow Condensed',sans-serif",
+            fontSize:18,
+            fontWeight:800,
+            color:cd.includes("m")&&!cd.includes("h")&&parseInt(cd)<6?"#dc2626":"#d97706",
+            letterSpacing:1
+          }}>{cd}</span>
         </div>
       )}
 
