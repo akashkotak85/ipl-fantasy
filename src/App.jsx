@@ -8,16 +8,6 @@ const TF={RCB:"Royal Challengers Bengaluru",SRH:"Sunrisers Hyderabad",MI:"Mumbai
 const TEAMS=Object.keys(TF);
 const SQ={RCB:["Rajat Patidar","Virat Kohli","Devdutt Padikkal","Phil Salt","Jitesh Sharma","Krunal Pandya","Tim David","Venkatesh Iyer","Jacob Bethell","Josh Hazlewood","Bhuvneshwar Kumar","Yash Dayal","Rasikh Dar","Jacob Duffy"],SRH:["Pat Cummins","Travis Head","Ishan Kishan","Heinrich Klaasen","Abhishek Sharma","Nitish Kumar Reddy","Liam Livingstone","Harshal Patel","Brydon Carse","Jaydev Unadkat","Shivam Mavi","David Payne"],MI:["Rohit Sharma","Hardik Pandya","Suryakumar Yadav","Jasprit Bumrah","Trent Boult","Tilak Varma","Ryan Rickelton","Quinton de Kock","Deepak Chahar","Shardul Thakur","Mitchell Santner","Will Jacks"],KKR:["Ajinkya Rahane","Sunil Narine","Rinku Singh","Cameron Green","Rachin Ravindra","Finn Allen","Varun Chakaravarthy","Matheesha Pathirana","Blessing Muzarabani","Rovman Powell","Vaibhav Arora"],CSK:["Ruturaj Gaikwad","MS Dhoni","Sanju Samson","Shivam Dube","Ayush Mhatre","Dewald Brevis","Khaleel Ahmed","Noor Ahmad","Anshul Kamboj","Prashant Veer","Kartik Sharma","Akeal Hosein"],RR:["Riyan Parag","Yashasvi Jaiswal","Vaibhav Suryavanshi","Jofra Archer","Ravindra Jadeja","Dhruv Jurel","Shimron Hetmyer","Ravi Bishnoi","Sandeep Sharma","Adam Milne","Nandre Burger"],PBKS:["Shreyas Iyer","Arshdeep Singh","Shashank Singh","Marcus Stoinis","Prabhsimran Singh","Marco Jansen","Yuzvendra Chahal","Priyansh Arya","Musheer Khan","Lockie Ferguson","Xavier Bartlett"],GT:["Shubman Gill","Jos Buttler","Rashid Khan","Kagiso Rabada","Mohammed Siraj","Sai Sudharsan","Washington Sundar","Prasidh Krishna","Rahul Tewatia","Jayant Yadav","Jason Holder"],LSG:["Rishabh Pant","Mitchell Marsh","Nicholas Pooran","Aiden Markram","Mohammad Shami","Avesh Khan","Wanindu Hasaranga","Mayank Yadav","Anrich Nortje","Abdul Samad","Ayush Badoni"],DC:["Axar Patel","KL Rahul","Kuldeep Yadav","Mitchell Starc","T. Natarajan","Karun Nair","Prithvi Shaw","Abishek Porel","Sameer Rizvi","David Miller","Tristan Stubbs","Nitish Rana"]};
 
-const KNOWN_RESULTS={
-  1:{toss:"SRH",win:"RCB",motm:"Phil Salt"},
-  2:{toss:"MI",win:"MI",motm:"Suryakumar Yadav"},
-  3:{toss:"CSK",win:"CSK",motm:"Ruturaj Gaikwad"},
-  4:{toss:"GT",win:"PBKS",motm:"Priyansh Arya"},
-  5:{toss:"DC",win:"LSG",motm:"Rishabh Pant"},
-  6:{toss:"SRH",win:"SRH",motm:"Travis Head"},
-  7:{toss:"PBKS",win:"CSK",motm:"Ayush Mhatre"},
-};
-
 const BASE_MATCHES=[
   {id:1,mn:"M1",home:"RCB",away:"SRH",date:"2026-03-28",time:"19:30",venue:"M.Chinnaswamy Stadium, Bengaluru"},
   {id:2,mn:"M2",home:"MI",away:"KKR",date:"2026-03-29",time:"19:30",venue:"Wankhede Stadium, Mumbai"},
@@ -126,13 +116,16 @@ const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
 const pickKey=id=>String(id);
 const getP=(picks,id)=>{if(!picks||typeof picks!=="object")return null;return picks[pickKey(id)]??null;};
 
-/* ─── FORM HELPER ─── */
-// Returns last N results oldest→newest for a team from completed matches
+/* ─── FORM HELPER — W / L / NR, oldest→newest ─── */
 function getTeamForm(team,matches,n=5){
   return matches
-    .filter(m=>m.result&&!isNR(m.result.win)&&(m.home===team||m.away===team))
+    .filter(m=>m.result&&(m.home===team||m.away===team))
     .slice(-n)
-    .map(m=>m.result.win===team?"W":"L");
+    .map(m=>{
+      if(isNR(m.result.win))return"NR";
+      if(m.result.win===team)return"W";
+      return"L";
+    });
 }
 
 /* ─── FIREBASE ─── */
@@ -224,7 +217,7 @@ body{background:#F4F6FB;}
 .bubble.sys{background:#EBF0FA;color:#1D428A;border:1px solid #1D428A20;border-radius:10px;padding:8px 14px;font-size:11px;text-align:center;font-weight:600;}
 .bd{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#ef4444;border:1.5px solid #fff;}
 .bp{display:inline-flex;align-items:center;gap:4px;background:#EBF0FA;border:1px solid #bfdbfe;border-radius:20px;padding:3px 9px;font-size:11px;color:#1e40af;font-weight:600;margin:3px 3px 0 0;}
-.ot{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;width:76px;transition:all .15px;}
+.ot{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;width:76px;transition:all .15s;}
 .ot.on{border-color:#1D428A;background:#EBF0FA;}
 .ac{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:14px;}
 .at{flex:1;padding:8px 2px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
@@ -261,17 +254,17 @@ function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
-/* ─── FORM DOTS ─── */
+/* ─── FORM DOTS — W=green L=red NR=grey ─── */
 function FormDots({form,align="left"}){
   if(!form||form.length===0)return null;
-  const dots=form.map((r,i)=>(
-    <div key={i} style={{width:9,height:9,borderRadius:"50%",flexShrink:0,
-      background:r==="W"?"#22c55e":"#ef4444"}}/>
-  ));
-  return<div style={{display:"flex",gap:3,alignItems:"center",
-    justifyContent:align==="right"?"flex-end":"flex-start"}}>
-    {dots}
-  </div>;
+  return(
+    <div style={{display:"flex",gap:3,alignItems:"center",justifyContent:align==="right"?"flex-end":"flex-start"}}>
+      {form.map((r,i)=>(
+        <div key={i} style={{width:9,height:9,borderRadius:"50%",flexShrink:0,
+          background:r==="W"?"#22c55e":r==="NR"?"#94a3b8":"#ef4444"}}/>
+      ))}
+    </div>
+  );
 }
 
 /* ─── MATCH CARD ─── */
@@ -289,9 +282,10 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const mOv=((matchPtsOverride[myEmk]||{})[m.id])??((matchPtsOverride[myEmk]||{})[String(m.id)])??0;
   const isWashout=m.result&&(isNR(m.result.win)||isNR(m.result.motm));
 
-  // Form dots — oldest→newest
+  /* Form dots — oldest→newest, W/L/NR */
   const homeForm=getTeamForm(m.home,allMs||[],5);
   const awayForm=getTeamForm(m.away,allMs||[],5);
+  const hasForm=homeForm.length>0||awayForm.length>0;
 
   let earned=0;
   if(m.result&&mp){
@@ -307,8 +301,8 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   const ae=Object.entries(allPicks);
   const tot=ae.filter(([,up])=>getP(up,m.id)!=null).length;
 
-  // Group split — after result
-  const sp=lk&&tot>0&&m.result&&!isNR(m.result.toss)?{
+  /* Group split — shown after result */
+  const sp=m.result&&!isNR(m.result.toss)&&tot>0?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
     tB:ae.filter(([,up])=>getP(up,m.id)?.toss===m.away).length,
@@ -316,7 +310,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     wB:ae.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
   }:null;
 
-  // Group leans hint — only after lock, before result
+  /* Group leans — shown after lock, before result */
   const hints=lk&&!m.result&&tot>0?{
     tot,
     tA:ae.filter(([,up])=>getP(up,m.id)?.toss===m.home).length,
@@ -325,106 +319,143 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
     wB:ae.filter(([,up])=>getP(up,m.id)?.win===m.away).length,
   }:null;
 
-  return<div className="mcard fade-in">
-    <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
+  /* Intel panel shown for all non-TBD matches always */
+  const showIntel=!isTBD(m);
 
-    {/* Header */}
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-      <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
-      <div style={{display:"flex",alignItems:"center",gap:6}}>
-        {isDouble&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:800}}>⚡ 2×</span>}
-        {isWashout&&<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🌧 Washout</span>}
-        {m.result&&!isWashout?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>
-        :!m.result&&lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>
-        :!m.result?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>:null}
+  return(
+    <div className="mcard fade-in">
+      <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {isDouble&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:800}}>⚡ 2×</span>}
+          {isWashout&&<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🌧 Washout</span>}
+          {m.result&&!isWashout
+            ?<span style={{background:"#dbeafe",color:"#1e40af",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Done</span>
+            :!m.result&&lk
+            ?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Locked</span>
+            :!m.result
+            ?<span style={{background:"#dcfce7",color:"#166534",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Open till {cStr}</span>
+            :null}
+        </div>
       </div>
+
+      {/* Countdown */}
+      {!lk&&!m.result&&(
+        <div style={{textAlign:"center",marginBottom:8}}>
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span>
+        </div>
+      )}
+
+      {/* Teams + form dots */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 6px"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
+          <TLogo t={m.home} sz={48}/>
+          <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home}</p>
+          <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.home]||""}</p>
+          <FormDots form={homeForm} align="left"/>
+        </div>
+        <p className="C" style={{color:"#cbd5e1",fontSize:18,fontWeight:800,letterSpacing:2,margin:"0 6px"}}>VS</p>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
+          <TLogo t={m.away} sz={48}/>
+          <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.away}</p>
+          <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.away]||""}</p>
+          <FormDots form={awayForm} align="right"/>
+        </div>
+      </div>
+
+      {/* Form legend */}
+      {hasForm&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#22c55e"}}/><span style={{color:"#94a3b8",fontSize:9}}>W</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444"}}/><span style={{color:"#94a3b8",fontSize:9}}>L</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#94a3b8"}}/><span style={{color:"#94a3b8",fontSize:9}}>NR</span></div>
+          <span style={{color:"#94a3b8",fontSize:9}}>· last {Math.max(homeForm.length,awayForm.length)} (oldest→newest)</span>
+        </div>
+      )}
+
+      <p style={{color:"#94a3b8",fontSize:11,borderTop:"1px solid #f1f5f9",paddingTop:8,marginBottom:10}}>📍 {m.venue}</p>
+
+      {/* Result */}
+      {m.result&&(
+        <div style={{background:"#F4F6FB",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
+          <span style={{color:"#64748b"}}>Toss: </span><b>{showVal(m.result.toss)}</b>
+          <span style={{color:"#94a3b8",margin:"0 6px"}}>·</span>
+          <span style={{color:"#64748b"}}>Win: </span><b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b>
+          <span style={{color:"#94a3b8",margin:"0 6px"}}>·</span>
+          <span style={{color:"#64748b"}}>POTM: </span><b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b>
+          {mp&&<span style={{color:earned+mOv>0?"#15803d":"#94a3b8",fontWeight:700,float:"right",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14}}>+{earned+mOv}pts</span>}
+        </div>
+      )}
+
+      {/* My pick */}
+      {mp&&(
+        <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>
+          My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}
+        </div>
+      )}
+
+      {/* Group leans — locked, before result */}
+      {hints&&(
+        <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+          <p style={{color:"#92400E",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>
+            💡 Group Leans · {hints.tot} pick{hints.tot!==1?"s":""}
+          </p>
+          {[["Toss",hints.tA,hints.tB],["Winner",hints.wA,hints.wB]].map(([lbl,cA,cB])=>{
+            const tot2=cA+cB||1,pA=Math.round(cA/tot2*100),pB=100-pA;
+            return(
+              <div key={lbl} style={{marginBottom:lbl==="Toss"?8:0}}>
+                <span style={{fontSize:10,fontWeight:600,color:"#92400E",display:"block",marginBottom:3}}>{lbl}</span>
+                <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:2}}>
+                  <span style={{fontSize:10,fontWeight:700,color:hc.bg,minWidth:32}}>{m.home}</span>
+                  <div style={{flex:1,height:8,borderRadius:4,overflow:"hidden",background:"#e2e8f0",display:"flex"}}>
+                    <div style={{width:pA+"%",background:hc.bg,transition:"width .6s",borderRadius:"4px 0 0 4px"}}/>
+                    <div style={{width:pB+"%",background:ac.bg,borderRadius:"0 4px 4px 0"}}/>
+                  </div>
+                  <span style={{fontSize:10,fontWeight:700,color:ac.bg,minWidth:32,textAlign:"right"}}>{m.away}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",padding:"0 36px"}}>
+                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pA}%</span>
+                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pB}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Group split — after result */}
+      {sp&&(
+        <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+          <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
+          <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
+          <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
+        </div>
+      )}
+
+      {/* Match Intel — always shown for non-TBD matches */}
+      {showIntel&&<MatchIntelPanel m={m}/>}
+
+      {/* Reactions */}
+      {m.result&&(
+        <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
+          {EMOJIK.map(k=>{
+            const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);
+            return(
+              <button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>
+                {EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
+      {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
     </div>
-
-    {/* Countdown */}
-    {!lk&&!m.result&&<div style={{textAlign:"center",marginBottom:8}}>
-      <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#d97706"}}>Closes in {cd}</span>
-    </div>}
-
-    {/* Teams + form dots */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 0 6px"}}>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
-        <TLogo t={m.home} sz={48}/>
-        <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home}</p>
-        <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.home]||""}</p>
-        {homeForm.length>0&&<FormDots form={homeForm} align="left"/>}
-      </div>
-      <p className="C" style={{color:"#cbd5e1",fontSize:18,fontWeight:800,letterSpacing:2,margin:"0 6px"}}>VS</p>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
-        <TLogo t={m.away} sz={48}/>
-        <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.away}</p>
-        <p style={{color:"#64748b",fontSize:9,textAlign:"center",margin:0}}>{TF[m.away]||""}</p>
-        {awayForm.length>0&&<FormDots form={awayForm} align="right"/>}
-      </div>
-    </div>
-
-    {/* Form legend */}
-    {(homeForm.length>0||awayForm.length>0)&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:8}}>
-      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#22c55e"}}/><span style={{color:"#94a3b8",fontSize:9}}>W</span></div>
-      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444"}}/><span style={{color:"#94a3b8",fontSize:9}}>L</span></div>
-      <span style={{color:"#94a3b8",fontSize:9}}>· last {Math.max(homeForm.length,awayForm.length)} (oldest→newest)</span>
-    </div>}
-
-    <p style={{color:"#94a3b8",fontSize:11,borderTop:"1px solid #f1f5f9",paddingTop:8,marginBottom:10}}>📍 {m.venue}</p>
-
-    {/* Result */}
-    {m.result&&<div style={{background:"#F4F6FB",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
-      <span style={{color:"#64748b"}}>Toss: </span><b>{showVal(m.result.toss)}</b>
-      <span style={{color:"#94a3b8",margin:"0 6px"}}>·</span>
-      <span style={{color:"#64748b"}}>Win: </span><b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b>
-      <span style={{color:"#94a3b8",margin:"0 6px"}}>·</span>
-      <span style={{color:"#64748b"}}>POTM: </span><b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b>
-      {mp&&<span style={{color:earned+mOv>0?"#15803d":"#94a3b8",fontWeight:700,float:"right",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14}}>+{earned+mOv}pts</span>}
-    </div>}
-
-    {/* My pick */}
-    {mp&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}</div>}
-
-    {/* Group leans — locked, no result, toss + win */}
-    {hints&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-      <p style={{color:"#92400E",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>💡 Group Leans · {hints.tot} pick{hints.tot!==1?"s":""}</p>
-      {[["Toss",hints.tA,hints.tB],["Winner",hints.wA,hints.wB]].map(([lbl,cA,cB])=>{
-        const tot2=cA+cB||1,pA=Math.round(cA/tot2*100),pB=100-pA;
-        return<div key={lbl} style={{marginBottom:lbl==="Toss"?8:0}}>
-          <span style={{fontSize:10,fontWeight:600,color:"#92400E",display:"block",marginBottom:3}}>{lbl}</span>
-          <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:2}}>
-            <span style={{fontSize:10,fontWeight:700,color:hc.bg,minWidth:32}}>{m.home}</span>
-            <div style={{flex:1,height:8,borderRadius:4,overflow:"hidden",background:"#e2e8f0",display:"flex"}}>
-              <div style={{width:pA+"%",background:hc.bg,transition:"width .6s",borderRadius:"4px 0 0 4px"}}/>
-              <div style={{width:pB+"%",background:ac.bg,borderRadius:"0 4px 4px 0"}}/>
-            </div>
-            <span style={{fontSize:10,fontWeight:700,color:ac.bg,minWidth:32,textAlign:"right"}}>{m.away}</span>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",padding:"0 36px"}}>
-            <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pA}%</span>
-            <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pB}%</span>
-          </div>
-        </div>;
-      })}
-    </div>}
-
-    {/* Group split — after result */}
-    {sp&&<div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-      <p style={{color:"#64748b",fontSize:11,fontWeight:600,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:.5}}>Group Split ({sp.tot} picks)</p>
-      <SBar lbl="Toss" tA={m.home} tB={m.away} cA={sp.tA} cB={sp.tB} clA={hc.bg} clB={ac.bg}/>
-      <SBar lbl="Winner" tA={m.home} tB={m.away} cA={sp.wA} cB={sp.wB} clA={hc.bg} clB={ac.bg}/>
-    </div>}
-
-    {/* Match Intel Panel — locked, no result, non-TBD */}
-    {lk&&!m.result&&!isTBD(m)&&<MatchIntelPanel m={m}/>}
-
-    {/* Reactions */}
-    {m.result&&<div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
-      {EMOJIK.map(k=>{const cnt=(mr[k]||[]).length,mine=(mr[k]||[]).includes(email);return<button key={k} onClick={()=>onReact(m.id,k)} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:20,border:"1px solid "+(mine?"#1D428A":"#e2e8f0"),background:mine?"#EBF0FA":"#f8faff",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif",fontWeight:mine?700:400,color:mine?"#1D428A":"#475569"}}>{EMOJIV[k]}{cnt>0&&<span style={{fontSize:11,fontWeight:700}}>{cnt}</span>}</button>;})}
-    </div>}
-
-    {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
-    {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
-  </div>;
+  );
 }
 
 /* ════════ MAIN APP ════════ */
@@ -439,7 +470,7 @@ export default function App(){
   const[sc,setSc]=useState("splash");
   const[email,setEmail]=useState("");const[user,setUser]=useState(null);const[isAdmin,setIsAdmin]=useState(false);
   const[users,setUsers]=useState({});const[myPicks,setMyPicks]=useState({});const[allPicks,setAllPicks]=useState({});
-  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>{const r=KNOWN_RESULTS[m.id];return r?{...m,result:r,status:"completed"}:{...m,result:null};}),[]);
+  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null})),[]);
   const[ms,setMs]=useState(()=>buildBaseMatches());
   const[spk,setSpk]=useState({});const[mySp,setMySp]=useState("");
   const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
@@ -483,7 +514,11 @@ export default function App(){
 
   useEffect(()=>{if(!email||!user)return;const ping=async()=>{const now=Date.now();const ou=await DB.get("online")||{};ou[ek(email)]={name:user.name,ts:now};Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});await DB.set("online",ou);setOnlineUsers({...ou});};ping();const id=setInterval(ping,30000);return()=>clearInterval(id);},[email,user]);
   useEffect(()=>{if(!user)return;const id=setInterval(async()=>{const ou=await DB.get("online")||{};const now=Date.now();Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});setOnlineUsers({...ou});},15000);return()=>clearInterval(id);},[user]);
-  useEffect(()=>{if(!isAdmin||!user)return;const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current)toast2("🔔 New registration pending approval","info");lastPendingCount.current=cnt;};poll();const id=setInterval(poll,20000);return()=>clearInterval(id);},[isAdmin,user]);// eslint-disable-line
+  useEffect(()=>{
+    if(!isAdmin||!user)return;
+    const poll=async()=>{const pu=await DB.get("pending")||{};const cnt=Object.keys(pu).length;setPendingUsers(pu);if(cnt>lastPendingCount.current)toast2("🔔 New registration pending approval","info");lastPendingCount.current=cnt;};
+    poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
+  },[isAdmin,user]);// eslint-disable-line
 
   const forceRepair=useCallback(async()=>{try{const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);const cleanAP=normalizeAP(ap);await Promise.all([DB.set("sp",normalizeKeyMap(sp)),DB.set("t4",normalizeKeyMap(t4)),DB.set("ap",cleanAP)]);}catch(e){console.error("repair",e);}},[]);
 
@@ -572,7 +607,19 @@ export default function App(){
   const getMatchOverride=useCallback(em=>Object.values(matchPtsOverride[ek(em)]||{}).reduce((a,b)=>a+b,0),[matchPtsOverride]);
   const myS=useMemo(()=>calcScore(myPicks,ms,doubleMatch),[myPicks,ms,doubleMatch]);
   const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email),[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email]);
-  const lbScores=useMemo(()=>{const scores={};Object.values(users).forEach(u=>{if(!u?.email||u.approved===false)return;const emk=ek(u.email);const up=allPicks[emk]||{};const st=calcScore(up,ms,doubleMatch);const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};});return scores;},[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride]);
+  const lbScores=useMemo(()=>{
+    const scores={};
+    Object.values(users).forEach(u=>{
+      if(!u?.email||u.approved===false)return;
+      const emk=ek(u.email);const up=allPicks[emk]||{};
+      const st=calcScore(up,ms,doubleMatch);
+      const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];
+      const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
+      const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
+      scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email),acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4};
+    });
+    return scores;
+  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride]);
   const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
   /* AUTH */
@@ -587,7 +634,7 @@ export default function App(){
   async function rejectUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];await DB.set("pending",pu);await DB.set("pw_"+emk,null);setPendingUsers({...pu});toast2(entry.name+" rejected","error");}
   async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+myEk,{step,sp,t4});}
   async function doneOnboard(){if(!obSp){toast2("Pick a champion first","error");return;}if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);await DB.set("sp",sp2);await DB.set("t4",t42);await DB.set("ob_"+myEk,null);setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");}
-  async function submitPick(){if(!am)return;if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};if(KNOWN_RESULTS[am.id])freshMatch.result=KNOWN_RESULTS[am.id];if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 fields","error");return;}const np={...myPicks,[pickKey(am.id)]:draft};const na={...allPicks,[myEk]:np};setMyPicks(np);setAllPicks(na);await DB.set("ap",na);toast2("Prediction locked! 🎯","ok");setAm(null);setSc("home");}
+  async function submitPick(){if(!am)return;if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}const freshRm=await DB.get("rm")||{};const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 fields","error");return;}const np={...myPicks,[pickKey(am.id)]:draft};const na={...allPicks,[myEk]:np};setMyPicks(np);setAllPicks(na);await DB.set("ap",na);toast2("Prediction locked! 🎯","ok");setAm(null);setSc("home");}
   async function reactFn(mid,key){const mr=rxns[mid]||{},list=mr[key]||[];const upd={...rxns,[mid]:{...mr,[key]:list.includes(email)?list.filter(e=>e!==email):[...list,email]}};setRxns(upd);await DB.set("rx",upd);}
   async function sendChat(){if(!chatIn.trim()||!user)return;if(chatMuted){toast2("Chat is muted","error");return;}if((mutedUsers||{})[myEk]){toast2("You have been muted","error");return;}const text=chatIn.trim().slice(0,CHAT_MAX);const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:user.email,name:user.name,text,ts:Date.now()}]);setChat(nc);setChatIn("");await DB.set("ch",nc);setChatSeenTs(Date.now());}
   async function delMsg(id){const latest=await DB.get("ch")||[];const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);}
@@ -604,7 +651,6 @@ export default function App(){
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
 
-  // cardProps — note allMs passed so form dots work
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
@@ -642,84 +688,15 @@ export default function App(){
   </div>;
 
   /* ════════ SCREENS ════════ */
-  if(sc==="splash")return<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 20px"}}>
-    <style>{CSS}</style>
-    <img src={LOGOS.IPL} alt="IPL" style={{width:90,marginBottom:16}} onError={e=>e.target.style.display="none"}/>
-    <p className="C" style={{fontSize:30,fontWeight:800,color:"#fff",letterSpacing:3,margin:0}}>FANTASY PREDICTOR</p>
-    <p style={{color:"#FFE57F",fontSize:12,letterSpacing:4,marginTop:6,marginBottom:28,textTransform:"uppercase"}}>TATA IPL 2026</p>
-    <div style={{display:"flex",gap:14,marginBottom:14,justifyContent:"center"}}>{["RCB","MI","CSK","KKR","SRH"].map((t,i)=><div key={t} style={{animation:`fadeIn .4s ease ${i*.08}s both`,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}><div style={{width:52,height:52,borderRadius:12,background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><TLogo t={t} sz={38}/></div><span style={{color:"rgba(255,255,255,.7)",fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{t}</span></div>)}</div>
-    <div style={{display:"flex",gap:14,marginBottom:36,justifyContent:"center"}}>{["RR","PBKS","GT","LSG","DC"].map((t,i)=><div key={t} style={{animation:`fadeIn .4s ease ${(i+5)*.08}s both`,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}><div style={{width:52,height:52,borderRadius:12,background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><TLogo t={t} sz={38}/></div><span style={{color:"rgba(255,255,255,.7)",fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{t}</span></div>)}</div>
-    <div style={{display:"flex",alignItems:"center",gap:8,color:"rgba(255,255,255,.6)",fontSize:12}}><span className="spin" style={{fontSize:16}}>⚙</span> Loading…</div>
-  </div>;
+  if(sc==="splash")return<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 20px"}}><style>{CSS}</style><img src={LOGOS.IPL} alt="IPL" style={{width:90,marginBottom:16}} onError={e=>e.target.style.display="none"/><p className="C" style={{fontSize:30,fontWeight:800,color:"#fff",letterSpacing:3,margin:0}}>FANTASY PREDICTOR</p><p style={{color:"#FFE57F",fontSize:12,letterSpacing:4,marginTop:6,marginBottom:28,textTransform:"uppercase"}}>TATA IPL 2026</p><div style={{display:"flex",gap:14,marginBottom:14,justifyContent:"center"}}>{["RCB","MI","CSK","KKR","SRH"].map((t,i)=><div key={t} style={{animation:`fadeIn .4s ease ${i*.08}s both`,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}><div style={{width:52,height:52,borderRadius:12,background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><TLogo t={t} sz={38}/></div><span style={{color:"rgba(255,255,255,.7)",fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{t}</span></div>)}</div><div style={{display:"flex",gap:14,marginBottom:36,justifyContent:"center"}}>{["RR","PBKS","GT","LSG","DC"].map((t,i)=><div key={t} style={{animation:`fadeIn .4s ease ${(i+5)*.08}s both`,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}><div style={{width:52,height:52,borderRadius:12,background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><TLogo t={t} sz={38}/></div><span style={{color:"rgba(255,255,255,.7)",fontSize:9,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{t}</span></div>)}</div><div style={{display:"flex",alignItems:"center",gap:8,color:"rgba(255,255,255,.6)",fontSize:12}}><span className="spin" style={{fontSize:16}}>⚙</span> Loading…</div></div>;
 
   if(sc==="pending_approval")return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}><span style={{fontSize:52,marginBottom:16}}>⏳</span><p className="C" style={{color:"#1D428A",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>PENDING APPROVAL</p><p style={{color:"#64748b",fontSize:14,marginTop:12,lineHeight:1.6}}>Your registration is awaiting admin approval.</p><button onClick={()=>setSc("login")} style={{marginTop:28,padding:"12px 28px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>← Back to Sign In</button></div></div>;
 
-  if(sc==="login")return<div className="app"><style>{CSS}</style>
-    <div style={{background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",padding:"32px 24px 28px",textAlign:"center"}}>
-      <img src={LOGOS.IPL} alt="IPL" style={{width:60,marginBottom:10}} onError={e=>e.target.style.display="none"}/>
-      <p className="C" style={{fontSize:24,fontWeight:800,letterSpacing:2,color:"#fff",margin:0}}>FANTASY PREDICTOR</p>
-      <p style={{color:"#FFE57F",fontSize:10,letterSpacing:3,marginTop:4,textTransform:"uppercase"}}>TATA IPL 2026</p>
-      <div style={{display:"flex",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>{TEAMS.map(t=><TLogo key={t} t={t} sz={22}/>)}</div>
-      <div style={{display:"flex",gap:0,marginTop:16,background:"rgba(255,255,255,.1)",borderRadius:12,padding:3}}>
-        {[["login","Sign In"],["register","Register"],["forgot","Reset PW"]].map(([m,l])=><button key={m} onClick={()=>{setAuthMode(m);clearAuthForm();}} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}
-      </div>
-    </div>
-    <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:14}}>
-      {authMode==="login"&&<>
-        <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-        <button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button>
-        <p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p>
-      </>}
-      {authMode==="register"&&<>
-        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval.</div>
-        <div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div>
-        <div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div>
-        <div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div>
-        <button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button>
-        <p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p>
-      </>}
-      {authMode==="forgot"&&<>
-        {forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}
-        {forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}
-        <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button>
-      </>}
-    </div>
-    {toast&&<Tst t={toast}/>}
-  </div>;
+  if(sc==="login")return<div className="app"><style>{CSS}</style><div style={{background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",padding:"32px 24px 28px",textAlign:"center"}}><img src={LOGOS.IPL} alt="IPL" style={{width:60,marginBottom:10}} onError={e=>e.target.style.display="none"/><p className="C" style={{fontSize:24,fontWeight:800,letterSpacing:2,color:"#fff",margin:0}}>FANTASY PREDICTOR</p><p style={{color:"#FFE57F",fontSize:10,letterSpacing:3,marginTop:4,textTransform:"uppercase"}}>TATA IPL 2026</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>{TEAMS.map(t=><TLogo key={t} t={t} sz={22}/>)}</div><div style={{display:"flex",gap:0,marginTop:16,background:"rgba(255,255,255,.1)",borderRadius:12,padding:3}}>{[["login","Sign In"],["register","Register"],["forgot","Reset PW"]].map(([m,l])=><button key={m} onClick={()=>{setAuthMode(m);clearAuthForm();}} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}</div></div><div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:14}}>{authMode==="login"&&<><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p></>}{authMode==="register"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval.</div><div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p></>}{authMode==="forgot"&&<>{forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}{forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}<button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button></>}</div>{toast&&<Tst t={toast}/>}</div>;
 
-  if(sc==="onboard")return<div className="app" style={{minHeight:"100vh"}}><style>{CSS}</style>
-    <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}><p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Welcome, {user?.name}! One-time setup</p><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:1,margin:"4px 0 0"}}>{obStep===0?"PICK YOUR CHAMPION":"PICK YOUR TOP 4"}</p><div style={{display:"flex",gap:6,marginTop:12}}>{[0,1].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:obStep>=i?"#FFE57F":"rgba(255,255,255,.2)"}}/>)}</div></div>
-    <div style={{padding:"20px 16px"}}>
-      {obStep===0&&<><p style={{color:"#1a2540",fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Who will win IPL 2026?</p><p style={{color:"#64748b",fontSize:13,margin:"0 0 16px"}}>Worth <b style={{color:"#1D428A"}}>{PTS.season}pts</b> if correct. Locked forever.</p><div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>{TEAMS.map(t=><button key={t} className={"ot"+(obSp===t?" on":"")} onClick={()=>setObSp(t)}><TLogo t={t} sz={38}/><span style={{fontSize:11,fontWeight:700,color:obSp===t?"#1D428A":"#475569"}}>{t}</span></button>)}</div><button className="lbtn" disabled={!obSp} onClick={()=>updateObStep(1,obSp,obT4)} style={{opacity:obSp?1:.4}}>Next → Pick Top 4</button></>}
-      {obStep===1&&<><p style={{color:"#1a2540",fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Who reaches the playoffs?</p><p style={{color:"#94a3b8",fontSize:12,margin:"0 0 14px"}}>Select exactly 4 teams · {obT4.length}/4</p><div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>{TEAMS.map(t=>{const sel=obT4.includes(t);return<button key={t} className={"ot"+(sel?" on":"")} onClick={()=>{if(sel)setObT4(p=>p.filter(x=>x!==t));else if(obT4.length<4)setObT4(p=>[...p,t]);else toast2("Max 4 teams","error");}}><TLogo t={t} sz={38}/><span style={{fontSize:11,fontWeight:700,color:sel?"#1D428A":"#475569"}}>{t}</span>{sel&&<span style={{fontSize:9,background:"#1D428A",color:"#fff",borderRadius:8,padding:"1px 6px"}}>{obT4.indexOf(t)+1}</span>}</button>;})}</div><button style={{width:"100%",padding:"12px",borderRadius:10,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",marginBottom:10}} onClick={()=>updateObStep(0,obSp,obT4)}>← Back</button><button className="lbtn" disabled={obT4.length!==4} onClick={doneOnboard} style={{opacity:obT4.length===4?1:.4}}>Lock Picks — Let's Play!</button></>}
-    </div>
-    {toast&&<Tst t={toast}/>}
-  </div>;
+  if(sc==="onboard")return<div className="app" style={{minHeight:"100vh"}}><style>{CSS}</style><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}><p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Welcome, {user?.name}! One-time setup</p><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:1,margin:"4px 0 0"}}>{obStep===0?"PICK YOUR CHAMPION":"PICK YOUR TOP 4"}</p><div style={{display:"flex",gap:6,marginTop:12}}>{[0,1].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:obStep>=i?"#FFE57F":"rgba(255,255,255,.2)"}}/>)}</div></div><div style={{padding:"20px 16px"}}>{obStep===0&&<><p style={{color:"#1a2540",fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Who will win IPL 2026?</p><p style={{color:"#64748b",fontSize:13,margin:"0 0 16px"}}>Worth <b style={{color:"#1D428A"}}>{PTS.season}pts</b> if correct. Locked forever.</p><div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>{TEAMS.map(t=><button key={t} className={"ot"+(obSp===t?" on":"")} onClick={()=>setObSp(t)}><TLogo t={t} sz={38}/><span style={{fontSize:11,fontWeight:700,color:obSp===t?"#1D428A":"#475569"}}>{t}</span></button>)}</div><button className="lbtn" disabled={!obSp} onClick={()=>updateObStep(1,obSp,obT4)} style={{opacity:obSp?1:.4}}>Next → Pick Top 4</button></>}{obStep===1&&<><p style={{color:"#1a2540",fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Who reaches the playoffs?</p><p style={{color:"#94a3b8",fontSize:12,margin:"0 0 14px"}}>Select exactly 4 teams · {obT4.length}/4</p><div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>{TEAMS.map(t=>{const sel=obT4.includes(t);return<button key={t} className={"ot"+(sel?" on":"")} onClick={()=>{if(sel)setObT4(p=>p.filter(x=>x!==t));else if(obT4.length<4)setObT4(p=>[...p,t]);else toast2("Max 4 teams","error");}}><TLogo t={t} sz={38}/><span style={{fontSize:11,fontWeight:700,color:sel?"#1D428A":"#475569"}}>{t}</span>{sel&&<span style={{fontSize:9,background:"#1D428A",color:"#fff",borderRadius:8,padding:"1px 6px"}}>{obT4.indexOf(t)+1}</span>}</button>;})}</div><button style={{width:"100%",padding:"12px",borderRadius:10,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",marginBottom:10}} onClick={()=>updateObStep(0,obSp,obT4)}>← Back</button><button className="lbtn" disabled={obT4.length!==4} onClick={doneOnboard} style={{opacity:obT4.length===4?1:.4}}>Lock Picks — Let's Play!</button></>}</div>{toast&&<Tst t={toast}/>}</div>;
 
-  if(sc==="picks"&&am){return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
-    <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
-      <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
-      <TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/>
-    </div>
-    <div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}><span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final. No edits allowed.</span></div>
-    <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
-      {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
-        <div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
-          <div style={{display:"flex",gap:10}}>{[am.home,am.away].map(t=><button key={t} className={"tmbtn"+(draft[field]===t?" on":"")} onClick={()=>setDraft(d=>({...d,[field]:t}))}><TLogo t={t} sz={50}/><p className="C" style={{color:draft[field]===t?"#1D428A":"#64748b",fontSize:14,fontWeight:700,margin:0}}>{t}</p>{draft[field]===t&&<span style={{background:"#1D428A",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:12}}>SELECTED</span>}</button>)}</div>
-        </div>
-      ))}
-      <div><p className="st">PLAYER OF THE MATCH <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.motm}pts</span></p><PotmDropdown homeTeam={am.home} awayTeam={am.away} value={draft.motm||""} onChange={v=>setDraft(d=>({...d,motm:v}))}/></div>
-      {draft.toss&&draft.win&&draft.motm&&<div style={{background:"#EBF0FA",border:"1px solid #dbeafe",borderRadius:12,padding:"14px 16px"}}>
-        <p className="st" style={{marginBottom:12}}>YOUR PREDICTION</p>
-        {[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}
-        <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div>
-      </div>}
-      <button className="lbtn" disabled={!draft.toss||!draft.win||!draft.motm} onClick={submitPick} style={{opacity:draft.toss&&draft.win&&draft.motm?1:.4}}>Lock Prediction 🔒</button>
-    </div>
-    {toast&&<Tst t={toast}/>}
-  </div>;}
+  if(sc==="picks"&&am){return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}><button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button><TLogo t={am.home} sz={28}/><div style={{flex:1}}><p className="C" style={{color:"#fff",fontSize:16,fontWeight:800,margin:0}}>{am.home} vs {am.away}</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} IST</p></div><TLogo t={am.away} sz={28}/></div><div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}><span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final. No edits allowed.</span></div><div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>{[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(<div key={field}><p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p><div style={{display:"flex",gap:10}}>{[am.home,am.away].map(t=><button key={t} className={"tmbtn"+(draft[field]===t?" on":"")} onClick={()=>setDraft(d=>({...d,[field]:t}))}><TLogo t={t} sz={50}/><p className="C" style={{color:draft[field]===t?"#1D428A":"#64748b",fontSize:14,fontWeight:700,margin:0}}>{t}</p>{draft[field]===t&&<span style={{background:"#1D428A",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:12}}>SELECTED</span>}</button>)}</div></div>))}<div><p className="st">PLAYER OF THE MATCH <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.motm}pts</span></p><PotmDropdown homeTeam={am.home} awayTeam={am.away} value={draft.motm||""} onChange={v=>setDraft(d=>({...d,motm:v}))}/></div>{draft.toss&&draft.win&&draft.motm&&<div style={{background:"#EBF0FA",border:"1px solid #dbeafe",borderRadius:12,padding:"14px 16px"}}><p className="st" style={{marginBottom:12}}>YOUR PREDICTION</p>{[["Toss",draft.toss,PTS.toss],["Winner",draft.win,PTS.win],["POTM",draft.motm,PTS.motm]].map(([l,v,p])=><div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#64748b",fontSize:13}}>{l}</span><span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span></div>)}<div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}><span style={{color:"#64748b",fontSize:12}}>Max with bonus</span><span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</span></div></div>}<button className="lbtn" disabled={!draft.toss||!draft.win||!draft.motm} onClick={submitPick} style={{opacity:draft.toss&&draft.win&&draft.motm?1:.4}}>Lock Prediction 🔒</button></div>{toast&&<Tst t={toast}/>}</div>;}
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🔧</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline.</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>← Sign Out</button></div></div>;
 
@@ -732,7 +709,6 @@ export default function App(){
       {[["🎯","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<3?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:12,margin:0}}>{p}<span style={{fontSize:9,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:9,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
     </div>
 
-    {/* ── HOME ── */}
     {sc==="home"&&<>
       <div style={{display:"flex",background:"#fff",borderBottom:"1px solid #e2e8f0"}}>
         {[["today","Today ("+todayMs.length+")"],["done","Results ("+done.length+")"],["up","Schedule ("+upMs.length+")"],["season","Season"]].map(([t,l])=><button key={t} className={"tbtn"+(htab===t?" on":"")} onClick={()=>setHtab(t)}>{l}</button>)}
@@ -756,7 +732,6 @@ export default function App(){
       </div>
     </>}
 
-    {/* ── LEADERBOARD ── */}
     {sc==="lb"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p></div>
       {done.length>0&&(()=>{const lb=getLb();const ae=Object.entries(allPicks);const totalPicks=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["🏏",totalPicks,"Picks"],["🎯",totalPerfs,"Perfects"],["📊",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
@@ -777,7 +752,6 @@ export default function App(){
       {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
     </div>}
 
-    {/* ── MY GAME ── */}
     {sc==="picks"&&!am&&(()=>{
       const played=ms.filter(m=>m.result&&getP(myPicks,m.id));
       const pending=ms.filter(m=>!m.result&&getP(myPicks,m.id));
@@ -824,7 +798,6 @@ export default function App(){
       </div>;
     })()}
 
-    {/* ── CHAT ── */}
     {sc==="chat"&&<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 134px)"}}>
       <div style={{padding:"10px 16px 8px",borderBottom:"1px solid #e2e8f0",background:"#fff"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,letterSpacing:1,margin:0}}>GROUP CHAT</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 6px"}}>{Object.values(users).filter(u=>u.approved!==false).length} players · <span style={{color:"#22c55e",fontWeight:600}}>{Object.keys(onlineUsers).length} online</span>{chatMuted?" · 🔇":""}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{Object.values(users).filter(u=>u.approved!==false).map(u=>{const isOnline=!!(onlineUsers[ek(u.email)]);return<div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:isOnline?"#f0fdf4":"#f8faff",border:"1px solid "+(isOnline?"#bbf7d0":"#e2e8f0"),borderRadius:20,padding:"3px 8px"}}><div style={{width:6,height:6,borderRadius:"50%",background:isOnline?"#22c55e":"#cbd5e1",flexShrink:0}}/><span style={{fontSize:10,fontWeight:600,color:isOnline?"#15803d":"#94a3b8"}}>{u.name.split(" ")[0]}</span></div>;})}</div></div>
       <div style={{flex:1,overflowY:"auto",padding:"14px",display:"flex",flexDirection:"column",gap:8,background:"#F4F6FB"}}>{chat.length===0&&<div style={{textAlign:"center",padding:"40px 16px"}}><span style={{fontSize:36}}>💬</span><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700,letterSpacing:1,marginTop:12}}>NO MESSAGES YET</p></div>}{chat.map(msg=>{const im=msg.email===email,is=msg.sys;return<div key={msg.id} className={"chat-row "+(is?"sys":im?"me":"them")}>{!im&&!is&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={msg.name} sz={16}/><span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{msg.name}</span></div>}<div className={"bubble "+(is?"sys":im?"me":"them")}>{msg.text}{isAdmin&&!is&&<button onClick={()=>delMsg(msg.id)} style={{background:"none",border:"none",color:im?"rgba(255,255,255,.4)":"#94a3b8",fontSize:10,cursor:"pointer",marginLeft:8,padding:0,verticalAlign:"middle"}}>×</button>}</div><span style={{color:"#94a3b8",fontSize:10}}>{new Date(msg.ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true})}</span></div>;})}
@@ -832,7 +805,6 @@ export default function App(){
       <div style={{padding:"10px 14px 12px",borderTop:"1px solid #e2e8f0",background:"#fff"}}><div style={{display:"flex",gap:10,alignItems:"flex-end"}}><input className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} placeholder={chatMuted||(mutedUsers||{})[myEk]?"Chat is muted":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[myEk]} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()} style={{flex:1,padding:"10px 14px",borderRadius:24}}/><button onClick={sendChat} style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#1D428A,#2a5bbf)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>&#10148;</button></div>{chatIn.length>CHAT_MAX*0.8&&<p className="charcnt">{chatIn.length}/{CHAT_MAX}</p>}</div>
     </div>}
 
-    {/* ── WALL OF FAME ── */}
     {sc==="wof"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>WALL OF FAME</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>Season honours · {done.length} matches</p></div>
       {done.length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:40}}>🏆</p><p style={{color:"#94a3b8",fontSize:14,marginTop:12}}>Wall of Fame fills as matches complete.</p></div>}
@@ -879,7 +851,6 @@ export default function App(){
       })()}
     </div>}
 
-    {/* ── RULES ── */}
     {sc==="rules"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p style={{fontSize:28,margin:"0 0 6px"}}>📖</p><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p></div>
       {[{icon:"🎯",title:"Making Predictions",color:"#EBF0FA",border:"#bfdbfe",tc:"#1e40af",items:["Predictions open on match day only, locking 5 minutes before start.","Predict Toss Winner, Match Winner, and Player of the Match.","Once submitted, predictions are final — no edits allowed."]},{icon:"⭐",title:"How Points Work",color:"#f0fdf4",border:"#bbf7d0",tc:"#166534",items:["Correct Toss → +10 pts","Correct Match Winner → +20 pts","Correct POTM → +30 pts","All 3 correct → +15 pts bonus","Max per match: 75 pts (150 on 2× match)"]},{icon:"🌧",title:"Washouts",color:"#f8faff",border:"#e2e8f0",tc:"#475569",items:["Only fields with a real result score. Streak bonus never awarded on washouts."]},{icon:"🏆",title:"Season Picks",color:"#FFF9E6",border:"#FDE68A",tc:"#92400E",items:["Pick Champion (+200 pts) and Top 4 (+50 pts each) at signup. Locked forever."]},{icon:"⚡",title:"Double Points",color:"#fff7ed",border:"#fed7aa",tc:"#9a3412",items:["Admin can mark any match as 2× — all points including streak are doubled."]},{icon:"📋",title:"General",color:"#fef2f2",border:"#fecaca",tc:"#991b1b",items:["New accounts require admin approval.","Picks are final once submitted.","Leaderboard updates in real time."]}].map(({icon,title,color,border,tc,items})=>(
@@ -887,7 +858,6 @@ export default function App(){
       ))}
     </div>}
 
-    {/* ── ADMIN ── */}
     {sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p className="C" style={{color:"#1D428A",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>ADMIN PANEL</p>{maintenance&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:700}}>🔒 Maintenance</span>}</div>
       <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,marginBottom:14,overflow:"hidden",border:"1px solid #e2e8f0",flexWrap:"wrap"}}>
@@ -896,44 +866,93 @@ export default function App(){
         ))}
       </div>
 
-      {admTab==="approvals"&&<>{pendingCount===0?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p></div>:<>{Object.entries(pendingUsers).map(([emk,u])=><div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p></div></div><div style={{display:"flex",gap:10}}><button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>✅ Approve</button><button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>❌ Reject</button></div></div>)}</> }</>}
+      {admTab==="approvals"&&(
+        pendingCount===0
+          ?<div style={{textAlign:"center",padding:"48px 16px"}}><span style={{fontSize:48}}>✅</span><p className="C" style={{color:"#15803d",fontSize:20,fontWeight:800,letterSpacing:1,marginTop:12}}>ALL CAUGHT UP</p></div>
+          :<div>{Object.entries(pendingUsers).map(([emk,u])=>(
+            <div key={emk} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Av name={u.name} sz={40}/><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{u.name}</p><p style={{color:"#64748b",fontSize:12,margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p></div></div>
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>approveUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(135deg,#15803d,#16a34a)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>✅ Approve</button>
+                <button onClick={()=>rejectUser(emk)} style={{flex:1,padding:"11px",borderRadius:10,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,textTransform:"uppercase"}}>❌ Reject</button>
+              </div>
+            </div>
+          ))}</div>
+      )}
 
       {admTab==="results"&&<>
         <p className="st">PENDING ({ms.filter(m=>!m.result&&!isTBD(m)).length})</p>
         {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
-          const rf=admResultForm[m.id]||{};const prefill={toss:m.toss||"",win:m.win||"",motm:m.motm||"",...rf};
+          const rf=admResultForm[m.id]||{};const prefill={toss:"",win:"",motm:"",...rf};
           const allFilled=!!(prefill.toss&&prefill.win&&prefill.motm);
           const isWashout=prefill.win===NR||prefill.motm===NR;
-          return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p></div></div>
-            {[{lbl:"🪙 Toss",field:"toss"},{lbl:"🏆 Winner",field:"win"}].map(({lbl,field})=><div key={field} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase"}}>{lbl}</p><div style={{display:"flex",gap:8,alignItems:"center"}}><select className="sel" style={{flex:1}} value={prefill[field]} onChange={e=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,[field]:e.target.value}}))}>  <option value="">— Select —</option><option value={m.home}>{m.home}</option><option value={m.away}>{m.away}</option><option value={NR}>🌧 No Result</option></select><button onClick={async()=>{const val=admResultForm[m.id]?.[field]||prefill[field];if(!val)return;await savePartialResult(m.id,field,val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button></div></div>)}
-            <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-              <p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase"}}>⭐ POTM</p>
-              <div style={{display:"flex",gap:8,marginBottom:6}}><button onMouseDown={e=>{e.preventDefault();setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:NR}}));}} style={{padding:"8px 12px",borderRadius:8,background:prefill.motm===NR?"#fee2e2":"#f8faff",color:prefill.motm===NR?"#dc2626":"#64748b",border:"1px solid "+(prefill.motm===NR?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:12,flexShrink:0}}>🌧 No Result</button><button onClick={async()=>savePartialResult(m.id,"motm",NR)} style={{padding:"8px 10px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>Save NR</button></div>
-              <div style={{display:"flex",gap:8}}><div style={{flex:1}}><PotmDropdown homeTeam={m.home} awayTeam={m.away} value={prefill.motm===NR?"":prefill.motm} onChange={v=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:v}}))}/></div><button onClick={async()=>{const val=admResultForm[m.id]?.motm||prefill.motm;if(!val)return;await savePartialResult(m.id,"motm",val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button></div>
+          return(
+            <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date} · {m.time}</p></div></div>
+              {[{lbl:"🪙 Toss",field:"toss"},{lbl:"🏆 Winner",field:"win"}].map(({lbl,field})=>(
+                <div key={field} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                  <p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase"}}>{lbl}</p>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <select className="sel" style={{flex:1}} value={prefill[field]} onChange={e=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,[field]:e.target.value}}))}>
+                      <option value="">— Select —</option>
+                      <option value={m.home}>{m.home}</option>
+                      <option value={m.away}>{m.away}</option>
+                      <option value={NR}>🌧 No Result</option>
+                    </select>
+                    <button onClick={async()=>{const val=admResultForm[m.id]?.[field]||prefill[field];if(!val)return;await savePartialResult(m.id,field,val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button>
+                  </div>
+                </div>
+              ))}
+              <div style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                <p style={{color:"#64748b",fontSize:10,fontWeight:700,margin:"0 0 8px",textTransform:"uppercase"}}>⭐ POTM</p>
+                <div style={{display:"flex",gap:8,marginBottom:6}}>
+                  <button onMouseDown={e=>{e.preventDefault();setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:NR}}));}} style={{padding:"8px 12px",borderRadius:8,background:prefill.motm===NR?"#fee2e2":"#f8faff",color:prefill.motm===NR?"#dc2626":"#64748b",border:"1px solid "+(prefill.motm===NR?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:12,flexShrink:0}}>🌧 No Result</button>
+                  <button onClick={async()=>savePartialResult(m.id,"motm",NR)} style={{padding:"8px 10px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>Save NR</button>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <div style={{flex:1}}><PotmDropdown homeTeam={m.home} awayTeam={m.away} value={prefill.motm===NR?"":prefill.motm} onChange={v=>setAdmResultForm(f=>({...f,[m.id]:{...prefill,motm:v}}))}/></div>
+                  <button onClick={async()=>{const val=admResultForm[m.id]?.motm||prefill.motm;if(!val)return;await savePartialResult(m.id,"motm",val);}} style={{padding:"10px 14px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,flexShrink:0}}>Save</button>
+                </div>
+              </div>
+              <button onClick={()=>{setAdmResultForm(f=>({...f,[m.id]:{...prefill,...f[m.id]}}));setTimeout(()=>setManualResult(m.id),0);}} disabled={!allFilled} style={{width:"100%",padding:"10px",borderRadius:8,background:allFilled?(isWashout?"linear-gradient(135deg,#64748b,#475569)":"linear-gradient(135deg,#15803d,#16a34a)"):"#f1f5f9",color:allFilled?"#fff":"#94a3b8",border:"none",cursor:allFilled?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase"}}>{allFilled?(isWashout?"🌧 Finalise Washout":"✅ Finalise & Notify"):"Fill all 3 fields"}</button>
             </div>
-            <button onClick={()=>{setAdmResultForm(f=>({...f,[m.id]:{...prefill,...f[m.id]}}));setTimeout(()=>setManualResult(m.id),0);}} disabled={!allFilled} style={{width:"100%",padding:"10px",borderRadius:8,background:allFilled?(isWashout?"linear-gradient(135deg,#64748b,#475569)":"linear-gradient(135deg,#15803d,#16a34a)"):"#f1f5f9",color:allFilled?"#fff":"#94a3b8",border:"none",cursor:allFilled?"pointer":"default",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase"}}>{allFilled?(isWashout?"🌧 Finalise Washout":"✅ Finalise & Notify"):"Fill all 3 fields"}</button>
-          </div>;
+          );
         })}
         <p className="st" style={{marginTop:16}}>COMPLETED ({done.length})</p>
         {[...done].reverse().map(m=>{
-          const ae=Object.entries(allPicks);const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
+          const ae=Object.entries(allPicks);
+          const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;
           const tossC=ae.filter(([,u])=>!isNR(m.result.toss)&&getP(u,m.id)?.toss===m.result.toss).length;
           const winC=ae.filter(([,u])=>!isNR(m.result.win)&&getP(u,m.id)?.win===m.result.win).length;
           const motmC=ae.filter(([,u])=>!isNR(m.result.motm)&&motmMatch(getP(u,m.id)?.motm,m.result.motm)).length;
           const perfs=ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length;
-          const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"};const isWashout=isNR(m.result.win)||isNR(m.result.motm);
-          return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
-              <TLogo t={m.home} sz={20}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={20}/>
-              <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date}{isWashout?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 0"}}>W: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></p></div>
-              <div style={{textAlign:"right"}}>{perfs>0&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,display:"block",marginBottom:2}}>🎯 {perfs}</span>}<span style={{color:"#94a3b8",fontSize:11}}>{io?"▲":"▼"} {tot}</span></div>
+          const io=anM===m.id;const hc2=TC[m.home]||{bg:"#1D428A"};const isWashout=isNR(m.result.win)||isNR(m.result.motm);
+          return(
+            <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
+                <TLogo t={m.home} sz={20}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={20}/>
+                <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn} · {m.date}{isWashout?" 🌧":""}</p><p style={{color:"#64748b",fontSize:11,margin:"2px 0 0"}}>W: <b style={{color:isNR(m.result.win)?"#64748b":"#15803d"}}>{showVal(m.result.win)}</b> · POTM: <b style={{color:isNR(m.result.motm)?"#64748b":"#B8860B"}}>{showVal(m.result.motm)}</b></p></div>
+                <div style={{textAlign:"right"}}>{perfs>0&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:10,display:"block",marginBottom:2}}>🎯 {perfs}</span>}<span style={{color:"#94a3b8",fontSize:11}}>{io?"▲":"▼"} {tot}</span></div>
+              </div>
+              {io&&tot>0&&(
+                <div style={{borderTop:"1px solid #f1f5f9",padding:"12px 14px",background:"#f8faff"}}>
+                  {[["🪙 Toss",tossC,tot,hc2.bg,!isNR(m.result.toss)],["🏆 Winner",winC,tot,hc2.bg,!isNR(m.result.win)],["⭐ POTM",motmC,tot,"#B8860B",!isNR(m.result.motm)]].map(([lbl,correct,total,clA,avail])=>{
+                    const pct=total?Math.round(correct/total*100):0;
+                    return(
+                      <div key={lbl} style={{marginBottom:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:11,fontWeight:700}}>{avail?correct+"/"+total+" ("+pct+"%)":"🌧 N/A"}</span></div>
+                        {avail&&<div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clA}}/></div>}
+                      </div>
+                    );
+                  })}
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <div style={{flex:1,background:"#EBF0FA",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>All correct</p></div>
+                    <div style={{flex:1,background:"#FFF9E6",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,margin:0}}>{tot-perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Missed</p></div>
+                  </div>
+                </div>
+              )}
             </div>
-            {io&&tot>0&&<div style={{borderTop:"1px solid #f1f5f9",padding:"12px 14px",background:"#f8faff"}}>
-              {[["🪙 Toss",tossC,tot,hc.bg,!isNR(m.result.toss)],["🏆 Winner",winC,tot,hc.bg,!isNR(m.result.win)],["⭐ POTM",motmC,tot,"#B8860B",!isNR(m.result.motm)]].map(([lbl,correct,total,clA,avail])=>{const pct=total?Math.round(correct/total*100):0;return<div key={lbl} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:11,fontWeight:700}}>{avail?correct+"/"+total+" ("+pct+"%)":"🌧 N/A"}</span></div>{avail&&<div className="bar-bg"><div className="bar-fill" style={{width:pct+"%",background:clA}}/></div>}</div>;})}
-              <div style={{display:"flex",gap:8,marginTop:8}}><div style={{flex:1,background:"#EBF0FA",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>All correct</p></div><div style={{flex:1,background:"#FFF9E6",borderRadius:8,padding:"8px 10px",textAlign:"center"}}><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,margin:0}}>{tot-perfs}</p><p style={{color:"#64748b",fontSize:10,margin:0}}>Missed</p></div></div>
-            </div>}
-          </div>;
+          );
         })}
       </>}
 
@@ -952,7 +971,6 @@ export default function App(){
                 <button onClick={forceFixDB} disabled={fixLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fixLoading?"Fixing…":"🔧 Force Fix DB"}</button>
               </div>
             </div>
-
             {dbRaw&&(
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
                 <p className="st">RAW DB STATE ({Object.keys(dbRaw).length} users)</p>
@@ -994,9 +1012,7 @@ export default function App(){
                 })}
               </div>
             )}
-
             <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Upcoming + last 5 completed. ✓ = all 3 fields saved. ⚠️ = partial.</div>
-            {!relevantMs.length&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:32}}>📋</p></div>}
             {relevantMs.map(m=>{
               const isDone=!!m.result;
               const lk=isMatchLocked(m,lockedMatches);
@@ -1009,27 +1025,16 @@ export default function App(){
                     <TLogo t={m.home} sz={22}/>
                     <div style={{flex:1}}>
                       <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p>
-                      <p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p>
+                      <p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {isDone?"Done":lk?"Locked":"Open"}</p>
                     </div>
                     <TLogo t={m.away} sz={22}/>
                   </div>
                   <div style={{display:"flex",gap:6,marginBottom:8}}>
-                    <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}>
-                      <p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p>
-                      <p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p>
-                    </div>
-                    <div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}>
-                      <p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p>
-                      <p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p>
-                    </div>
-                    <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}>
-                      <p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p>
-                      <p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p>
-                    </div>
+                    <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p><p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p></div>
+                    <div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p><p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p></div>
+                    <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}><p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p><p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p></div>
                   </div>
-                  <div className="bar-bg" style={{marginBottom:10}}>
-                    <div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/>
-                  </div>
+                  <div className="bar-bg" style={{marginBottom:10}}><div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/></div>
                   {predicted.length>0&&(
                     <div style={{marginBottom:8}}>
                       <p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p>
@@ -1073,34 +1078,48 @@ export default function App(){
         <input className="inp" value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by name or email…" style={{marginBottom:12,fontSize:13}}/>
         {Object.values(users).filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.email?.toLowerCase().includes(userSearch.toLowerCase())).sort((a,b)=>(lbScores[b.email]?.pts||0)-(lbScores[a.email]?.pts||0)).map(u=>{
           const st=lbScores[u.email]||{pts:0,acc:0};const up=allPicks[ek(u.email)]||{};const ex2=exU===u.email;const adj=getManualAdj(u.email);const mOv=getMatchOverride(u.email);
-          return<div key={u.email} style={{background:"#fff",border:"1px solid "+(u.email===email?"#1D428A40":"#e2e8f0"),borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex2?null:u.email)}>
-              <Av name={u.name} sz={34}/>
-              <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}%</p></div>
-              <div style={{textAlign:"right"}}><p className="C" style={{color:"#1D428A",fontSize:17,fontWeight:800,margin:0}}>{st.pts}</p>{(adj+mOv)!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{adj+mOv>0?"+":""}{adj+mOv} adj</p>}<p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex2?"▲":"▼"}</p></div>
+          return(
+            <div key={u.email} style={{background:"#fff",border:"1px solid "+(u.email===email?"#1D428A40":"#e2e8f0"),borderRadius:12,marginBottom:10,overflow:"hidden"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExU(ex2?null:u.email)}>
+                <Av name={u.name} sz={34}/>
+                <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}{u.email===SUPER_ADMIN?" 👑":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{Object.keys(up).length} picks · {st.acc}%</p></div>
+                <div style={{textAlign:"right"}}><p className="C" style={{color:"#1D428A",fontSize:17,fontWeight:800,margin:0}}>{st.pts}</p>{(adj+mOv)!==0&&<p style={{color:"#FF822A",fontSize:9,margin:0,fontWeight:600}}>{adj+mOv>0?"+":""}{adj+mOv} adj</p>}<p style={{color:"#94a3b8",fontSize:10,margin:"1px 0 0"}}>{ex2?"▲":"▼"}</p></div>
+              </div>
+              {ex2&&(
+                <div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
+                  <p className="st" style={{marginTop:12}}>POINTS ADJUSTMENT</p>
+                  <div style={{display:"flex",gap:8,marginBottom:8}}>{[-50,-25,-10,10,25,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>{d>0?"+":""}{d}</button>)}</div>
+                  {adj!==0&&<p style={{color:"#FF822A",fontSize:11,fontWeight:600,marginBottom:12}}>Current adj: {adj>0?"+":""}{adj} pts</p>}
+                  <p className="st">PER-MATCH OVERRIDE</p>
+                  {ms.filter(m=>getP(up,m.id)).map(m=>{
+                    const emk2=ek(u.email);const mOvM=((matchPtsOverride[emk2]||{})[m.id])||0;
+                    return(
+                      <div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div>
+                        <div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div>
+                      </div>
+                    );
+                  })}
+                  {u.email!==SUPER_ADMIN&&u.email!==email&&<button onClick={()=>deleteUser(u.email)} className="dbtn" style={{marginTop:12}}>🗑️ Delete Account</button>}
+                </div>
+              )}
             </div>
-            {ex2&&<div style={{padding:"0 14px 14px",borderTop:"1px solid #f1f5f9"}}>
-              <p className="st" style={{marginTop:12}}>POINTS ADJUSTMENT</p>
-              <div style={{display:"flex",gap:8,marginBottom:8}}>{[-50,-25,-10,10,25,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12}}>{d>0?"+":""}{d}</button>)}</div>
-              {adj!==0&&<p style={{color:"#FF822A",fontSize:11,fontWeight:600,marginBottom:12}}>Current adj: {adj>0?"+":""}{adj} pts</p>}
-              <p className="st">PER-MATCH OVERRIDE</p>
-              {ms.filter(m=>getP(up,m.id)).map(m=>{const emk2=ek(u.email);const mOvM=((matchPtsOverride[emk2]||{})[m.id])||0;return<div key={m.id} style={{background:"#f8faff",borderRadius:10,padding:"10px 12px",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><TLogo t={m.home} sz={16}/><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span style={{color:"#64748b",fontSize:11,flex:1}}>{m.mn}</span>{mOvM!==0&&<span style={{color:"#FF822A",fontSize:11,fontWeight:700}}>{mOvM>0?"+":""}{mOvM} pts</span>}</div><div style={{display:"flex",gap:6}}>{[-25,-10,-5,5,10,25].map(d=><button key={d} onClick={()=>setMatchPts(u.email,m.id,d)} style={{flex:1,padding:"5px 2px",borderRadius:6,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11}}>{d>0?"+":""}{d}</button>)}</div></div>;})}
-              {u.email!==SUPER_ADMIN&&u.email!==email&&<button onClick={()=>deleteUser(u.email)} className="dbtn" style={{marginTop:12}}>🗑️ Delete Account</button>}
-            </div>}
-          </div>;
+          );
         })}
       </>}
 
-      {admTab==="matches"&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
-        <p className="st">ADD CUSTOM MATCH</p>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <input className="inp" value={manMatchForm.mn} onChange={e=>setManMatchForm(f=>({...f,mn:e.target.value}))} placeholder="Match label e.g. M75" style={{fontSize:13}}/>
-          <div style={{display:"flex",gap:8}}><select className="sel" value={manMatchForm.home} onChange={e=>setManMatchForm(f=>({...f,home:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select><select className="sel" value={manMatchForm.away} onChange={e=>setManMatchForm(f=>({...f,away:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-          <div style={{display:"flex",gap:8}}><input className="inp" type="date" value={manMatchForm.date} onChange={e=>setManMatchForm(f=>({...f,date:e.target.value}))} style={{flex:1,fontSize:13}}/><input className="inp" value={manMatchForm.time} onChange={e=>setManMatchForm(f=>({...f,time:e.target.value}))} placeholder="19:30" style={{flex:1,fontSize:13}}/></div>
-          <input className="inp" value={manMatchForm.venue} onChange={e=>setManMatchForm(f=>({...f,venue:e.target.value}))} placeholder="Stadium, City" style={{fontSize:13}}/>
-          <button onClick={addManualMatch} className="pbtn">Add Match</button>
+      {admTab==="matches"&&(
+        <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px"}}>
+          <p className="st">ADD CUSTOM MATCH</p>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input className="inp" value={manMatchForm.mn} onChange={e=>setManMatchForm(f=>({...f,mn:e.target.value}))} placeholder="Match label e.g. M75" style={{fontSize:13}}/>
+            <div style={{display:"flex",gap:8}}><select className="sel" value={manMatchForm.home} onChange={e=>setManMatchForm(f=>({...f,home:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select><select className="sel" value={manMatchForm.away} onChange={e=>setManMatchForm(f=>({...f,away:e.target.value}))}>{TEAMS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+            <div style={{display:"flex",gap:8}}><input className="inp" type="date" value={manMatchForm.date} onChange={e=>setManMatchForm(f=>({...f,date:e.target.value}))} style={{flex:1,fontSize:13}}/><input className="inp" value={manMatchForm.time} onChange={e=>setManMatchForm(f=>({...f,time:e.target.value}))} placeholder="19:30" style={{flex:1,fontSize:13}}/></div>
+            <input className="inp" value={manMatchForm.venue} onChange={e=>setManMatchForm(f=>({...f,venue:e.target.value}))} placeholder="Stadium, City" style={{fontSize:13}}/>
+            <button onClick={addManualMatch} className="pbtn">Add Match</button>
+          </div>
         </div>
-      </div>}
+      )}
 
       {admTab==="analytics"&&<>
         <p className="st">GROUP OVERVIEW</p>
@@ -1109,7 +1128,15 @@ export default function App(){
         <p className="st">CHAMPION PICKS</p>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>{(()=>{const counts={};Object.values(spk).forEach(t=>{if(t)counts[t]=(counts[t]||0)+1;});const tot2=Object.values(counts).reduce((a,b)=>a+b,0)||1;const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);if(!sorted.length)return<p style={{color:"#94a3b8",fontSize:12,margin:0}}>No champion picks yet.</p>;return sorted.map(([t,cnt])=>{const pct=Math.round(cnt/tot2*100);return<div key={t} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><TLogo t={t} sz={20}/><span className="C" style={{fontSize:12,fontWeight:700,color:"#1D428A",minWidth:40}}>{t}</span><div className="bar-bg" style={{flex:1}}><div className="bar-fill" style={{width:pct+"%",background:TC[t]?.bg||"#1D428A"}}/></div><span style={{fontSize:11,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} ({pct}%)</span>{sw&&t===sw&&<span>🏆</span>}</div>;});})()}</div>
         <p className="st">PER-MATCH SPLIT</p>
-        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{const ae=Object.entries(allPicks);const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;const io=anM===m.id;const hc=TC[m.home]||{bg:"#1D428A"},ac=TC[m.away]||{bg:"#555"};return<div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}><div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>{io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc.bg} clB={ac.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc.bg} clB={ac.bg}/></div>}</div>;})}
+        {ms.filter(m=>{const ae=Object.entries(allPicks);return ae.some(([,u])=>getP(u,m.id)!=null);}).map(m=>{
+          const ae=Object.entries(allPicks);const tot=ae.filter(([,u])=>getP(u,m.id)!=null).length;const tA=ae.filter(([,u])=>getP(u,m.id)?.toss===m.home).length;const wA=ae.filter(([,u])=>getP(u,m.id)?.win===m.home).length;const io=anM===m.id;const hc2=TC[m.home]||{bg:"#1D428A"},ac2=TC[m.away]||{bg:"#555"};
+          return(
+            <div key={m.id} className="ac" style={{cursor:"pointer"}} onClick={()=>setAnM(io?null:m.id)}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}><TLogo t={m.home} sz={22}/><span style={{color:"#94a3b8",fontSize:11}}>vs</span><TLogo t={m.away} sz={22}/><div style={{flex:1}}><p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p><p style={{color:"#64748b",fontSize:11,margin:0}}>{tot} picks · {m.mn}</p></div><span style={{color:"#1D428A",fontSize:14}}>{io?"▲":"▼"}</span></div>
+              {io&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}} onClick={e=>e.stopPropagation()}><SBar lbl="Toss" tA={m.home} tB={m.away} cA={tA} cB={tot-tA} clA={hc2.bg} clB={ac2.bg}/><SBar lbl="Winner" tA={m.home} tB={m.away} cA={wA} cB={tot-wA} clA={hc2.bg} clB={ac2.bg}/></div>}
+            </div>
+          );
+        })}
       </>}
 
       {admTab==="controls"&&<div>
@@ -1121,7 +1148,15 @@ export default function App(){
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">⚡ DOUBLE POINTS MATCH</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,8).map(m=>{const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);return<div key={m.id} className="ctrl-row" style={{padding:"10px 0"}}><div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}><TLogo t={m.home} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.home}</span><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.away}</span><span style={{color:"#94a3b8",fontSize:10,marginLeft:4}}>{m.mn}</span></div><button onClick={async()=>{const v=isDouble?null:m.id;setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⚡ 2× set":"Removed");}} style={{padding:"5px 10px",borderRadius:8,background:isDouble?"linear-gradient(135deg,#FF822A,#D4AF37)":"#f8faff",color:isDouble?"#fff":"#64748b",border:"1px solid "+(isDouble?"#FF822A":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>{isDouble?"2× ON":"Set 2×"}</button></div>;})}
+          {ms.filter(m=>!m.result&&!isTBD(m)).slice(0,8).map(m=>{
+            const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(m.id);
+            return(
+              <div key={m.id} className="ctrl-row" style={{padding:"10px 0"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}><TLogo t={m.home} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.home}</span><span style={{color:"#94a3b8",fontSize:10}}>vs</span><TLogo t={m.away} sz={16}/><span className="C" style={{fontSize:11,fontWeight:700}}>{m.away}</span><span style={{color:"#94a3b8",fontSize:10,marginLeft:4}}>{m.mn}</span></div>
+                <button onClick={async()=>{const v=isDouble?null:m.id;setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⚡ 2× set":"Removed");}} style={{padding:"5px 10px",borderRadius:8,background:isDouble?"linear-gradient(135deg,#FF822A,#D4AF37)":"#f8faff",color:isDouble?"#fff":"#64748b",border:"1px solid "+(isDouble?"#FF822A":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0}}>{isDouble?"2× ON":"Set 2×"}</button>
+              </div>
+            );
+          })}
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">SET CHAMPION</p>
@@ -1130,15 +1165,32 @@ export default function App(){
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">🔒 LOCK / UNLOCK MATCHES</p>
-          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];return<div key={m.id} className="ctrl-row"><div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div><button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button></div>;})}
+          {ms.filter(m=>!m.result&&!isTBD(m)).map(m=>{
+            const lstate=lockedMatches[m.id]??lockedMatches[String(m.id)];
+            return(
+              <div key={m.id} className="ctrl-row">
+                <div style={{flex:1,minWidth:0}}><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.date} · {m.time}</p></div>
+                <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"6px 12px",borderRadius:8,background:lstate==="locked"?"#fee2e2":lstate==="unlocked"?"#dcfce7":"#f1f5f9",color:lstate==="locked"?"#dc2626":lstate==="unlocked"?"#15803d":"#64748b",border:"1px solid "+(lstate==="locked"?"#fecaca":lstate==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase",minWidth:90}}>{lstate==="locked"?"🔒 Locked":lstate==="unlocked"?"🔓 Unlocked":"⚙️ Auto"}</button>
+              </div>
+            );
+          })}
         </div>
         <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st">💬 MUTE USERS</p>
-          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{const isMuted=(mutedUsers||{})[ek(u.email)];return<div key={u.email} className="ctrl-row"><div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div><button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button></div>;})}
+          {Object.values(users).filter(u=>u.email!==email&&u.approved!==false).map(u=>{
+            const isMuted=(mutedUsers||{})[ek(u.email)];
+            return(
+              <div key={u.email} className="ctrl-row">
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}><Av name={u.name} sz={24}/><p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{u.name}</p></div>
+                <button onClick={async()=>{const upd={...(mutedUsers||{}),[ek(u.email)]:!isMuted};setMutedUsers(upd);await DB.set("mutedusers",upd);toast2((!isMuted?"🔇 ":"🔊 ")+u.name);}} style={{padding:"5px 10px",borderRadius:8,background:isMuted?"#fef2f2":"#f8faff",color:isMuted?"#dc2626":"#64748b",border:"1px solid "+(isMuted?"#fecaca":"#e2e8f0"),cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,flexShrink:0,textTransform:"uppercase"}}>{isMuted?"Unmute":"Mute"}</button>
+              </div>
+            );
+          })}
         </div>
         <div style={{background:"#fff",border:"1px solid #fecaca",borderRadius:12,padding:"14px",marginBottom:14}}>
           <p className="st" style={{color:"#dc2626",borderColor:"#fecaca"}}>⚠️ DANGER ZONE</p>
-          <div className="ctrl-row"><div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🗑️ Reset Season</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Wipes all picks, results, pts.</p></div>
+          <div className="ctrl-row">
+            <div><p style={{color:"#1a2540",fontSize:13,fontWeight:600,margin:0}}>🗑️ Reset Season</p><p style={{color:"#94a3b8",fontSize:11,margin:"2px 0 0"}}>Wipes all picks, results, pts.</p></div>
             <button onClick={async()=>{if(!confirm("RESET entire season? Cannot be undone."))return;await Promise.all([DB.set("ap",{}),DB.set("rm",{}),DB.set("sp",{}),DB.set("t4",{}),DB.set("ptsadj",{}),DB.set("doublematch",null),DB.set("sw",null),DB.set("matchptsoverride",{}),DB.set("manmatches",[]),DB.set("bracket",null),DB.set("lockedm",{})]);setAllPicks({});setMyPicks({});setMs(buildBaseMatches());setManualPtsAdj({});setSw(null);setDoubleMatch(null);setMatchPtsOverride({});setBracket(null);setLockedMatches({});setSpk({});setT4pk({});setMySp("");setMyT4([]);toast2("Season reset","ok");}} style={{padding:"7px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase",flexShrink:0}}>Reset</button>
           </div>
         </div>
@@ -1148,7 +1200,13 @@ export default function App(){
         <div className="ac"><p className="st">SEND BROADCAST</p><textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value)} placeholder="Message for everyone's Home tab…" rows={3} style={{resize:"none",marginBottom:12,lineHeight:1.5}}/><div style={{display:"flex",gap:8}}><button onClick={()=>sendBc(false)} className="pbtn" style={{flex:2}}>Send</button><button onClick={()=>sendBc(true)} style={{flex:1,padding:"11px",borderRadius:10,background:"#1D428A",color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,border:"none",cursor:"pointer"}}>📌 Pin</button></div>{pinnedBc&&<div style={{marginTop:12,background:"#1D428A",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#fff",fontSize:12,fontWeight:600}}>📌 {pinnedBc}</span><button onClick={clearPin} style={{background:"none",border:"none",color:"#bfdbfe",cursor:"pointer",fontSize:12,fontWeight:600}}>Clear</button></div>}</div>
         <p className="st" style={{marginTop:16}}>HISTORY</p>
         {bc.length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No broadcasts yet</p>}
-        {[...bc].reverse().map(b=><div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}><span style={{fontSize:15,flexShrink:0}}>📢</span><div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div><button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button></div>)}
+        {[...bc].reverse().map(b=>(
+          <div key={b.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{fontSize:15,flexShrink:0}}>📢</span>
+            <div style={{flex:1}}><p style={{color:"#1a2540",fontSize:13,margin:"0 0 3px"}}>{b.msg}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{new Date(b.ts).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true})}</p></div>
+            <button onClick={async()=>{const nb=bc.filter(x=>x.id!==b.id);setBc(nb);await DB.set("bc",nb);}} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>×</button>
+          </div>
+        ))}
       </>}
     </div>}
 
