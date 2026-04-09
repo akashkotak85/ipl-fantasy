@@ -20,10 +20,7 @@ function Shimmer(){return(<div style={{background:"#f8faff",border:"1px solid #e
 export default function MatchIntelPanel({m}){
   const[open,setOpen]=useState(false);
   const[tab,setTab]=useState("H2H");
-  const[aiText,setAiText]=useState("");
-  const[aiLoading,setAiLoading]=useState(false);
-  const[aiDone,setAiDone]=useState(false);
-  const[aiError,setAiError]=useState("");
+
 
   const h2h=getH2H(m.home,m.away);
   const venue=VENUE_INTEL[m.venue]||null;
@@ -36,57 +33,7 @@ export default function MatchIntelPanel({m}){
   const suggestedWinnerC=h2hWinPct>=50?hc:ac;
   const suggestedWinPct=Math.max(h2hWinPct,100-h2hWinPct);
 
-  const loadAI=useCallback(async()=>{
-    if(aiDone||aiLoading)return;
-    // Check for API key first
-    const apiKey=import.meta.env.VITE_ANTHROPIC_KEY||"";
-    if(!apiKey){
-      setAiError("API key not configured. Add VITE_ANTHROPIC_KEY to your Vercel environment variables.");
-      return;
-    }
-    setAiLoading(true);setAiError("");
-    try{
-      const prompt=`You are a concise cricket analyst for an IPL fantasy game. Write exactly 3 short paragraphs (no bullet points, no headers, plain text only). Each paragraph max 40 words.
-
-Match: ${m.home} vs ${m.away}
-Venue: ${m.venue}
-${h2h?`H2H all time: ${m.home} ${h2h.wA} wins, ${m.away} ${h2h.wB} wins from ${h2h.matches} matches. Recent: ${h2h.streak}. ${m.home} home win rate vs ${m.away}: ${h2h.homeWinPct}%.`:"No H2H data."}
-${venue?`Venue: avg 1st innings ${venue.avgFirst}, chase win rate ${venue.chaseWin}%, toss preference ${venue.tossChoice}.`:"No venue data."}
-
-Paragraph 1: H2H summary — who has the edge and why.
-Paragraph 2: Toss — who is likely to win it, what they will choose, and why.
-Paragraph 3: Match winner pick with one clear reason.`;
-
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          "x-api-key":apiKey,
-          "anthropic-version":"2023-06-01",
-          "anthropic-dangerous-direct-browser-access":"true"
-        },
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:300,
-          messages:[{role:"user",content:prompt}]
-        })
-      });
-      if(!res.ok){
-        const errBody=await res.json().catch(()=>({}));
-        throw new Error(errBody?.error?.message||"API error "+res.status);
-      }
-      const data=await res.json();
-      const text=(data.content||[]).map(b=>b.text||"").join("").trim();
-      if(!text)throw new Error("Empty response from API");
-      setAiText(text);setAiDone(true);
-    }catch(e){
-      console.error("AI Pick error",e);
-      setAiError(e.message||"Could not load AI insight.");
-    }
-    setAiLoading(false);
-  },[m,h2h,venue,aiDone,aiLoading]);
-
-  const handleTab=useCallback((t)=>{setTab(t);if(t==="AI Pick")loadAI();},[loadAI]);
+  const handleTab=useCallback((t)=>{setTab(t);},[]);
 
   if(!open)return(
     <button onClick={()=>setOpen(true)} style={{width:"100%",padding:"10px 14px",background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,fontFamily:"'Barlow',sans-serif",transition:"background .15s"}}>
@@ -181,41 +128,6 @@ Paragraph 3: Match winner pick with one clear reason.`;
       {/* ── AI PICK TAB ── */}
       {tab==="AI Pick"&&(
         <div>
-          <p style={secStyle}>AI prediction insight</p>
-
-          {aiLoading&&<Shimmer/>}
-
-          {!aiLoading&&aiError&&(
-            <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"14px",textAlign:"center"}}>
-              <p style={{fontSize:13,color:"#dc2626",margin:"0 0 4px",fontWeight:600}}>Could not load AI insight</p>
-              <p style={{fontSize:11,color:"#991b1b",margin:"0 0 12px",lineHeight:1.5}}>{aiError}</p>
-              <button onClick={()=>{setAiError("");loadAI();}} style={{padding:"7px 16px",borderRadius:8,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>
-                Retry
-              </button>
-            </div>
-          )}
-
-          {!aiLoading&&!aiError&&aiText&&(
-            <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"13px 14px",fontSize:12,color:"#475569",lineHeight:1.7,marginBottom:14}}>
-              {aiText.split("\n\n").filter(Boolean).map((para,i,arr)=>(
-                <p key={i} style={{margin:i<arr.length-1?"0 0 10px":"0"}}>{para}</p>
-              ))}
-              <p style={{fontSize:10,color:"#94a3b8",marginTop:10,paddingTop:8,borderTop:"1px solid #e2e8f0"}}>
-                Based on IPL data 2008–2025 · For entertainment only
-              </p>
-            </div>
-          )}
-
-          {!aiLoading&&!aiError&&!aiText&&(
-            <div style={{textAlign:"center",padding:"20px 16px"}}>
-              <p style={{fontSize:28,margin:"0 0 8px"}}>🤖</p>
-              <p style={{color:"#94a3b8",fontSize:12,margin:"0 0 12px"}}>Get an AI-powered prediction for this match.</p>
-              <button onClick={loadAI} style={{padding:"9px 20px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:.5}}>
-                Generate Insight
-              </button>
-            </div>
-          )}
-
           {(h2h||venue)&&(
             <div>
               <p style={secStyle}>Data-suggested picks</p>
