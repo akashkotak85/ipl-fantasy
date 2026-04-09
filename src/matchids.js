@@ -1,0 +1,82 @@
+// src/data/matchIds.js
+// All 70 IPL 2026 league match IDs from cricapi.com
+// Some API team labels don't match schedule — marked "verify" where mismatch found
+// Use matchNum → cricapi ID mapping for scorecard fetches
+
+export const CRICAPI_MATCH_IDS = {
+  1:  "547b47e3-b2d9-4f51-8a49-8e7e4c946a6e", // RCB vs SRH
+  2:  "950a9aad-a1a7-46ef-9dcd-d25dec7964af", // MI vs KKR
+  3:  "1412721c-3b2b-4703-89c7-f86f5ea81048", // CSK vs RR
+  4:  "235b2c68-326a-49e0-959a-def9fe3b5736", // GT vs PBKS
+  5:  "962d1940-4fea-4e71-97ca-5fc2c008169f", // LSG vs DC
+  6:  "22fb99f0-77c2-4724-9375-32a82a0b2a70", // SRH vs KKR
+  7:  "59353457-477e-4c7b-b367-e312d5474744", // PBKS vs CSK
+  8:  "19455906-a0a9-4959-a591-c5aee00b3e1b", // DC vs MI
+  9:  "8f54d791-e6be-4638-9d30-862329e5ebc7", // GT vs RR
+  10: "9186c79f-2121-4fc4-bb8d-3c411b417609", // SRH vs LSG
+  11: "69d5e465-e2e5-4616-aa22-8d069c2dc0fe", // RCB vs CSK
+  12: "12b5d808-d9ab-468e-bd25-a2c347f64bdc", // KKR vs PBKS
+  13: "3dd82a3e-52e3-409b-bb9c-ef458942a7a2", // RR vs MI
+  14: "5945bbf4-b6b5-45b6-abac-db03e8a39130", // DC vs GT
+  15: "2d6c0b86-76c0-4795-96a4-e252f575d2d9", // KKR vs LSG
+  16: "3ec1f721-7f79-49e3-bbc1-69e88b9cf4a3", // RCB vs RR
+  17: "8f0a09ba-2a87-4b94-9a61-d729ef8c0c14", // PBKS vs SRH
+  18: "d8d0937a-8bd7-47b0-acbc-00d381578f85", // CSK vs DC
+  19: "823d67eb-102e-4b60-93a0-1911a150d626", // LSG vs GT
+  20: "b85f1b39-5766-46c7-9cea-14a64e0750b3", // MI vs RCB
+  21: "d8360a13-342f-45b7-9f71-060e852777ec", // SRH vs GT  ⚠️ API says SRH vs RR
+  22: "8b691738-66b3-4774-a7fd-5a2113a54ca5", // CSK vs KKR
+  23: "55e260bc-4aa7-44de-92e7-6bbd1edbb711", // RCB vs LSG ✓
+  24: "6289a2c9-75ee-49e1-9b83-ad7df53dcc21", // MI vs PBKS
+  25: "b481f31f-5ad7-4218-8a6e-16fc34d38048", // LSG vs KKR ⚠️ API says GT vs KKR
+  26: "549ba395-31e9-477b-ba2c-a2a0dd1cbec9", // RCB vs DC
+  27: "c5bf2a95-1855-463d-accf-9c1db88418cd", // SRH vs RCB ⚠️ API says SRH vs CSK
+  28: "fb4d7e4a-c420-45f2-9f2f-d45ce094efbc", // KKR vs DC  ⚠️ API says KKR vs RR
+  29: "ca8f24c0-6eef-4f8e-b50f-c63fc2b1ca98", // PBKS vs LSG
+  30: "97adf747-1086-489e-b892-3823ebffa555", // GT vs MI
+  31: "e4f4995f-036e-451d-861e-42567c82d87f", // DC vs SRH
+  32: "b8ec0cee-4d2f-456d-a815-a987e806f99a", // RR vs LSG
+  33: "50520170-15b4-49e3-8180-835202e8f623", // CSK vs MI
+  34: "ed074a44-a661-4727-83a7-4a33c2a05165", // RCB vs GT
+  35: "7bd928c0-1961-4fb5-a7a7-acd61c4a1586", // DC vs PBKS
+  36: "3d5968a6-4851-410c-b66a-811b92406933", // RR vs SRH
+  37: "690985d0-c890-434a-bece-fb02d59b09d2", // CSK vs GT
+  38: "fbd861ca-4efb-4d1d-b46c-ba3bc334bce4", // KKR vs LSG
+  39: "63c19cfb-3544-41df-8bd8-10049818a6c5", // RCB vs DC
+  40: "8fbd3678-6299-4e67-8c28-74d4952b6ae7", // PBKS vs RR
+  41: "05d33d50-3efe-42f9-98f7-1f363a2f153a", // MI vs SRH
+  42: "7e0789c4-6bdc-48da-a67f-49213f6d731e", // GT vs RCB
+  43: "3093f73b-639c-464c-8497-b6b238b5b9af", // RR vs DC
+  44: "d2cceca7-65d7-441e-8483-4505fd7cd073", // MI vs CSK
+  45: "1153edf6-3ae1-4722-be1e-0256495b49cb", // KKR vs SRH
+  46: "f039998e-28b0-4445-b431-8bbccbbc6f1f", // GT vs PBKS
+  47: "ed18f7e9-d348-4ace-bfcd-9639096c6808", // MI vs KKR  ⚠️ API says MI vs LSG
+  48: "4804409b-28ee-4f3e-ab55-a4a4cb090198", // CSK vs DC
+  49: "312ba6aa-5e93-4673-bb0c-cb207fdc9e2d", // PBKS vs SRH
+  50: "8b326da3-8ff6-4e64-abe4-cb430d7a6c53", // RCB vs LSG
+  51: "90d5c075-3c9a-40b7-ab45-80a36a3a2351", // KKR vs DC
+  52: "6ffec712-6562-490c-a4fa-ae4b6ae59188", // GT vs RR
+  53: "6aced947-319c-4e4a-9214-6f94f14c043e", // LSG vs CSK
+  54: "02d3614d-9727-43c5-a80c-0bf46c7499c6", // MI vs RCB
+  55: "9413d7dd-bf8e-49f6-8ce7-91faf29a0115", // SRH vs GT
+  56: "0b3bab15-12b2-4a16-9f41-1096e40ff202", // KKR vs RCB
+  57: "6666db12-b9cc-49f0-b3af-5628fc8c53fa", // MI vs SRH  ⚠️ API says PBKS vs MI
+  58: "ee5ab0d9-acd2-42bf-b5bc-f4d287e0f434", // RCB vs MI  ⚠️ API says PBKS vs DC
+  59: "68746b1f-d4b0-4f0a-a46a-46a1946aae32", // LSG vs RR
+  60: "166633a2-cecb-4cf3-a984-78dc898b5345", // GT vs KKR
+  61: "288e3406-3692-400a-bc22-fb8cfa0db2ca", // RCB vs PBKS
+  62: "990e89ea-3f6a-4196-ac73-7ad1a5f8c451", // RR vs SRH
+  63: "8416c2a9-4a74-4ac2-a6ae-5ad2538cbc56", // CSK vs LSG
+  64: "3b225f44-ddf2-41d4-8079-7a3f81876e35", // RR vs MI
+  65: "5b1d59f9-51fd-449d-8cf1-9fc15ef15675", // KKR vs GT
+  66: "fd660ab1-c4bf-4c0f-b1b9-7232361cd1e8", // CSK vs MI  ⚠️ API says CSK vs GT
+  67: "bf23431b-ba1c-4147-94d9-b8d361a3ce9e", // LSG vs PBKS ⚠️ API says SRH vs RCB
+  68: "7134216b-553c-4099-82a8-ee48bd9c46f3", // RR vs DC   ⚠️ API says LSG vs PBKS
+  69: "c0d94cec-8a67-4414-80af-81e7d4a9ee9a", // CSK vs SRH ⚠️ API says MI vs RR
+  70: "8f61d649-f53b-4e79-9bfb-661cfe69be3b", // RCB vs KKR ⚠️ API says KKR vs DC
+};
+
+// Reverse lookup: cricapi ID → match number
+export const ID_TO_MATCH_NUM = Object.fromEntries(
+  Object.entries(CRICAPI_MATCH_IDS).map(([num, id]) => [id, Number(num)])
+);
