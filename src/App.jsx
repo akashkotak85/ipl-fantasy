@@ -942,60 +942,131 @@ export default function App(){
         const relevantMs=[...ms.filter(m=>!m.result&&!isTBD(m)),...[...done].reverse().slice(0,5)];
         const loadRaw=async()=>{setDbLoading(true);const raw=await DB.get("ap");setDbRaw(raw||{});setDbLoading(false);};
         const forceFixDB=async()=>{setFixLoading(true);const raw=await DB.get("ap")||{};const fixed=normalizeAP(raw);await DB.set("ap",fixed);await reloadShared(email);setDbRaw(fixed);setFixLoading(false);toast2("DB fixed & reloaded ✅","ok");};
-        return<div>
-          <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
-            <p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>⚠️ Ghost Pick Fix</p>
-            <p style={{color:"#dc2626",fontSize:11,margin:"0 0 10px"}}>If a user shows as predicted but DB has no pick, click Force Fix.</p>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={loadRaw} disabled={dbLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{dbLoading?"Loading…":"🔍 Load Raw DB"}</button>
-              <button onClick={forceFixDB} disabled={fixLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fixLoading?"Fixing…":"🔧 Force Fix DB"}</button>
+        return(
+          <div>
+            <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+              <p style={{color:"#991b1b",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>⚠️ Ghost Pick Fix</p>
+              <p style={{color:"#dc2626",fontSize:11,margin:"0 0 10px"}}>If a user shows as predicted but DB has no pick, click Force Fix.</p>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={loadRaw} disabled={dbLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{dbLoading?"Loading…":"🔍 Load Raw DB"}</button>
+                <button onClick={forceFixDB} disabled={fixLoading} style={{flex:1,padding:"9px",borderRadius:8,background:"linear-gradient(135deg,#dc2626,#b91c1c)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase"}}>{fixLoading?"Fixing…":"🔧 Force Fix DB"}</button>
+              </div>
             </div>
-          </div>
-          {dbRaw&&<div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
-            <p className="st">RAW DB STATE ({Object.keys(dbRaw).length} users)</p>
-            {Object.keys(dbRaw).length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No picks in DB.</p>}
-            {Object.entries(dbRaw).map(([emk,picks])=>{
-              const u=Object.values(users).find(u=>ek(u.email)===canonicalKey(emk));
-              const name=u?.name||emk;
-              const pickCount=picks&&typeof picks==="object"?Object.keys(picks).length:0;
-              const isExpanded=expandUser===emk;
-              return(
-                <div key={emk} style={{borderBottom:"1px solid #f1f5f9",paddingBottom:8,marginBottom:8}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}
-                    onClick={()=>setExpandUser(isExpanded?null:emk)}>
-                    <Av name={name} sz={24}/>
-                    <div style={{flex:1}}>
-                      <p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{name}</p>
-                      <p style={{color:"#94a3b8",fontSize:10,margin:0}}>{emk} · {pickCount} picks in DB</p>
+
+            {dbRaw&&(
+              <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:14}}>
+                <p className="st">RAW DB STATE ({Object.keys(dbRaw).length} users)</p>
+                {Object.keys(dbRaw).length===0&&<p style={{color:"#94a3b8",fontSize:12}}>No picks in DB.</p>}
+                {Object.entries(dbRaw).map(([emk,picks])=>{
+                  const u=Object.values(users).find(u=>ek(u.email)===canonicalKey(emk));
+                  const name=u?.name||emk;
+                  const pickCount=picks&&typeof picks==="object"?Object.keys(picks).length:0;
+                  const isExpanded=expandUser===emk;
+                  return(
+                    <div key={emk} style={{borderBottom:"1px solid #f1f5f9",paddingBottom:8,marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setExpandUser(isExpanded?null:emk)}>
+                        <Av name={name} sz={24}/>
+                        <div style={{flex:1}}>
+                          <p style={{color:"#1a2540",fontSize:12,fontWeight:600,margin:0}}>{name}</p>
+                          <p style={{color:"#94a3b8",fontSize:10,margin:0}}>{emk} · {pickCount} picks in DB</p>
+                        </div>
+                        <span style={{color:"#1D428A",fontSize:12}}>{isExpanded?"▲":"▼"}</span>
+                      </div>
+                      {isExpanded&&(
+                        <div style={{marginTop:8,background:"#f8faff",borderRadius:8,padding:"8px 10px"}}>
+                          {pickCount===0&&<p style={{color:"#94a3b8",fontSize:11,margin:0}}>No picks stored.</p>}
+                          {Object.entries(picks||{}).map(([mid,pick])=>{
+                            const matchObj=ms.find(m=>String(m.id)===String(mid));
+                            const isComplete=pick&&pick.toss&&pick.win&&pick.motm;
+                            return(
+                              <div key={mid} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6,padding:"5px 8px",borderRadius:6,background:isComplete?"#f0fdf4":"#fef2f2",border:"1px solid "+(isComplete?"#bbf7d0":"#fecaca")}}>
+                                <span style={{fontSize:10,fontWeight:700,color:"#64748b",minWidth:28}}>M{mid}</span>
+                                {matchObj&&<span style={{fontSize:10,color:"#94a3b8",minWidth:60}}>{matchObj.home} v {matchObj.away}</span>}
+                                <span style={{fontSize:10,color:"#475569",flex:1}}>🪙{pick?.toss||"?"} 🏆{pick?.win||"?"} ⭐{pick?.motm?.split(" ").slice(-1)[0]||"?"}</span>
+                                {!isComplete&&<span style={{fontSize:9,background:"#fef2f2",color:"#dc2626",padding:"1px 5px",borderRadius:4,fontWeight:700}}>INCOMPLETE</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <span style={{color:"#1D428A",fontSize:12}}>{isExpanded?"▲":"▼"}</span>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Upcoming + last 5 completed. ✓ = all 3 fields saved. ⚠️ = partial.</div>
+            {!relevantMs.length&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:32}}>📋</p></div>}
+            {relevantMs.map(m=>{
+              const isDone=!!m.result;
+              const lk=isMatchLocked(m,lockedMatches);
+              const predicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)!=null);
+              const notPredicted=approvedUsers.filter(u=>getP(allPicks[ek(u.email)]||{},m.id)==null);
+              const pct=approvedUsers.length?Math.round(predicted.length/approvedUsers.length*100):0;
+              return(
+                <div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <TLogo t={m.home} sz={22}/>
+                    <div style={{flex:1}}>
+                      <p className="C" style={{color:"#1a2540",fontSize:14,fontWeight:700,margin:0}}>{m.home} vs {m.away}</p>
+                      <p style={{color:"#94a3b8",fontSize:11,margin:"1px 0 0"}}>{m.mn} · {m.date} · {m.time} · {isDone?"Done":lk?"Locked":"Open"}</p>
+                    </div>
+                    <TLogo t={m.away} sz={22}/>
                   </div>
-                  {isExpanded&&(
-                    <div style={{marginTop:8,background:"#f8faff",borderRadius:8,padding:"8px 10px"}}>
-                      {pickCount===0&&<p style={{color:"#94a3b8",fontSize:11,margin:0}}>No picks stored.</p>}
-                      {Object.entries(picks||{}).map(([mid,pick])=>{
-                        const matchObj=ms.find(m=>String(m.id)===String(mid));
-                        const isComplete=pick&&pick.toss&&pick.win&&pick.motm;
-                        return(
-                          <div key={mid} style={{display:"flex",gap:6,alignItems:"center",
-                            marginBottom:6,padding:"5px 8px",borderRadius:6,
-                            background:isComplete?"#f0fdf4":"#fef2f2",
-                            border:"1px solid "+(isComplete?"#bbf7d0":"#fecaca")}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"#64748b",minWidth:28}}>M{mid}</span>
-                            {matchObj&&<span style={{fontSize:10,color:"#94a3b8",minWidth:60}}>{matchObj.home} v {matchObj.away}</span>}
-                            <span style={{fontSize:10,color:"#475569",flex:1}}>
-                              🪙{pick?.toss||"?"} 🏆{pick?.win||"?"} ⭐{pick?.motm?.split(" ").slice(-1)[0]||"?"}
-                            </span>
-                            {!isComplete&&<span style={{fontSize:9,background:"#fef2f2",color:"#dc2626",padding:"1px 5px",borderRadius:4,fontWeight:700}}>INCOMPLETE</span>}
+                  <div style={{display:"flex",gap:6,marginBottom:8}}>
+                    <div style={{flex:1,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"6px",textAlign:"center"}}>
+                      <p className="C" style={{color:"#15803d",fontSize:18,fontWeight:800,margin:0}}>{predicted.length}</p>
+                      <p style={{color:"#15803d",fontSize:10,margin:0,fontWeight:600}}>Predicted</p>
+                    </div>
+                    <div style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px",textAlign:"center"}}>
+                      <p className="C" style={{color:"#dc2626",fontSize:18,fontWeight:800,margin:0}}>{notPredicted.length}</p>
+                      <p style={{color:"#dc2626",fontSize:10,margin:0,fontWeight:600}}>{lk||isDone?"Missed":"Not Yet"}</p>
+                    </div>
+                    <div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:8,padding:"6px",textAlign:"center"}}>
+                      <p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:0}}>{pct}%</p>
+                      <p style={{color:"#64748b",fontSize:10,margin:0,fontWeight:600}}>Rate</p>
+                    </div>
+                  </div>
+                  <div className="bar-bg" style={{marginBottom:10}}>
+                    <div className="bar-fill" style={{width:pct+"%",background:"#15803d"}}/>
+                  </div>
+                  {predicted.length>0&&(
+                    <div style={{marginBottom:8}}>
+                      <p style={{color:"#15803d",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>✅ Predicted</p>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {predicted.map(u=>{
+                          const pick=getP(allPicks[ek(u.email)]||{},m.id);
+                          const dbOk=!!(pick&&pick.toss&&pick.win&&pick.motm);
+                          return(
+                            <div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:dbOk?"#f0fdf4":"#FFF9E6",border:"1px solid "+(dbOk?"#bbf7d0":"#FDE68A"),borderRadius:20,padding:"3px 9px"}}>
+                              <Av name={u.name} sz={16}/>
+                              <span style={{fontSize:11,fontWeight:600,color:dbOk?"#15803d":"#92400E"}}>{u.name.split(" ")[0]}</span>
+                              <span style={{fontSize:9,color:dbOk?"#15803d":"#92400E"}}>{dbOk?"✓":"⚠️"}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {notPredicted.length>0&&(
+                    <div>
+                      <p style={{color:"#dc2626",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{lk||isDone?"❌ Missed":"⏳ Not Yet"}</p>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {notPredicted.map(u=>(
+                          <div key={u.email} style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:20,padding:"3px 9px"}}>
+                            <Av name={u.name} sz={16}/>
+                            <span style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{u.name.split(" ")[0]}</span>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
               );
             })}
-          </div>}
+          </div>
+        );
+      })()}
 
       {admTab==="users"&&<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><p style={{color:"#64748b",fontSize:12,margin:0}}>{Object.keys(users).length} players</p><button onClick={exportCSV} style={{padding:"6px 12px",borderRadius:8,background:"#EBF0FA",color:"#1D428A",border:"1px solid #bfdbfe",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,textTransform:"uppercase"}}>Export CSV</button></div>
