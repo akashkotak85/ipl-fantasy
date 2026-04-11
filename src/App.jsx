@@ -387,7 +387,7 @@ function Av({name,sz=32}){const ini=(name||"?").split(" ").map(w=>w[0]).join("")
 function Tst({t}){const bg=t.type==="error"?"#fef2f2":t.type==="ok"?"#f0fdf4":"#EBF0FA";const cl=t.type==="error"?"#991b1b":t.type==="ok"?"#166534":"#1e40af";const br=t.type==="error"?"#fecaca":t.type==="ok"?"#bbf7d0":"#bfdbfe";return<div style={{position:"fixed",bottom:86,left:"50%",transform:"translateX(-50%)",padding:"10px 20px",borderRadius:12,fontSize:13,fontWeight:600,fontFamily:"'Barlow',sans-serif",whiteSpace:"nowrap",zIndex:999,maxWidth:"90vw",overflow:"hidden",textOverflow:"ellipsis",background:bg,color:cl,border:"1px solid "+br,boxShadow:"0 8px 32px rgba(29,66,138,.15)"}}>{t.msg}</div>;}
 function Toggle({on,onChange}){return<button className="tog" onClick={()=>onChange(!on)} style={{background:on?"#1D428A":"#e2e8f0"}}><div className="tog-knob" style={{left:on?"23px":"3px"}}/></button>;}
 function useCd(ts){const[tl,sT]=useState("");useEffect(()=>{const tick=()=>{const d=ts-Date.now();if(d<=0){sT("NOW");return;}const h=Math.floor(d/3600000),m=Math.floor((d%3600000)/60000),s=Math.floor((d%60000)/1000);sT(h>0?h+"h "+m+"m":m>0?m+"m "+s+"s":s+"s");};tick();const id=setInterval(tick,1000);return()=>clearInterval(id);},[ts]);return tl;}
-function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot*100);return<div style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:10,color:"#94a3b8"}}>{cA+cB} picks</span></div><div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28,textAlign:"right"}}>{pA}%</span><div className="bar-bg" style={{flex:1,display:"flex"}}><div className="bar-fill" style={{width:pA+"%",background:clA}}/><div style={{flex:1,background:clB}}/></div><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28}}>{100-pA}%</span></div><div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{fontSize:10,color:"#94a3b8"}}>{tA}</span><span style={{fontSize:10,color:"#94a3b8"}}>{tB}</span></div></div>;}
+function SBar({lbl,tA,tB,cA,cB,clA,clB}){const tot=cA+cB||1,pA=Math.round(cA/tot*100);return<div style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{lbl}</span><span style={{fontSize:10,color:"#94a3b8"}}>{cA+cB} picks</span></div><div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28,textAlign:"right"}}>{pA}%</span><div className="bar-bg" style={{flex:1,display:"flex"}}><div className="bar-fill" style={{width:pA+"%",background:clA}}/><div style={{flex:1,background:clB}}/></div><span style={{fontSize:11,fontWeight:700,color:"#1a2540",minWidth:28}}>{100-pA}%</span></div><div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span style={{fontSize:10,color:"#94a3b8"}}>{tA} <span style={{color:"#64748b",fontWeight:600}}>({cA})</span></span><span style={{fontSize:10,color:"#94a3b8"}}><span style={{color:"#64748b",fontWeight:600}}>({cB})</span> {tB}</span></div></div>;}
 function PotmDropdown({homeTeam,awayTeam,value,onChange}){const[open,setOpen]=useState(false);const ref=useRef();const players=[...(SQ[homeTeam]||[]).map(p=>({p,t:homeTeam})),...(SQ[awayTeam]||[]).map(p=>({p,t:awayTeam}))];useEffect(()=>{const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};document.addEventListener("mousedown",close);document.addEventListener("touchstart",close,{passive:true});return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("touchstart",close);};},[]);return<div className="dd-wrap" ref={ref}><button type="button" className={"dd-trigger"+(open?" open":"")} onClick={()=>setOpen(o=>!o)}><span style={{color:value?"#1D428A":"#94a3b8",fontWeight:value?700:400}}>{value||"Select Player of the Match…"}</span><span style={{fontSize:12,color:"#94a3b8"}}>{open?"▲":"▼"}</span></button>{open&&<div className="dd-list">{players.map(({p,t})=>{const c=TC[t]||{bg:"#333",dk:"#fff"};return<div key={p} className={"dd-item"+(value===p?" sel":"")} onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}><div style={{width:8,height:8,borderRadius:"50%",background:c.bg,flexShrink:0}}/><TLogo t={t} sz={18}/><span style={{flex:1,fontSize:13,color:value===p?"#1D428A":"#475569",fontWeight:value===p?600:400}}>{p}</span><span style={{background:c.bg,color:c.dk||"#fff",fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,flexShrink:0}}>{t}</span></div>;})}
 </div>}</div>;}
 
@@ -555,9 +555,9 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
           {[["Toss",hints.tA,hints.tB],["Winner",hints.wA,hints.wB]].map(([lbl,cA,cB])=>{
             const tot2=cA+cB||1,pA=Math.round(cA/tot2*100),pB=100-pA;
             return(
-              <div key={lbl} style={{marginBottom:lbl==="Toss"?8:0}}>
-                <span style={{fontSize:10,fontWeight:600,color:"#92400E",display:"block",marginBottom:3}}>{lbl}</span>
-                <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:2}}>
+              <div key={lbl} style={{marginBottom:lbl==="Toss"?10:0}}>
+                <span style={{fontSize:10,fontWeight:600,color:"#92400E",display:"block",marginBottom:4}}>{lbl}</span>
+                <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:3}}>
                   <span style={{fontSize:10,fontWeight:700,color:hc.bg,minWidth:32}}>{m.home}</span>
                   <div style={{flex:1,height:8,borderRadius:4,overflow:"hidden",background:"#e2e8f0",display:"flex"}}>
                     <div style={{width:pA+"%",background:hc.bg,transition:"width .6s",borderRadius:"4px 0 0 4px"}}/>
@@ -566,8 +566,8 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
                   <span style={{fontSize:10,fontWeight:700,color:ac.bg,minWidth:32,textAlign:"right"}}>{m.away}</span>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",padding:"0 36px"}}>
-                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pA}%</span>
-                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pB}%</span>
+                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}>{pA}% <span style={{fontWeight:400,color:"#B45309"}}>({cA})</span></span>
+                  <span style={{fontSize:10,color:"#92400E",fontWeight:600}}><span style={{fontWeight:400,color:"#B45309"}}>({cB})</span> {pB}%</span>
                 </div>
               </div>
             );
@@ -1311,7 +1311,7 @@ export default function App(){
 
       {/* Admin tab bar */}
       <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"auto"}}>
-        {[["approvals","✅ Approve"],["manpick","📸 Pick Entry"],["results","📊 Results"],["users","👥 Users"],["matches","🏏 Matches"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>)}
+        {[["approvals","✅ Approve"],["manpick","📸 Pick Entry"],["results","📊 Results"],["pickstatus","👁 Pick Status"],["users","👥 Users"],["matches","🏏 Matches"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>)}
       </div>
 
       {/* ── APPROVALS TAB ── */}
@@ -1334,6 +1334,164 @@ export default function App(){
 
       {/* ── MANUAL PICK ENTRY TAB ── */}
       {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} toast2={toast2}/>}
+
+      {/* ── PICK STATUS TAB ── */}
+      {admTab==="pickstatus"&&(()=>{
+        const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
+        const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away)).sort((a,b)=>Number(a.id)-Number(b.id));
+        const[psMatch,setPsMatch]=useState(playableMs[0]?.id??null);
+        const selM=playableMs.find(m=>Number(m.id)===Number(psMatch));
+        const hc2=TC[selM?.home]||{bg:"#333"};
+        const ac2=TC[selM?.away]||{bg:"#555"};
+        return<div>
+          {/* Match selector */}
+          <div className="ac" style={{marginBottom:12}}>
+            <p className="st" style={{marginBottom:8}}>SELECT MATCH</p>
+            <select className="sel" value={psMatch??""} onChange={e=>setPsMatch(Number(e.target.value))}>
+              {playableMs.map(m=><option key={m.id} value={m.id}>{m.mn}: {m.home} vs {m.away} ({m.date}){m.result?" ✅":""}</option>)}
+            </select>
+          </div>
+
+          {selM&&(()=>{
+            const ae=Object.entries(allPicks);
+            const tot=approvedUsers.length;
+            const picked=ae.filter(([emk])=>approvedUsers.some(u=>ek(u.email)===emk)&&getP(allPicks[emk]||{},selM.id)!=null).length;
+            const notPicked=tot-picked;
+            const tossHome=ae.filter(([emk])=>getP(allPicks[emk]||{},selM.id)?.toss===selM.home).length;
+            const tossAway=ae.filter(([emk])=>getP(allPicks[emk]||{},selM.id)?.toss===selM.away).length;
+            const winHome=ae.filter(([emk])=>getP(allPicks[emk]||{},selM.id)?.win===selM.home).length;
+            const winAway=ae.filter(([emk])=>getP(allPicks[emk]||{},selM.id)?.win===selM.away).length;
+
+            // POTM frequency map
+            const potmMap={};
+            ae.forEach(([emk])=>{const p=getP(allPicks[emk]||{},selM.id);if(p?.motm)potmMap[p.motm]=(potmMap[p.motm]||0)+1;});
+            const topPotm=Object.entries(potmMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+            return<>
+              {/* Summary stats */}
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                {[["✅","Picked",picked],["⏳","No Pick",notPicked],["👥","Total",tot]].map(([ic,lb2,val])=>(
+                  <div key={lb2} style={{flex:1,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
+                    <p style={{fontSize:16,margin:0}}>{ic}</p>
+                    <p className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800,margin:"2px 0 0"}}>{val}</p>
+                    <p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lb2}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Toss & Winner split */}
+              {picked>0&&<div className="ac" style={{marginBottom:12}}>
+                <p className="st" style={{marginBottom:8}}>PICK DISTRIBUTION</p>
+                {[["Toss",tossHome,tossAway],["Winner",winHome,winAway]].map(([lbl,cA,cB])=>{
+                  const t2=cA+cB||1,pA=Math.round(cA/t2*100);
+                  return<div key={lbl} style={{marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.3}}>{lbl}</span>
+                      <span style={{fontSize:10,color:"#94a3b8"}}>{cA+cB} picks</span>
+                    </div>
+                    <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4,minWidth:60}}><TLogo t={selM.home} sz={16}/><span style={{fontSize:10,fontWeight:700,color:hc2.bg}}>{selM.home}</span></div>
+                      <div style={{flex:1,height:10,borderRadius:5,overflow:"hidden",background:"#e2e8f0",display:"flex"}}>
+                        <div style={{width:pA+"%",background:hc2.bg,transition:"width .6s"}}/>
+                        <div style={{flex:1,background:ac2.bg}}/>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,minWidth:60,justifyContent:"flex-end"}}><span style={{fontSize:10,fontWeight:700,color:ac2.bg}}>{selM.away}</span><TLogo t={selM.away} sz={16}/></div>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"0 4px"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#1a2540"}}>{pA}% <span style={{fontSize:10,color:"#64748b",fontWeight:400}}>({cA})</span></span>
+                      <span style={{fontSize:11,fontWeight:700,color:"#1a2540"}}><span style={{fontSize:10,color:"#64748b",fontWeight:400}}>({cB})</span> {100-pA}%</span>
+                    </div>
+                  </div>;
+                })}
+                {topPotm.length>0&&<>
+                  <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.3,margin:"4px 0 8px"}}>Top POTM Picks</p>
+                  {topPotm.map(([name,cnt])=>{
+                    const pct=Math.round(cnt/(picked||1)*100);
+                    const team=TEAMS.find(t=>(SQ[t]||[]).includes(name));
+                    const tc2=TC[team]||{bg:"#94a3b8"};
+                    return<div key={name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:tc2.bg,flexShrink:0}}/>
+                      <span style={{fontSize:12,color:"#1a2540",flex:1}}>{name}</span>
+                      <div style={{width:80,height:6,borderRadius:3,background:"#e2e8f0",overflow:"hidden"}}>
+                        <div style={{width:pct+"%",height:"100%",background:tc2.bg}}/>
+                      </div>
+                      <span style={{fontSize:11,fontWeight:700,color:"#64748b",minWidth:36,textAlign:"right"}}>{cnt} <span style={{fontWeight:400,color:"#94a3b8"}}>({pct}%)</span></span>
+                    </div>;
+                  })}
+                </>}
+              </div>}
+
+              {/* Per-user pick table */}
+              <div className="ac">
+                <p className="st" style={{marginBottom:10}}>USER PICKS — {selM.mn}: {selM.home} vs {selM.away}</p>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                    <thead>
+                      <tr style={{borderBottom:"2px solid #e2e8f0"}}>
+                        <th style={{textAlign:"left",padding:"6px 8px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Player</th>
+                        <th style={{textAlign:"center",padding:"6px 4px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Toss</th>
+                        <th style={{textAlign:"center",padding:"6px 4px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Winner</th>
+                        <th style={{textAlign:"center",padding:"6px 4px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>POTM</th>
+                        {selM.result&&<th style={{textAlign:"center",padding:"6px 4px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Pts</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {approvedUsers.map(u=>{
+                        const emk=ek(u.email);
+                        const p=getP(allPicks[emk]||{},selM.id);
+                        const isDouble=doubleMatch!=null&&Number(doubleMatch)===Number(selM.id);
+                        const mult=isDouble?2:1;
+                        let rowPts=0;
+                        let tossOk=false,winOk=false,motmOk=false;
+                        if(p&&selM.result){
+                          const tA=!isNR(selM.result.toss),wA=!isNR(selM.result.win),mA=!isNR(selM.result.motm);
+                          tossOk=tA&&p.toss===selM.result.toss;
+                          winOk=wA&&p.win===selM.result.win;
+                          motmOk=mA&&motmMatch(p.motm,selM.result.motm);
+                          let base=0;
+                          if(tossOk)base+=PTS.toss;if(winOk)base+=PTS.win;if(motmOk)base+=PTS.motm;
+                          const avail=[tA,wA,mA].filter(Boolean).length;
+                          const correct=[tossOk,winOk,motmOk].filter(Boolean).length;
+                          if(avail>0&&correct===avail)base+=PTS.streak;
+                          rowPts=base*mult;
+                        }
+                        const rowBg=p?selM.result?(rowPts>0?"#f0fdf4":"#fef9f9"):"#FFFBEB":"#fafafa";
+                        return<tr key={u.email} style={{borderBottom:"1px solid #f1f5f9",background:rowBg}}>
+                          <td style={{padding:"8px 8px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <Av name={u.name} sz={22}/>
+                              <div>
+                                <p style={{fontSize:12,fontWeight:600,color:"#1a2540",margin:0}}>{u.name}</p>
+                                {u.email===email&&<span style={{fontSize:9,color:"#1D428A",fontWeight:700}}>You</span>}
+                              </div>
+                            </div>
+                          </td>
+                          {p?<>
+                            <td style={{textAlign:"center",padding:"8px 4px"}}>
+                              <span style={{fontSize:11,fontWeight:700,color:selM.result?(tossOk?"#15803d":"#dc2626"):(TC[p.toss]?.bg||"#1a2540"),background:selM.result?(tossOk?"#f0fdf4":"#fef2f2"):"transparent",padding:"2px 6px",borderRadius:6}}>{p.toss}</span>
+                            </td>
+                            <td style={{textAlign:"center",padding:"8px 4px"}}>
+                              <span style={{fontSize:11,fontWeight:700,color:selM.result?(winOk?"#15803d":"#dc2626"):(TC[p.win]?.bg||"#1a2540"),background:selM.result?(winOk?"#f0fdf4":"#fef2f2"):"transparent",padding:"2px 6px",borderRadius:6}}>{p.win}</span>
+                            </td>
+                            <td style={{textAlign:"center",padding:"8px 4px",maxWidth:90}}>
+                              <span style={{fontSize:10,color:selM.result?(motmOk?"#15803d":"#dc2626"):"#475569",fontWeight:selM.result?700:400,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.motm?.split(" ").slice(-1)[0]||"—"}</span>
+                            </td>
+                            {selM.result&&<td style={{textAlign:"center",padding:"8px 4px"}}><span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span></td>}
+                          </>:<>
+                            <td colSpan={selM.result?4:3} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11}}>No pick</td>
+                          </>}
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Who has not picked */}
+                {(()=>{const noPick=approvedUsers.filter(u=>!getP(allPicks[ek(u.email)]||{},selM.id));return noPick.length>0&&!selM.result&&!isMatchLocked(selM,lockedMatches)?<div style={{marginTop:10,padding:"8px 10px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8}}><p style={{fontSize:10,fontWeight:700,color:"#991b1b",margin:"0 0 4px",textTransform:"uppercase"}}>⚠️ Yet to predict ({noPick.length})</p><p style={{fontSize:11,color:"#dc2626",margin:0}}>{noPick.map(u=>u.name).join(", ")}</p></div>:null;})()}
+              </div>
+            </>;
+          })()}
+        </div>;
+      })()}
 
       {/* ── RESULTS TAB ── */}
       {admTab==="results"&&<div>
