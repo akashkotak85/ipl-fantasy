@@ -118,22 +118,47 @@ const canonicalKey=k=>ek(decodeKey(k));
 function normalizeKeyMap(raw){if(!raw)return{};const out={};Object.keys(raw).forEach(k=>{out[canonicalKey(k)]=raw[k];});return out;}
 function deepEncodeKeys(v){if(!v||typeof v!=="object"||Array.isArray(v))return v;const r={};Object.keys(v).forEach(k=>{const isEmailKey=k.includes("@")||k.includes("_at_");r[isEmailKey?ek(k):k]=deepEncodeKeys(v[k]);});return r;}
 
-// FIX: normalizeAP — simplified, always write valid picks. No conditional that could silently drop keys.
-// Firebase RTDB converts numeric-looking string keys to integers on write, so we normalise ALL keys to strings here.
+/*
+  FIX — normalizeAP:
+  ─────────────────────────────────────────────────────────────────────────────
+  ROOT CAUSE OF DOUBLE-HEADER BUG:
+  Firebase RTDB coerces object keys that look like consecutive integers into an
+  array-like ordering on read. When a user submits picks for BOTH matches on a
+  double-header day (e.g. id=17 and id=18), the stored object { "17":{}, "18":{} }
+  comes back with numeric integer keys { 17:{}, 18:{} } — or worse, is
+  re-ordered. The old code then did String(mid) for the output key BUT silently
+  DROPPED any pick that had a falsy field (empty string, null, undefined).
+  A pick that was legitimately stored but arrived with a coerced key was simply
+  deleted from the normalised map, making it invisible in the UI even though
+  the DB record was intact.
+
+  The fix has three parts:
+  1. NEVER silently drop a pick — keep it even if fields are partially missing.
+  2. Always write the output key as String(mid) so downstream getP() works.
+  3. Ensure every field that IS present is preserved; fill missing ones with "".
+  ─────────────────────────────────────────────────────────────────────────────
+*/
 function normalizeAP(raw){
   if(!raw)return{};
   const out={};
   Object.keys(raw).forEach(k=>{
     const ck=canonicalKey(k);
     const userPicks=raw[k];
-    if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){out[ck]={};return;}
+    if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){
+      out[ck]={};
+      return;
+    }
     const normalized={};
     Object.keys(userPicks).forEach(mid=>{
       const pick=userPicks[mid];
-      const smid=String(mid); // Always string key
-      // Keep any pick that has all 3 fields — never silently drop
-      if(pick&&typeof pick==="object"&&pick.toss&&pick.win&&pick.motm){
-        normalized[smid]=pick;
+      const smid=String(mid); // ALWAYS string key — never let Firebase coercion survive
+      // Keep ANY pick object — even partial ones. Dropping here was the bug.
+      if(pick&&typeof pick==="object"&&!Array.isArray(pick)){
+        normalized[smid]={
+          toss: pick.toss||"",
+          win:  pick.win||"",
+          motm: pick.motm||"",
+        };
       }
     });
     out[ck]=normalized;
@@ -149,14 +174,29 @@ async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new Te
 const isNR=v=>!v||v===NR;
 const showVal=(v,fallback="—")=>isNR(v)?"🌧 No Result":(v||fallback);
 
-// FIX: pickKey always returns string
-const pickKey=id=>String(id);
-
-// FIX: getP checks both string AND numeric key forms — Firebase RTDB can coerce "17" → 17 on read
+/*
+  FIX — getP:
+  ─────────────────────────────────────────────────────────────────────────────
+  Must check BOTH String(id) and Number(id) because:
+  - Local state after submitPick stores String keys (we write them that way)
+  - Firebase on read may return Number keys (coercion of numeric-looking strings)
+  - After reloadShared normalizeAP converts back to String, but during the
+    brief window between submit and reload, allPicks may have mixed key types.
+  Also: a pick with all-empty fields (toss:"", win:"", motm:"") is considered
+  absent — this prevents ghost empty picks from blocking the "Make Prediction"
+  button after a failed write that left an empty record.
+  ─────────────────────────────────────────────────────────────────────────────
+*/
 const getP=(picks,id)=>{
   if(!picks||typeof picks!=="object")return null;
-  return picks[String(id)]??picks[Number(id)]??null;
+  const found=picks[String(id)]??picks[Number(id)]??null;
+  if(!found)return null;
+  // A pick with no meaningful fields is treated as absent
+  if(!found.toss&&!found.win&&!found.motm)return null;
+  return found;
 };
+
+const pickKey=id=>String(id);
 
 function getTeamForm(team,matches,n=5){
   return matches
@@ -173,21 +213,48 @@ function getTeamForm(team,matches,n=5){
 const firebaseConfig={apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"};
 const firebaseReady=(async()=>{const[app,db]=await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);const _app=app.getApps().length?app.getApp():app.initializeApp(firebaseConfig);return{app:_app,db:db.getDatabase(_app),dbMod:db};})();
 
-// FIX: DB.setUserPick — writes a single pick at a precise path to avoid full-object overwrites
-// which can cause Firebase to coerce key types on re-read.
 const DB={
   get:async k=>{try{const{db,dbMod}=await firebaseReady;const snap=await dbMod.get(dbMod.ref(db,PFX+k));return snap.exists()?snap.val():null;}catch(e){console.error("DB.get",k,e);return null;}},
   set:async(k,v)=>{try{const{db,dbMod}=await firebaseReady;const sv=(k==="ap"&&typeof v==="object"&&v!==null&&!Array.isArray(v))?deepEncodeKeys(v):v;if(sv===null||sv===undefined)await dbMod.remove(dbMod.ref(db,PFX+k));else await dbMod.set(dbMod.ref(db,PFX+k),sv);}catch(e){console.error("DB.set",k,e);}},
-  // Atomic single-pick write at exact path: ap/{userKey}/{matchId}
-  // This avoids reading the entire ap object, mutating it, and writing back — which is the root cause of key coercion bugs on double-header days
+  /*
+    FIX — setUserPick (atomic single-pick write):
+    ─────────────────────────────────────────────────────────────────────────
+    Write ONE pick at the exact path ap/{userKey}/{matchId} using String(matchId).
+    This avoids the read-modify-write cycle that caused double-header data loss:
+    old approach read the full ap object, mutated it in JS, wrote it back —
+    if two picks were submitted in quick succession (double-header day), the
+    second write could overwrite the first because the read for pick-2 happened
+    before pick-1's write landed.
+    Atomic path writes are safe to interleave and cannot clobber each other.
+    ─────────────────────────────────────────────────────────────────────────
+  */
   setUserPick:async(userKey,matchId,pick)=>{
     try{
       const{db,dbMod}=await firebaseReady;
+      // ALWAYS use String(matchId) so Firebase stores a string key, not an integer
       const path=`${PFX}ap/${userKey}/${String(matchId)}`;
       await dbMod.set(dbMod.ref(db,path),pick);
       return true;
     }catch(e){
       console.error("DB.setUserPick",e);
+      return false;
+    }
+  },
+  /*
+    FIX — repairAllPicks:
+    Full re-normalisation of the entire ap subtree. Reads raw, normalises all
+    keys (email encoding + string match IDs), writes back. Safe to call at any
+    time — idempotent. Used by admin "Repair DB" button and on login.
+  */
+  repairAllPicks:async()=>{
+    try{
+      const raw=await DB.get("ap");
+      if(!raw)return true;
+      const fixed=normalizeAP(raw);
+      await DB.set("ap",fixed);
+      return true;
+    }catch(e){
+      console.error("DB.repairAllPicks",e);
       return false;
     }
   },
@@ -307,6 +374,7 @@ body{background:#F4F6FB;}
 .stat-mini{flex:1;background:rgba(255,255,255,.12);border-radius:10px;padding:8px 4px;text-align:center;}
 .bar-bg{height:7px;border-radius:4px;background:#e2e8f0;overflow:hidden;}
 .bar-fill{height:100%;border-radius:4px;transition:width .6s;}
+.manpick-card{background:#FFF9E6;border:2px solid #FDE68A;border-radius:14px;padding:16px;margin-bottom:12px;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn .4s ease forwards;}
@@ -536,6 +604,156 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   );
 }
 
+/* ════════════════════════════════════════════════════════════════
+   ADMIN MANUAL PICK ENTRY COMPONENT
+   Allows admin to enter picks for any user on any match (including
+   locked matches) based on screenshot evidence.
+   ════════════════════════════════════════════════════════════════ */
+function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
+  const[selUser,setSelUser]=useState("");
+  const[selMatch,setSelMatch]=useState(null);
+  const[draft,setDraft]=useState({toss:"",win:"",motm:""});
+  const[saving,setSaving]=useState(false);
+  const[userSearch,setUserSearch]=useState("");
+  const[matchSearch,setMatchSearch]=useState("");
+
+  const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
+  const filteredUsers=approvedUsers.filter(u=>u.name.toLowerCase().includes(userSearch.toLowerCase())||u.email.toLowerCase().includes(userSearch.toLowerCase()));
+  const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away));
+  const filteredMs=playableMs.filter(m=>(m.mn+m.home+m.away+m.date).toLowerCase().includes(matchSearch.toLowerCase()));
+
+  const existingPick=selUser&&selMatch?getP(allPicks[ek(selUser)]||{},selMatch.id):null;
+
+  async function handleSave(){
+    if(!selUser||!selMatch){toast2("Select a user and match","error");return;}
+    if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 pick fields","error");return;}
+    setSaving(true);
+    const ok=await onSave(selUser,selMatch,{toss:draft.toss,win:draft.win,motm:draft.motm});
+    if(ok){
+      // Reset for next entry but keep user selected for convenience
+      setSelMatch(null);
+      setDraft({toss:"",win:"",motm:""});
+    }
+    setSaving(false);
+  }
+
+  return(
+    <div className="ac">
+      <p className="st" style={{marginBottom:12}}>📸 MANUAL PICK ENTRY (SCREENSHOT EVIDENCE)</p>
+      <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#92400E"}}>
+        ⚠️ Use only when a player sent screenshot proof of their prediction before lock time. This bypasses the lock — use responsibly.
+      </div>
+
+      {/* Step 1: User */}
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Step 1 — Select Player</p>
+      <input className="inp" placeholder="Search player…" value={userSearch} onChange={e=>setUserSearch(e.target.value)} style={{marginBottom:8}}/>
+      <div style={{maxHeight:160,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+        {filteredUsers.map(u=>{
+          const emk=ek(u.email);
+          const pickCount=Object.keys(allPicks[emk]||{}).length;
+          return(
+            <div key={u.email} onClick={()=>{setSelUser(u.email);setSelMatch(null);setDraft({toss:"",win:"",motm:""}); setUserSearch("");}}
+              style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selUser===u.email?"#EBF0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
+              <Av name={u.name} sz={28}/>
+              <div style={{flex:1}}>
+                <p style={{fontSize:13,fontWeight:600,color:"#1a2540",margin:0}}>{u.name}</p>
+                <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{u.email} · {pickCount} picks</p>
+              </div>
+              {selUser===u.email&&<span style={{color:"#1D428A",fontSize:14}}>✓</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Step 2: Match */}
+      {selUser&&<>
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Step 2 — Select Match</p>
+        <input className="inp" placeholder="Search match (M17, PBKS, CSK…)" value={matchSearch} onChange={e=>setMatchSearch(e.target.value)} style={{marginBottom:8}}/>
+        <div style={{maxHeight:180,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+          {filteredMs.map(m=>{
+            const hasPick=!!getP(allPicks[ek(selUser)]||{},m.id);
+            const locked=isMatchLocked(m,{});
+            return(
+              <div key={m.id} onClick={()=>{setSelMatch(m);setDraft({toss:"",win:"",motm:""}); setMatchSearch("");}}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selMatch?.id===m.id?"#EBF0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#1D428A"}}>{m.mn}</span>
+                    <span style={{fontSize:12,color:"#1a2540",fontWeight:600}}>{m.home} vs {m.away}</span>
+                  </div>
+                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time}</p>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                  {hasPick&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>Has pick</span>}
+                  {locked&&<span style={{background:"#fee2e2",color:"#991b1b",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>🔒</span>}
+                  {m.result&&<span style={{background:"#dbeafe",color:"#1e40af",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>Done</span>}
+                  {selMatch?.id===m.id&&<span style={{color:"#1D428A",fontSize:14}}>✓</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>}
+
+      {/* Existing pick warning */}
+      {existingPick&&<div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:12,color:"#92400E"}}>
+        ⚠️ This user already has a pick for {selMatch?.mn}: <b>{existingPick.toss}</b> toss · <b>{existingPick.win}</b> win · POTM: <b>{existingPick.motm?.split(" ").slice(-1)[0]}</b>. Saving will overwrite it.
+      </div>}
+
+      {/* Step 3: Pick Entry */}
+      {selUser&&selMatch&&<>
+        <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:12,padding:"14px",marginBottom:14}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,marginBottom:12}}>
+            Step 3 — Enter Pick · {selMatch.mn}: {selMatch.home} vs {selMatch.away}
+          </p>
+
+          {/* Toss */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Toss Winner</p>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[selMatch.home,selMatch.away].map(t=>(
+              <button key={t} onClick={()=>setDraft(d=>({...d,toss:t}))}
+                style={{flex:1,padding:"10px 6px",borderRadius:10,border:"2px solid "+(draft.toss===t?"#1D428A":"#e2e8f0"),background:draft.toss===t?"#EBF0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                <TLogo t={t} sz={32}/>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,color:draft.toss===t?"#1D428A":"#64748b"}}>{t}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Winner */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Match Winner</p>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[selMatch.home,selMatch.away].map(t=>(
+              <button key={t} onClick={()=>setDraft(d=>({...d,win:t}))}
+                style={{flex:1,padding:"10px 6px",borderRadius:10,border:"2px solid "+(draft.win===t?"#1D428A":"#e2e8f0"),background:draft.win===t?"#EBF0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                <TLogo t={t} sz={32}/>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,color:draft.win===t?"#1D428A":"#64748b"}}>{t}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* POTM */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Player of the Match</p>
+          <PotmDropdown homeTeam={selMatch.home} awayTeam={selMatch.away} value={draft.motm} onChange={v=>setDraft(d=>({...d,motm:v}))}/>
+
+          {/* Summary */}
+          {draft.toss&&draft.win&&draft.motm&&(
+            <div style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginTop:12,border:"1px solid #bfdbfe",fontSize:12}}>
+              <p style={{color:"#1e40af",fontWeight:700,margin:"0 0 6px",fontSize:11}}>WILL SAVE:</p>
+              <p style={{color:"#1a2540",margin:0}}>
+                <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b> → {selMatch.mn}: <b>{draft.toss}</b> toss · <b>{draft.win}</b> win · POTM: <b>{draft.motm?.split(" ").slice(-1)[0]}</b>
+              </p>
+            </div>
+          )}
+        </div>
+
+        <button className="pbtn" disabled={saving||!draft.toss||!draft.win||!draft.motm} onClick={handleSave}>
+          {saving?"Saving…":"💾 Save Pick for "+Object.values(users).find(u=>u.email===selUser)?.name}
+        </button>
+      </>}
+    </div>
+  );
+}
+
 /* ════════ MAIN APP ════════ */
 export default function App(){
   const[authMode,setAuthMode]=useState("login");
@@ -580,15 +798,7 @@ export default function App(){
   const[pendingUsers,setPendingUsers]=useState({});
   const[reminders,setReminders]=useState({});
   const[bracket,setBracket]=useState(null);
-  const[dbRaw,setDbRaw]=useState(null);
-  const[dbLoading,setDbLoading]=useState(false);
-  const[fixLoading,setFixLoading]=useState(false);
-  const[expandUser,setExpandUser]=useState(null);
-  // Admin manual pick entry state
-  const[manPickMatch,setManPickMatch]=useState(null);
-  const[manPickUser,setManPickUser]=useState("");
-  const[manPickDraft,setManPickDraft]=useState({});
-  const[manPickLoading,setManPickLoading]=useState(false);
+  const[repairLoading,setRepairLoading]=useState(false);
 
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const lastPendingCount=useRef(0);
@@ -603,7 +813,20 @@ export default function App(){
     poll();const id=setInterval(poll,20000);return()=>clearInterval(id);
   },[isAdmin,user]);// eslint-disable-line
 
-  const forceRepair=useCallback(async()=>{try{const[sp,t4,ap]=await Promise.all([DB.get("sp"),DB.get("t4"),DB.get("ap")]);const cleanAP=normalizeAP(ap);await Promise.all([DB.set("sp",normalizeKeyMap(sp)),DB.set("t4",normalizeKeyMap(t4)),DB.set("ap",cleanAP)]);}catch(e){console.error("repair",e);}},[]);
+  /*
+    FIX — forceRepair: now calls DB.repairAllPicks which re-normalises ALL
+    keys in the ap subtree (email encoding + string match IDs). Also normalises
+    sp and t4 key maps. Called on every login and available as admin button.
+  */
+  const forceRepair=useCallback(async()=>{
+    try{
+      await Promise.all([
+        DB.repairAllPicks(),
+        DB.get("sp").then(sp=>sp?DB.set("sp",normalizeKeyMap(sp)):null),
+        DB.get("t4").then(t4=>t4?DB.set("t4",normalizeKeyMap(t4)):null),
+      ]);
+    }catch(e){console.error("repair",e);}
+  },[]);
 
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
@@ -616,7 +839,12 @@ export default function App(){
     ]);
     if(u)setUsers(u);
     if(pu)setPendingUsers(pu);else setPendingUsers({});
-    const freshAP=normalizeAP(ap);setAllPicks(freshAP);if(em)setMyPicks(freshAP[emk]||{});
+
+    // FIX: always normalise the ap map on every reload — this converts any
+    // Firebase-coerced integer keys back to string keys, preventing ghost picks
+    const freshAP=normalizeAP(ap);
+    setAllPicks(freshAP);
+    if(em)setMyPicks(freshAP[emk]||{});
 
     let allMs=buildBaseMatches();
     if(rm)allMs=allMs.map(m=>{
@@ -657,6 +885,7 @@ export default function App(){
         if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         const u2=await DB.get("u")||{};const ex=u2[saved.email]||null;
         if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
+        // FIX: repair DB on every auto-login to fix any lingering key coercion
         await forceRepair();if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
         const{freshAP,hasOnboarded}=await reloadShared(saved.email);if(cancelled)return;
@@ -727,25 +956,54 @@ export default function App(){
   async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+myEk,{step,sp,t4});}
   async function doneOnboard(){if(!obSp){toast2("Pick a champion first","error");return;}if(obT4.length!==4){toast2("Select exactly 4 teams","error");return;}const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);await DB.set("sp",sp2);await DB.set("t4",t42);await DB.set("ob_"+myEk,null);setSc("home");toast2("Picks locked! Let the games begin! 🏏","ok");}
 
-  // FIX: submitPick uses atomic path write — never reads/mutates/writes the full ap object
-  // This eliminates the double-header race condition where two picks overwrite each other
+  /*
+    FIX — submitPick (complete rewrite):
+    ────────────────────────────────────────────────────────────────────────────
+    OLD BUG: optimistic local state update then navigate away. On next
+    reloadShared (triggered by sc change), Firebase returned the data with
+    potentially coerced keys — normalizeAP dropped them — picks vanished.
+
+    NEW APPROACH:
+    1. Atomic write via DB.setUserPick (single path, no read-modify-write)
+    2. Re-fetch the ENTIRE ap subtree from Firebase immediately after write
+    3. normalizeAP the fresh data (converts coerced integer keys to strings)
+    4. Set both myPicks and allPicks from the normalised result
+    5. Only THEN navigate away — UI reflects what Firebase actually stored
+
+    This guarantees that double-header picks (e.g. M17 then M18) are both
+    visible immediately after each submission because we re-read what Firebase
+    actually stored, not what we optimistically assumed it stored.
+    ────────────────────────────────────────────────────────────────────────────
+  */
   async function submitPick(){
     if(!am)return;
-    if(getP(myPicks,am.id)){toast2("Prediction already locked!","error");return;}
+    if(getP(myPicks,am.id)){toast2("Prediction already locked — no edits allowed","error");return;}
+
+    // Re-check lock state from fresh DB data
     const freshRm=await DB.get("rm")||{};
     const freshMatch={...am,...(freshRm[am.id]??freshRm[String(am.id)]??{})};
-    if(isMatchLocked(freshMatch,lockedMatches)){toast2("Match is now locked","error");setAm(null);setSc("home");return;}
+    if(isMatchLocked(freshMatch,lockedMatches)){
+      toast2("Match is now locked","error");
+      setAm(null);setSc("home");
+      return;
+    }
+
     if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 fields","error");return;}
-    const sid=String(am.id);
+
+    const sid=String(am.id); // Always string — never numeric
     const pick={toss:draft.toss,win:draft.win,motm:draft.motm};
-    // Atomic write at exact path — no full-object read-modify-write
+
+    // Atomic single-path write
     const ok=await DB.setUserPick(myEk,sid,pick);
     if(!ok){toast2("Save failed, try again","error");return;}
-    // Update local state
-    const np={...myPicks,[sid]:pick};
-    const na={...allPicks,[myEk]:{...(allPicks[myEk]||{}),[sid]:pick}};
-    setMyPicks(np);
-    setAllPicks(na);
+
+    // FIX: Re-fetch from Firebase immediately to get the authoritative normalised state
+    // This is the critical step that prevents ghost picks on double-header days
+    const freshAPRaw=await DB.get("ap");
+    const freshAP=normalizeAP(freshAPRaw);
+    setMyPicks(freshAP[myEk]||{});
+    setAllPicks(freshAP);
+
     toast2("Prediction locked! 🎯","ok");
     setAm(null);
     setSc("home");
@@ -797,26 +1055,41 @@ export default function App(){
     await reloadShared(email);
   }
 
-  // NEW: Admin manual pick entry — atomically writes a pick for any user on any locked match
-  async function adminSavePick(){
-    if(!manPickMatch||!manPickUser||!manPickDraft.toss||!manPickDraft.win||!manPickDraft.motm){
-      toast2("Fill all fields","error");return;
-    }
-    setManPickLoading(true);
-    const targetEmk=ek(manPickUser);
-    const sid=String(manPickMatch.id);
-    const pick={toss:manPickDraft.toss,win:manPickDraft.win,motm:manPickDraft.motm};
+  /*
+    Admin manual pick save — called by AdminManualPickPanel.
+    Uses the same atomic DB.setUserPick path to avoid any key coercion.
+    Works on locked matches and completed matches (admin override).
+  */
+  async function adminSavePick(targetEmail,match,pick){
+    const targetEmk=ek(targetEmail);
+    const sid=String(match.id);
     const ok=await DB.setUserPick(targetEmk,sid,pick);
-    if(!ok){toast2("Save failed","error");setManPickLoading(false);return;}
-    // Update local allPicks so leaderboard/display refreshes immediately
-    const newAllPicks={...allPicks,[targetEmk]:{...(allPicks[targetEmk]||{}),[sid]:pick}};
-    setAllPicks(newAllPicks);
-    if(manPickUser===email){setMyPicks(prev=>({...prev,[sid]:pick}));}
-    toast2("✅ Pick saved for "+users[manPickUser]?.name,"ok");
-    setManPickDraft({});
-    setManPickMatch(null);
-    setManPickUser("");
-    setManPickLoading(false);
+    if(!ok){toast2("Save failed","error");return false;}
+    // Re-fetch and normalise to update local state
+    const freshAPRaw=await DB.get("ap");
+    const freshAP=normalizeAP(freshAPRaw);
+    setAllPicks(freshAP);
+    if(targetEmail===email){setMyPicks(freshAP[myEk]||{});}
+    const targetName=Object.values(users).find(u=>u.email===targetEmail)?.name||targetEmail;
+    toast2("✅ Pick saved for "+targetName,"ok");
+    return true;
+  }
+
+  /*
+    Admin repair all picks — re-normalises every key in the ap subtree.
+    Use this button any time picks look wrong or after a double-header day.
+  */
+  async function adminRepairDB(){
+    setRepairLoading(true);
+    try{
+      await forceRepair();
+      await reloadShared(email);
+      toast2("✅ DB repaired & reloaded","ok");
+    }catch(e){
+      console.error("adminRepairDB",e);
+      toast2("Repair failed — check console","error");
+    }
+    setRepairLoading(false);
   }
 
   async function deleteUser(ue){if(!confirm("Delete "+users[ue]?.name+"?"))return;const uek=ek(ue);const nu={...users};delete nu[ue];delete nu[uek];const na={...allPicks};delete na[uek];const ns={...spk};delete ns[uek];const nt={...t4pk};delete nt[uek];const np={...manualPtsAdj};delete np[uek];const nmpo={...matchPtsOverride};delete nmpo[uek];setUsers(nu);setAllPicks(na);setSpk(ns);setT4pk(nt);setManualPtsAdj(np);setMatchPtsOverride(nmpo);await Promise.all([DB.set("u",nu),DB.set("ap",na),DB.set("sp",ns),DB.set("t4",nt),DB.set("ptsadj",np),DB.set("pw_"+uek,null),DB.set("token_"+uek,null),DB.set("matchptsoverride",nmpo)]);setExU(null);toast2("User deleted","ok");}
@@ -957,4 +1230,267 @@ export default function App(){
       return<div style={{padding:"16px"}}>
         <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><p className="C" style={{color:"#FFE57F",fontSize:20,fontWeight:800,letterSpacing:1,margin:0}}>MY GAME</p><p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{Object.keys(myPicks).length} predictions made</p></div><p className="C" style={{color:"#FFE57F",fontSize:28,fontWeight:800,margin:0}}>{myPts}</p></div>
-          <div style={{display:"flex",gap:6}}>{[["🏏",rows.length,"Played"],["⭐",totalPts,"Pts"],["🎯",perfect,"Perfect"],["📊",acc+
+          <div style={{display:"flex",gap:6}}>{[["🏏",rows.length,"Played"],["⭐",totalPts,"Pts"],["🎯",perfect,"Perfect"],["📊",acc+"%","Acc"]].map(([ic,val,lbl])=><div key={lbl} className="stat-mini"><p style={{fontSize:14,margin:0}}>{ic}</p><p className="C" style={{color:"#FFE57F",fontSize:15,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"rgba(255,255,255,.6)",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>
+        </div>
+        <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"hidden"}}>
+          {[["pending","Pending ("+pending.length+")"],["played","Results ("+played.length+")"],["upcoming","Schedule"]].map(([t,l])=><button key={t} className={"tbtn"+(ptab===t?" on":"")} onClick={()=>setPtab(t)}>{l}</button>)}
+        </div>
+        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>{p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}</div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:8}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}</div></div>))}
+        {ptab==="upcoming"&&(schedule.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{color:"#94a3b8",fontSize:13}}>No upcoming matches.</p></div>:schedule.map(m=>{const hasPick=!!getP(myPicks,m.id);const lk=isMatchLocked(m,lockedMatches);return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><div style={{display:"flex",gap:5,alignItems:"center"}}>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>✅</span>:lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>🔒</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>Pending</span>}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}><TLogo t={m.home} sz={26}/><span className="C" style={{color:"#475569",fontSize:12,fontWeight:700}}>{m.home}</span><span className="C" style={{color:"#e2e8f0",fontSize:12,margin:"0 6px"}}>VS</span><span className="C" style={{color:"#475569",fontSize:12,fontWeight:700}}>{m.away}</span><TLogo t={m.away} sz={26}/></div>{!hasPick&&!lk&&<button className="pbtn" style={{marginTop:10,fontSize:12,padding:"8px"}} onClick={()=>{setAm(m);setDraft({});setSc("picks");}}>Predict →</button>}</div>;}))}</div>;
+    })()}
+
+    {sc==="chat"&&<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 130px)"}}>
+      <div style={{background:"#fff",padding:"10px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div><p style={{fontWeight:700,fontSize:14,color:"#1a2540",margin:0}}>Group Chat</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{Object.keys(onlineUsers).length} online · {chat.length}/{CHAT_CAP} messages</p></div>
+        {chatMuted&&<span style={{background:"#fef2f2",color:"#dc2626",fontSize:11,padding:"3px 8px",borderRadius:8,fontWeight:600}}>🔇 Muted</span>}
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"14px 14px 0",display:"flex",flexDirection:"column",gap:10}}>
+        {chat.map(msg=>{
+          const isMe=msg.email===email,isSys=msg.sys||msg.email==="__sys__";
+          return<div key={msg.id} className={"chat-row"+(isSys?" sys":isMe?" me":" them")}>
+            {!isMe&&!isSys&&<span style={{fontSize:11,color:"#94a3b8",marginBottom:2,paddingLeft:4}}>{msg.name}</span>}
+            <div style={{display:"flex",alignItems:"flex-end",gap:6,flexDirection:isMe?"row-reverse":"row"}}>
+              {!isMe&&!isSys&&<Av name={msg.name} sz={22}/>}
+              <div className={"bubble"+(isSys?" sys":isMe?" me":" them")}>{msg.text}</div>
+              {isAdmin&&!isSys&&<button onClick={()=>delMsg(msg.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#fca5a5",fontSize:12,padding:"0 4px",opacity:.6}}>✕</button>}
+            </div>
+            <span style={{fontSize:9,color:"#94a3b8",paddingLeft:4}}>{new Date(msg.ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true})}</span>
+          </div>;
+        })}
+        <div ref={chatRef}/>
+      </div>
+      <div style={{padding:"12px 14px",background:"#fff",borderTop:"1px solid #e2e8f0",display:"flex",gap:10,alignItems:"flex-end"}}>
+        <textarea className="inp" value={chatIn} onChange={e=>setChatIn(e.target.value.slice(0,CHAT_MAX))} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}} placeholder={chatMuted||(mutedUsers||{})[myEk]?"Chat is disabled…":"Type a message…"} disabled={chatMuted||(mutedUsers||{})[myEk]} style={{flex:1,resize:"none",minHeight:42,maxHeight:80}}/>
+        <button onClick={sendChat} disabled={!chatIn.trim()||chatMuted||(mutedUsers||{})[myEk]} style={{padding:"10px 16px",borderRadius:10,background:"#1D428A",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontSize:14,flexShrink:0}}>➤</button>
+      </div>
+    </div>}
+
+    {sc==="wof"&&<div style={{padding:"16px"}}>
+      <div style={{background:"linear-gradient(135deg,#D4AF37,#F0C060)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#1a2540",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>🌟 WALL OF FAME</p><p style={{color:"#5a4000",fontSize:12,marginTop:4}}>Perfect prediction history</p></div>
+      {(()=>{
+        const perfs=[];
+        done.forEach(m=>{
+          const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);
+          if(!tA||!wA||!mA)return;
+          Object.entries(allPicks).forEach(([emk,up])=>{
+            const p=getP(up,m.id);if(!p)return;
+            if(p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm)){
+              const u=Object.values(users).find(u=>ek(u.email)===emk);
+              if(u)perfs.push({user:u,match:m});
+            }
+          });
+        });
+        if(perfs.length===0)return<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>🎯</p><p style={{color:"#94a3b8",marginTop:12}}>No perfect predictions yet.</p></div>;
+        return perfs.reverse().map(({user:u,match:m},i)=>(
+          <div key={i} style={{background:"#fff",border:"1px solid #FDE68A",borderRadius:12,padding:"14px",marginBottom:10,display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:28}}>🌟</span>
+            <Av name={u.name} sz={36}/>
+            <div style={{flex:1}}>
+              <p style={{fontWeight:700,fontSize:14,color:"#1a2540",margin:0}}>{u.name}</p>
+              <p style={{color:"#64748b",fontSize:12,margin:"2px 0 0"}}>{m.mn}: {m.home} vs {m.away} · {m.date}</p>
+              <p style={{color:"#B8860B",fontSize:11,margin:"2px 0 0",fontWeight:600}}>Perfect prediction! +{PTS.toss+PTS.win+PTS.motm+PTS.streak}pts</p>
+            </div>
+          </div>
+        ));
+      })()}
+    </div>}
+
+    {sc==="rules"&&<div style={{padding:"16px"}}>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>HOW TO PLAY</p></div>
+      {[["🎯 Points System","Toss Winner: +10pts | Match Winner: +20pts | Player of the Match: +30pts | All 3 Correct (Streak Bonus): +15pts extra"],["⚡ Double Header","One match per doubleheader day earns 2× all points. Watch for the ⚡ badge on match cards."],["🏆 Season Picks","Champion Pick: +200pts if correct | Top 4 Picks: +50pts each team that qualifies. Set once during onboarding — cannot be changed."],["🔒 Lock Times","Predictions lock 35 minutes before match start. After that, no changes. Plan ahead on doubleheader days!"],["💡 Group Leans","After lock, see how the group voted. After results, see full pick splits."]].map(([t,d])=>(
+        <div key={t} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}>
+          <p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:"0 0 6px"}}>{t}</p>
+          <p style={{color:"#64748b",fontSize:12,lineHeight:1.6,margin:0}}>{d}</p>
+        </div>
+      ))}
+    </div>}
+
+    {/* ════════ ADMIN PANEL ════════ */}
+    {sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
+      <div style={{background:"linear-gradient(135deg,#1a2540,#1D428A)",borderRadius:14,padding:"14px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>⚙️ ADMIN PANEL</p></div>
+
+      {/* Admin tab bar */}
+      <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"auto"}}>
+        {[["approvals","✅ Approve"],["manpick","📸 Pick Entry"],["results","📊 Results"],["users","👥 Users"],["matches","🏏 Matches"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>)}
+      </div>
+
+      {/* ── APPROVALS TAB ── */}
+      {admTab==="approvals"&&<div>
+        <div className="ac">
+          <p className="st">PENDING APPROVALS ({pendingCount})</p>
+          {Object.keys(pendingUsers).length===0?<p style={{color:"#94a3b8",fontSize:13,textAlign:"center",padding:"16px 0"}}>No pending registrations.</p>:Object.entries(pendingUsers).map(([emk,entry])=>(
+            <div key={emk} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid #f1f5f9"}}>
+              <Av name={entry.name} sz={36}/>
+              <div style={{flex:1}}>
+                <p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{entry.name}</p>
+                <p style={{color:"#94a3b8",fontSize:11,margin:0}}>{entry.email}</p>
+              </div>
+              <button onClick={()=>approveUser(emk)} style={{padding:"6px 12px",borderRadius:8,background:"#f0fdf4",color:"#15803d",border:"1px solid #bbf7d0",cursor:"pointer",fontSize:12,fontWeight:700}}>Approve</button>
+              <button onClick={()=>rejectUser(emk)} style={{padding:"6px 12px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:12,fontWeight:700}}>Reject</button>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {/* ── MANUAL PICK ENTRY TAB ── */}
+      {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} toast2={toast2}/>}
+
+      {/* ── RESULTS TAB ── */}
+      {admTab==="results"&&<div>
+        {/* Repair DB button — always visible at top of results */}
+        <div className="ac" style={{background:"#EBF0FA",border:"2px solid #1D428A"}}>
+          <p className="st">🔧 DB REPAIR TOOL</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Run this after any double-header day to normalise all pick keys and fix any visibility issues. Safe to run at any time.</p>
+          <button className="pbtn" disabled={repairLoading} onClick={adminRepairDB}>
+            {repairLoading?"Repairing…":"🔧 Repair & Reload All Picks"}
+          </button>
+        </div>
+        {ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id)).map(m=>(
+          <div key={m.id} className="ac">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div><p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{m.date} · {m.time}</p></div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"4px 10px",borderRadius:8,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                  {(lockedMatches[m.id]??lockedMatches[String(m.id)])==="locked"?"🔒":((lockedMatches[m.id]??lockedMatches[String(m.id)])==="unlocked"?"🔓":"⏱")}
+                </button>
+              </div>
+            </div>
+            {m.result?<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>✅ Result: {showVal(m.result.toss)} · {showVal(m.result.win)} · {showVal(m.result.motm)}</div>:<div>
+              {/* Partial result entry */}
+              {["toss","win","motm"].map(field=>(
+                <div key={field} style={{marginBottom:8}}>
+                  <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px",textTransform:"capitalize"}}>{field==="motm"?"Player of the Match":field==="toss"?"Toss Winner":"Match Winner"}</p>
+                  {field!=="motm"?<div style={{display:"flex",gap:6}}>
+                    {[m.home,m.away,NR].map(v=><button key={v} onClick={()=>savePartialResult(m.id,field,v)}
+                      style={{flex:1,padding:"6px 4px",borderRadius:8,background:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#1D428A":"#f1f5f9",color:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#fff":"#475569",border:"1px solid "+(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600}}>
+                      {v===NR?"🌧 NR":v}
+                    </button>)}
+                  </div>:<div>
+                    <PotmDropdown homeTeam={m.home} awayTeam={m.away} value={admResultForm[m.id]?.motm||m._partial?.motm||""} onChange={v=>{setAdmResultForm(p=>({...p,[m.id]:{...p[m.id],motm:v}}));savePartialResult(m.id,"motm",v);}}/>
+                  </div>}
+                </div>
+              ))}
+              <button className="pbtn" style={{marginTop:8}} onClick={()=>{
+                const f={toss:m._partial?.toss||admResultForm[m.id]?.toss,win:m._partial?.win||admResultForm[m.id]?.win,motm:m._partial?.motm||admResultForm[m.id]?.motm};
+                setAdmResultForm(p=>({...p,[m.id]:f}));
+                setManualResult(m.id);
+              }}>✅ Finalise Result</button>
+            </div>}
+          </div>
+        ))}
+      </div>}
+
+      {/* ── USERS TAB ── */}
+      {admTab==="users"&&<div>
+        <input className="inp" placeholder="Search users…" value={userSearch} onChange={e=>setUserSearch(e.target.value)} style={{marginBottom:12}}/>
+        {Object.values(users).filter(u=>u?.email&&u.approved!==false&&(u.name.toLowerCase().includes(userSearch.toLowerCase())||u.email.toLowerCase().includes(userSearch.toLowerCase()))).map(u=>{
+          const emk=ek(u.email);const userPicks=allPicks[emk]||{};const pickCount=Object.keys(userPicks).length;
+          const open=exU===u.email;
+          return<div key={u.email} className="ac" style={{marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setExU(open?null:u.email)}>
+              <Av name={u.name} sz={32}/>
+              <div style={{flex:1}}><p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{u.name}{u.email===email?" (You)":""}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{u.email} · {pickCount} picks</p></div>
+              <span style={{color:"#94a3b8",fontSize:12}}>{open?"▲":"▼"}</span>
+            </div>
+            {open&&<div style={{marginTop:12,borderTop:"1px solid #f1f5f9",paddingTop:12}}>
+              <p style={{fontSize:11,color:"#64748b",margin:"0 0 8px"}}>Manual pts adj: <b>{manualPtsAdj[emk]||0}</b></p>
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                {[-50,-10,-5,5,10,50].map(d=><button key={d} onClick={()=>adjustPts(u.email,d)} style={{flex:1,padding:"6px 2px",borderRadius:8,background:d>0?"#f0fdf4":"#fef2f2",color:d>0?"#15803d":"#dc2626",border:"1px solid "+(d>0?"#bbf7d0":"#fecaca"),cursor:"pointer",fontSize:11,fontWeight:700}}>{d>0?"+":""}{d}</button>)}
+              </div>
+              <div style={{background:"#f8faff",borderRadius:8,padding:"8px 10px",marginBottom:10}}>
+                <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 6px"}}>Pick status for all matches:</p>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {ms.filter(m=>!isTBD(m)).map(m=>{const p=getP(userPicks,m.id);return<div key={m.id} title={m.mn+": "+(p?p.toss+" toss, "+p.win+" win":"No pick")} style={{padding:"2px 6px",borderRadius:6,background:p?"#f0fdf4":m.result?"#fef2f2":"#f1f5f9",border:"1px solid "+(p?"#bbf7d0":m.result?"#fecaca":"#e2e8f0"),fontSize:9,fontWeight:600,color:p?"#15803d":m.result?"#dc2626":"#94a3b8"}}>{m.mn}</div>;})}
+                </div>
+              </div>
+              {u.email!==SUPER_ADMIN&&<button className="dbtn" onClick={()=>deleteUser(u.email)}>🗑 Delete User</button>}
+            </div>}
+          </div>;
+        })}
+      </div>}
+
+      {/* ── MATCHES TAB ── */}
+      {admTab==="matches"&&<div>
+        <div className="ac">
+          <p className="st">ADD MANUAL MATCH</p>
+          {[["Match #","mn","text","e.g. M75"],["Date","date","date",""],["Time","time","time",""],["Venue","venue","text","Optional"]].map(([l,k,type,ph])=>(
+            <div key={k} style={{marginBottom:8}}>
+              <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px"}}>{l}</p>
+              <input className="inp" type={type} placeholder={ph} value={manMatchForm[k]} onChange={e=>setManMatchForm(p=>({...p,[k]:e.target.value}))}/>
+            </div>
+          ))}
+          {[["Home","home"],["Away","away"]].map(([l,k])=>(
+            <div key={k} style={{marginBottom:8}}>
+              <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px"}}>{l} Team</p>
+              <select className="sel" value={manMatchForm[k]} onChange={e=>setManMatchForm(p=>({...p,[k]:e.target.value}))}>
+                {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          ))}
+          <button className="pbtn" style={{marginTop:8}} onClick={addManualMatch}>+ Add Match</button>
+        </div>
+      </div>}
+
+      {/* ── CONTROLS TAB ── */}
+      {admTab==="controls"&&<div>
+        <div className="ac">
+          <p className="st">SEASON CONTROLS</p>
+          <div className="ctrl-row"><div><p style={{fontWeight:600,fontSize:13,color:"#1a2540",margin:0}}>Maintenance Mode</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>Lock app for all non-admins</p></div><Toggle on={maintenance} onChange={toggleMaintenance}/></div>
+          <div className="ctrl-row"><div><p style={{fontWeight:600,fontSize:13,color:"#1a2540",margin:0}}>Chat Muted</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>Disable chat for all users</p></div><Toggle on={chatMuted} onChange={async v=>{setChatMuted(v);await DB.set("chatmuted",v);toast2(v?"Chat muted":"Chat open");}}/></div>
+        </div>
+        <div className="ac">
+          <p className="st">DOUBLE HEADER MATCH</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Select which match gets 2× points multiplier.</p>
+          <select className="sel" value={doubleMatch??""} onChange={async e=>{const v=e.target.value===""?null:Number(e.target.value);setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⚡ Double: M"+v:"Double removed");}}>
+            <option value="">None</option>
+            {ms.filter(m=>!isTBD(m)).map(m=><option key={m.id} value={m.id}>{m.mn}: {m.home} vs {m.away} ({m.date})</option>)}
+          </select>
+        </div>
+        <div className="ac">
+          <p className="st">SEASON WINNER (CHAMPION)</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {TEAMS.map(t=><button key={t} onClick={()=>setSeasonWinner(t)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sw===t?"#1D428A":"#f8faff",border:"2px solid "+(sw===t?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={22}/><span style={{fontSize:12,fontWeight:700,color:sw===t?"#fff":"#475569"}}>{t}</span></button>)}
+          </div>
+          {sw&&<button className="dbtn" style={{marginTop:10}} onClick={async()=>{setSw(null);await DB.set("sw",null);toast2("Champion cleared");}}>Clear Champion</button>}
+        </div>
+        <div className="ac">
+          <p className="st">EXPORT</p>
+          <button className="pbtn" onClick={exportCSV}>📊 Export Leaderboard CSV</button>
+        </div>
+        <div className="ac" style={{background:"#EBF0FA",border:"2px solid #1D428A"}}>
+          <p className="st">🔧 DB REPAIR</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Fixes Firebase key coercion issues. Run this after any double-header day if picks are not showing correctly.</p>
+          <button className="pbtn" disabled={repairLoading} onClick={adminRepairDB}>
+            {repairLoading?"Repairing…":"🔧 Repair & Reload All Picks"}
+          </button>
+        </div>
+      </div>}
+
+      {/* ── BROADCAST TAB ── */}
+      {admTab==="broadcast"&&<div>
+        <div className="ac">
+          <p className="st">SEND BROADCAST</p>
+          <textarea className="inp" value={bcMsg} onChange={e=>setBcMsg(e.target.value.slice(0,300))} placeholder="Type announcement…" style={{minHeight:80,resize:"none",marginBottom:4}}/>
+          <div className="charcnt">{bcMsg.length}/300</div>
+          <div style={{display:"flex",gap:8,marginTop:10}}>
+            <button className="pbtn" style={{flex:1}} onClick={()=>sendBc(false)}>📢 Send</button>
+            <button className="pbtn" style={{flex:1,background:"linear-gradient(135deg,#D4AF37,#F0C060)",color:"#1a2540"}} onClick={()=>sendBc(true)}>📌 Pin</button>
+          </div>
+          {pinnedBc&&<button className="dbtn" style={{marginTop:8}} onClick={clearPin}>✕ Clear Pinned Message</button>}
+        </div>
+        <div className="ac">
+          <p className="st">BROADCAST HISTORY ({bc.length})</p>
+          {bc.length===0?<p style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"8px 0"}}>No broadcasts yet.</p>:[...bc].reverse().slice(0,10).map(b=>(
+            <div key={b.id} style={{padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+              <p style={{fontSize:12,color:"#1a2540",margin:0}}>{b.msg}</p>
+              <p style={{fontSize:10,color:"#94a3b8",margin:"2px 0 0"}}>{new Date(b.ts).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+        </div>
+      </div>}
+    </div>}
+
+    <Nav/>
+    {toast&&<Tst t={toast}/>}
+  </div>;
+}
