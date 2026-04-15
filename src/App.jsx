@@ -731,17 +731,16 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         </div>
       )}
 
-      {/* ── BONUS QUESTION ── */}
+      {/* ── BONUS QUESTION (read-only — answered in prediction screen) ── */}
       {!isTBD(m)&&BONUS_QUESTIONS[m.id]&&(()=>{
         const bq=BONUS_QUESTIONS[m.id];
-        const bonusAns=bonusAnswers?.[String(m.id)]??bonusAnswers?.[Number(m.id)];
+        const bonusAns2=bonusAnswers?.[String(m.id)]??bonusAnswers?.[Number(m.id)];
         const myAns=myBonusPicks?.[String(m.id)];
-        const canAnswer=!lk&&myAns==null&&onBonusPick;
         const ae2=Object.entries(allBonusPicks||{});
         const yesCount=ae2.filter(([,bp])=>bp[String(m.id)]===true).length;
         const noCount=ae2.filter(([,bp])=>bp[String(m.id)]===false).length;
         const tot2=yesCount+noCount;
-        const bqPts=m.result&&bonusAns!=null&&myAns!=null?(myAns===bonusAns?PTS.bonus:0):null;
+        const bqPts=m.result&&bonusAns2!=null&&myAns!=null?(myAns===bonusAns2?PTS.bonus:0):null;
         return<div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
             <span style={{fontSize:12}}>❓</span>
@@ -749,15 +748,13 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
             {bqPts!==null&&<span style={{marginLeft:"auto",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,color:bqPts>0?"#15803d":"#dc2626"}}>+{bqPts}pts</span>}
           </div>
           <p style={{fontSize:12,color:"#1a2540",fontWeight:600,margin:"0 0 8px",lineHeight:1.4}}>{bq}</p>
-          {canAnswer&&<div style={{display:"flex",gap:8}}>
-            <button className="bq-btn yes" onClick={()=>onBonusPick(m.id,true)}>✅ Yes</button>
-            <button className="bq-btn no" onClick={()=>onBonusPick(m.id,false)}>❌ No</button>
-          </div>}
-          {!canAnswer&&myAns!=null&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <span className={"bq-btn "+(myAns?"yes":"no")+" on"} style={{display:"inline-block",textAlign:"center"}}>{myAns?"✅ You said Yes":"❌ You said No"}</span>
-            {bonusAns!=null&&<span style={{fontSize:11,color:bqPts??"0">0?"#15803d":"#94a3b8",fontWeight:700}}>{bonusAns?"Correct: Yes":"Correct: No"}{bqPts!==null?" · "+(bqPts>0?"✓ +"+bqPts+"pts":"✗ 0pts"):""}</span>}
-          </div>}
-          {!canAnswer&&myAns==null&&!m.result&&lk&&<p style={{fontSize:11,color:"#94a3b8",margin:0}}>Locked — prediction window closed</p>}
+          {myAns!=null
+            ?<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <span className={"bq-btn "+(myAns?"yes":"no")+" on"} style={{display:"inline-block",textAlign:"center",padding:"6px 14px",fontSize:12}}>{myAns?"✅ Yes":"❌ No"}</span>
+                {bonusAns2!=null&&<span style={{fontSize:11,color:bqPts>0?"#15803d":"#dc2626",fontWeight:700}}>{bonusAns2?"Correct: Yes":"Correct: No"}{bqPts!==null?" · "+(bqPts>0?"✓ +"+bqPts+"pts":"✗ 0pts"):""}</span>}
+              </div>
+            :<p style={{fontSize:11,color:"#94a3b8",margin:0,fontStyle:"italic"}}>{lk?"Answered in your prediction":"Answer this inside Make Prediction →"}</p>
+          }
           {tot2>0&&lk&&<p style={{fontSize:10,color:"#94a3b8",margin:"6px 0 0"}}>Group: {yesCount} Yes · {noCount} No</p>}
         </div>;
       })()}
@@ -1580,7 +1577,8 @@ export default function App(){
       return;
     }
 
-    if(!draft.toss||!draft.win||!draft.motm||!draft.sb){toast2("Fill all 4 fields including the score band","error");return;}
+    if(!draft.toss||!draft.win||!draft.motm||!draft.sb){toast2("Fill all 4 prediction fields","error");return;}
+    if(BONUS_QUESTIONS[am.id]&&draft.bqAns===null){toast2("Answer the bonus question too","error");return;}
 
     const sid=String(am.id); // Always string — never numeric
     const pick={toss:draft.toss,win:draft.win,motm:draft.motm,sb:draft.sb||""};
@@ -1588,6 +1586,11 @@ export default function App(){
     // Atomic single-path write
     const ok=await DB.setUserPick(myEk,sid,pick);
     if(!ok){toast2("Save failed, try again","error");return;}
+
+    // Save bonus answer alongside pick
+    if(BONUS_QUESTIONS[am.id]&&draft.bqAns!==null){
+      await submitBonusPick(am.id,draft.bqAns);
+    }
 
     // FIX: Re-fetch from Firebase immediately to get the authoritative normalised state
     // This is the critical step that prevents ghost picks on double-header days
@@ -1766,7 +1769,7 @@ export default function App(){
     onReveal:(m)=>setRevealMatchId(m.id),
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
-      setAm(m);setDraft({toss:"",win:"",motm:"",sb:""});setSc("picks");
+      setAm(m);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setSc("picks");
     }
   };
 
@@ -1902,7 +1905,10 @@ export default function App(){
   }
 
   if(sc==="picks"&&am){
-    const maxPts=PTS.toss+PTS.win+PTS.motm+PTS.streak+(draft.sb?PTS.scoreBand:0);
+    const hasBQ=!!BONUS_QUESTIONS[am.id];
+    const bqAnswered=!hasBQ||draft.bqAns!==null;
+    const allReady=!!(draft.toss&&draft.win&&draft.motm&&draft.sb&&bqAnswered);
+    const maxPts=PTS.toss+PTS.win+PTS.motm+PTS.streak+PTS.scoreBand+(hasBQ?PTS.bonus:0);
     return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
         <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>&#8592;</button>
@@ -1913,7 +1919,7 @@ export default function App(){
       <div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}><span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final. No edits allowed.</span></div>
       <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:18}}>
 
-        {/* Toss + Winner */}
+        {/* Q1 + Q2: Toss + Winner */}
         {[["TOSS WINNER","toss",PTS.toss],["MATCH WINNER","win",PTS.win]].map(([title,field,pts])=>(
           <div key={field}>
             <p className="st">{title} <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{pts}pts</span></p>
@@ -1921,13 +1927,13 @@ export default function App(){
           </div>
         ))}
 
-        {/* POTM */}
+        {/* Q3: POTM */}
         <div>
           <p className="st">PLAYER OF THE MATCH <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.motm}pts</span></p>
           <PotmDropdown homeTeam={am.home} awayTeam={am.away} value={draft.motm||""} onChange={v=>setDraft(d=>({...d,motm:v}))}/>
         </div>
 
-        {/* Score Band — 4th question */}
+        {/* Q4: Score Band */}
         <div>
           <p className="st">FIRST INNINGS SCORE <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.scoreBand}pts</span></p>
           <p style={{fontSize:11,color:"#64748b",margin:"0 0 10px",lineHeight:1.5}}>How many runs will the team batting first score?</p>
@@ -1942,8 +1948,22 @@ export default function App(){
             ))}
           </div>
           {draft.sb&&<p style={{fontSize:10,color:"#94a3b8",margin:"6px 0 0",textAlign:"center"}}>Tap again to change selection</p>}
-          {!draft.sb&&<p style={{fontSize:10,color:"#ef4444",margin:"6px 0 0",textAlign:"center",fontWeight:600}}>⚠ Required — pick a score band to continue</p>}
+          {!draft.sb&&<p style={{fontSize:10,color:"#ef4444",margin:"6px 0 0",textAlign:"center",fontWeight:600}}>⚠ Required</p>}
         </div>
+
+        {/* Q5: Bonus Question */}
+        {hasBQ&&<div>
+          <p className="st">BONUS QUESTION <span style={{color:"#94a3b8",fontWeight:400,fontSize:10}}>+{PTS.bonus}pts</span></p>
+          <div style={{background:"#F4F6FB",border:"1px solid "+(draft.bqAns!==null?"#1D428A40":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+            <p style={{fontSize:13,color:"#1a2540",fontWeight:600,margin:"0 0 12px",lineHeight:1.5}}>{BONUS_QUESTIONS[am.id]}</p>
+            <div style={{display:"flex",gap:8}}>
+              <button className={"bq-btn yes"+(draft.bqAns===true?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===true?null:true}))}>✅ Yes</button>
+              <button className={"bq-btn no"+(draft.bqAns===false?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===false?null:false}))}>❌ No</button>
+            </div>
+          </div>
+          {draft.bqAns===null&&<p style={{fontSize:10,color:"#ef4444",margin:"4px 0 0",textAlign:"center",fontWeight:600}}>⚠ Required</p>}
+          {draft.bqAns!==null&&<p style={{fontSize:10,color:"#94a3b8",margin:"4px 0 0",textAlign:"center"}}>Tap again to change answer</p>}
+        </div>}
 
         {/* Summary */}
         {draft.toss&&draft.win&&draft.motm&&(
@@ -1955,12 +1975,14 @@ export default function App(){
                 <span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{v} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{p}pts</span></span>
               </div>
             ))}
-            {draft.sb&&(
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{color:"#64748b",fontSize:13}}>1st Innings</span>
-                <span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{SCORE_BANDS.find(b=>b.id===draft.sb)?.label} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{PTS.scoreBand}pts</span></span>
-              </div>
-            )}
+            {draft.sb&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{color:"#64748b",fontSize:13}}>1st Innings</span>
+              <span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{SCORE_BANDS.find(b=>b.id===draft.sb)?.label} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{PTS.scoreBand}pts</span></span>
+            </div>}
+            {hasBQ&&draft.bqAns!==null&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{color:"#64748b",fontSize:13}}>Bonus Q</span>
+              <span style={{color:"#1a2540",fontSize:13,fontWeight:600}}>{draft.bqAns?"Yes":"No"} <span className="C" style={{color:"#1D428A",fontSize:11}}>+{PTS.bonus}pts</span></span>
+            </div>}
             <div style={{borderTop:"1px solid #dbeafe",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}}>
               <span style={{color:"#64748b",fontSize:12}}>Max possible</span>
               <span className="C" style={{color:"#1D428A",fontSize:18,fontWeight:800}}>+{maxPts}pts</span>
@@ -1968,7 +1990,7 @@ export default function App(){
           </div>
         )}
 
-        <button className="lbtn" disabled={!draft.toss||!draft.win||!draft.motm||!draft.sb} onClick={submitPick} style={{opacity:draft.toss&&draft.win&&draft.motm&&draft.sb?1:.4}}>Lock Prediction 🔒</button>
+        <button className="lbtn" disabled={!allReady} onClick={submitPick} style={{opacity:allReady?1:.4}}>Lock Prediction 🔒</button>
       </div>
       {toast&&<Tst t={toast}/>}
     </div>;
@@ -2117,7 +2139,7 @@ export default function App(){
         <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"hidden"}}>
           {[["pending","Pending ("+pending.length+")"],["played","Results ("+played.length+")"],["upcoming","Schedule"]].map(([t,l])=><button key={t} className={"tbtn"+(ptab===t?" on":"")} onClick={()=>setPtab(t)}>{l}</button>)}
         </div>
-        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>{p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}</div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA,sbOk,sbAns})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,minWidth:60,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}{p?.sb&&<div style={{flex:1,minWidth:60,background:sbAns?(sbOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>1st inn</p><p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{sbAns?(sbOk?"✓ +10":"✗"):"TBD"}</p></div>}</div></div>))}
+        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>{p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}{(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null?<span> · Bonus: {myBQ?"Yes":"No"}</span>:null;})()}</div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA,sbOk,sbAns})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,minWidth:60,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}{p?.sb&&<div style={{flex:1,minWidth:60,background:sbAns?(sbOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>1st inn</p><p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{sbAns?(sbOk?"✓ +10":"✗"):"TBD"}</p></div>}</div></div>))}
         {ptab==="upcoming"&&(schedule.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{color:"#94a3b8",fontSize:13}}>No upcoming matches.</p></div>:schedule.map(m=>{
           const hasPick=!!getP(myPicks,m.id);const lk=isMatchLocked(m,lockedMatches);const hasRem=!!reminders[m.id];
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
