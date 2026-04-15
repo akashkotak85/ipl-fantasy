@@ -2297,71 +2297,83 @@ export default function App(){
                 </button>
               </div>
             </div>
-            {m.result?<div>
-              <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>✅ Result: {showVal(m.result.toss)} · {showVal(m.result.win)} · {showVal(m.result.motm)}</div>
-              {BONUS_QUESTIONS[m.id]&&(()=>{
-                const bAns=bonusAnswers[String(m.id)]??bonusAnswers[m.id];
-                const mid2=String(m.id);
-                async function saveBonusAns(v){
-                  const upd=Object.assign({},bonusAnswers);upd[mid2]=v;
-                  setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Bonus answer saved","ok");
-                }
-                async function clearBonusAns(){
-                  const upd=Object.assign({},bonusAnswers);delete upd[mid2];
-                  setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Cleared");
-                }
-                return<div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 10px",marginTop:6}}>
-                  <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>❓ Bonus Q Answer</p>
-                  <p style={{fontSize:11,color:"#1a2540",margin:"0 0 6px",lineHeight:1.4}}>{BONUS_QUESTIONS[m.id]}</p>
-                  <div style={{display:"flex",gap:6}}>
-                    {[true,false].map(v=><button key={String(v)} onClick={()=>saveBonusAns(v)} style={{flex:1,padding:"6px",borderRadius:8,background:bAns===v?(v?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:bAns===v?(v?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(bAns===v?(v?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v?"✅ YES":"❌ NO"}</button>)}
-                    {bAns!=null&&<button onClick={clearBonusAns} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
+            {/* Match result: entry form OR done display */}
+            {m.result
+              ?<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>✅ Result: {showVal(m.result.toss)} · {showVal(m.result.win)} · {showVal(m.result.motm)}</div>
+              :<div style={{marginBottom:8}}>
+                {["toss","win","motm"].map(field=>(
+                  <div key={field} style={{marginBottom:8}}>
+                    <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px",textTransform:"capitalize"}}>{field==="motm"?"Player of the Match":field==="toss"?"Toss Winner":"Match Winner"}</p>
+                    {field!=="motm"?<div style={{display:"flex",gap:6}}>
+                      {[m.home,m.away,NR].map(v=><button key={v} onClick={()=>savePartialResult(m.id,field,v)}
+                        style={{flex:1,padding:"6px 4px",borderRadius:8,background:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#1D428A":"#f1f5f9",color:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#fff":"#475569",border:"1px solid "+(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600}}>
+                        {v===NR?"🌧 NR":v}
+                      </button>)}
+                    </div>:<div>
+                      <PotmDropdown homeTeam={m.home} awayTeam={m.away} value={admResultForm[m.id]?.motm||m._partial?.motm||""} onChange={v=>{setAdmResultForm(p=>({...p,[m.id]:{...p[m.id],motm:v}}));savePartialResult(m.id,"motm",v);}}/>
+                    </div>}
                   </div>
-                </div>;
-              })()}
-              {/* Score Band Answer */}
-              {(()=>{
-                const mid3=String(m.id);
-                const cur=scoreBandAnswers[mid3];
-                async function saveSb(bandId){
-                  const upd=Object.assign({},scoreBandAnswers);upd[mid3]=bandId;
-                  setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Score band saved","ok");
-                }
-                async function clearSb(){
-                  const upd=Object.assign({},scoreBandAnswers);delete upd[mid3];
-                  setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Cleared");
-                }
-                return<div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 10px",marginTop:6}}>
-                  <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>📊 First Innings Score Band</p>
-                  <div style={{display:"flex",gap:6}}>
-                    {SCORE_BANDS.map(band=><button key={band.id} onClick={()=>saveSb(band.id)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:cur===band.id?"#1D428A":"#f1f5f9",color:cur===band.id?"#fff":"#475569",border:"1px solid "+(cur===band.id?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700,textAlign:"center"}}>{band.emoji} {band.short}</button>)}
-                    {cur&&<button onClick={clearSb} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
-                  </div>
-                </div>;
-              })()}
-            </div>:<div>
-              {["toss","win","motm"].map(field=>(
-                <div key={field} style={{marginBottom:8}}>
-                  <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px",textTransform:"capitalize"}}>{field==="motm"?"Player of the Match":field==="toss"?"Toss Winner":"Match Winner"}</p>
-                  {field!=="motm"?<div style={{display:"flex",gap:6}}>
-                    {[m.home,m.away,NR].map(v=><button key={v} onClick={()=>savePartialResult(m.id,field,v)}
-                      style={{flex:1,padding:"6px 4px",borderRadius:8,background:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#1D428A":"#f1f5f9",color:(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v)?"#fff":"#475569",border:"1px solid "+(m._partial?.[field]===v||admResultForm[m.id]?.[field]===v?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600}}>
-                      {v===NR?"🌧 NR":v}
-                    </button>)}
-                  </div>:<div>
-                    <PotmDropdown homeTeam={m.home} awayTeam={m.away} value={admResultForm[m.id]?.motm||m._partial?.motm||""} onChange={v=>{setAdmResultForm(p=>({...p,[m.id]:{...p[m.id],motm:v}}));savePartialResult(m.id,"motm",v);}}/>
-                  </div>}
+                ))}
+                <button className="pbtn" style={{marginTop:4}} onClick={()=>{
+                  const f={toss:m._partial?.toss||admResultForm[m.id]?.toss,win:m._partial?.win||admResultForm[m.id]?.win,motm:m._partial?.motm||admResultForm[m.id]?.motm};
+                  if(!f.toss||!f.win||!f.motm){toast2("Select toss, winner and POTM first","error");return;}
+                  setManualResult(m.id,f);
+                }}>✅ Finalise Result</button>
+              </div>
+            }
+
+            {/* Q4: Score Band — always visible so admin can enter before or after result */}
+            {(()=>{
+              const mid3=String(m.id);
+              const cur=scoreBandAnswers[mid3];
+              async function saveSb(bandId){
+                const upd=Object.assign({},scoreBandAnswers);upd[mid3]=bandId;
+                setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Score band saved","ok");
+              }
+              async function clearSb(){
+                const upd=Object.assign({},scoreBandAnswers);delete upd[mid3];
+                setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Cleared");
+              }
+              return<div style={{background:"#F4F6FB",border:"1px solid "+(cur?"#1D428A30":"#e2e8f0"),borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:0}}>📊 Q4 · First Innings Score Band</p>
+                  {!cur&&<span style={{fontSize:9,color:"#ef4444",fontWeight:700,marginLeft:"auto"}}>Not set</span>}
+                  {cur&&<span style={{fontSize:9,color:"#15803d",fontWeight:700,marginLeft:"auto"}}>✓ Set: {SCORE_BANDS.find(b=>b.id===cur)?.label}</span>}
                 </div>
-              ))}
-              <button className="pbtn" style={{marginTop:8}} onClick={()=>{
-                // FIX: compute f here and pass directly — avoids stale admResultForm closure
-                const f={toss:m._partial?.toss||admResultForm[m.id]?.toss,win:m._partial?.win||admResultForm[m.id]?.win,motm:m._partial?.motm||admResultForm[m.id]?.motm};
-                if(!f.toss||!f.win||!f.motm){toast2("Select toss, winner and POTM first","error");return;}
-                setManualResult(m.id,f);
-              }}>✅ Finalise Result</button>
-              {/* Undo/edit result for completed matches */}
-            </div>}
-            {m.result&&<button onClick={()=>undoResult(m.id)} style={{marginTop:8,width:"100%",padding:"7px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>↩️ Edit / Undo Result</button>}
+                <div style={{display:"flex",gap:6}}>
+                  {SCORE_BANDS.map(band=><button key={band.id} onClick={()=>saveSb(band.id)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:cur===band.id?"#1D428A":"#f1f5f9",color:cur===band.id?"#fff":"#475569",border:"1px solid "+(cur===band.id?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700,textAlign:"center"}}>{band.emoji} {band.short}</button>)}
+                  {cur&&<button onClick={clearSb} style={{padding:"6px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>✕</button>}
+                </div>
+              </div>;
+            })()}
+
+            {/* Q5: Bonus Question — always visible */}
+            {BONUS_QUESTIONS[m.id]&&(()=>{
+              const bAns=bonusAnswers[String(m.id)]??bonusAnswers[m.id];
+              const mid2=String(m.id);
+              async function saveBonusAns(v){
+                const upd=Object.assign({},bonusAnswers);upd[mid2]=v;
+                setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Bonus answer saved","ok");
+              }
+              async function clearBonusAns(){
+                const upd=Object.assign({},bonusAnswers);delete upd[mid2];
+                setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Cleared");
+              }
+              return<div style={{background:"#F4F6FB",border:"1px solid "+(bAns!=null?"#1D428A30":"#e2e8f0"),borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                  <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:0}}>❓ Q5 · Bonus Question</p>
+                  {bAns==null&&<span style={{fontSize:9,color:"#ef4444",fontWeight:700,marginLeft:"auto"}}>Not set</span>}
+                  {bAns!=null&&<span style={{fontSize:9,color:"#15803d",fontWeight:700,marginLeft:"auto"}}>✓ Set: {bAns?"YES":"NO"}</span>}
+                </div>
+                <p style={{fontSize:11,color:"#1a2540",margin:"0 0 6px",lineHeight:1.4,fontStyle:"italic"}}>{BONUS_QUESTIONS[m.id]}</p>
+                <div style={{display:"flex",gap:6}}>
+                  {[true,false].map(v=><button key={String(v)} onClick={()=>saveBonusAns(v)} style={{flex:1,padding:"6px",borderRadius:8,background:bAns===v?(v?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:bAns===v?(v?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(bAns===v?(v?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v?"✅ YES":"❌ NO"}</button>)}
+                  {bAns!=null&&<button onClick={clearBonusAns} style={{padding:"6px 10px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>✕</button>}
+                </div>
+              </div>;
+            })()}
+
+            {m.result&&<button onClick={()=>undoResult(m.id)} style={{marginTop:4,width:"100%",padding:"7px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>↩️ Edit / Undo Result</button>}
           </div>
         ))}
       </div>}
