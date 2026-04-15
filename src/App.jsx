@@ -1385,7 +1385,8 @@ export default function App(){
     const normBQ=normalizeKeyMap(bqAll);setAllBonusPicks(normBQ);if(em)setMyBonusPicks(normBQ[emk]||{});
     const normPB=normalizeKeyMap(pbAll);setAllPropBets(normPB);if(em)setMyPropBets(normPB[emk]||{});
     if(paAll)setPropAnswers(paAll);
-    return{freshAP,hasOnboarded:!!(nsp[emk])};
+    const hasPropBets=!!(em&&normPB[emk]&&PROP_QUESTIONS.every((q,i)=>normPB[emk][`q${i}`]&&normPB[emk][`q${i}`]!==""));
+    return{freshAP,hasOnboarded:!!(nsp[emk]),hasPropBets};
   },[buildBaseMatches]);
 
   useEffect(()=>{
@@ -1401,10 +1402,16 @@ export default function App(){
         // FIX: repair DB on every auto-login to fix any lingering key coercion
         await forceRepair();if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-        const{freshAP,hasOnboarded}=await reloadShared(saved.email);if(cancelled)return;
+        const{freshAP,hasOnboarded,hasPropBets}=await reloadShared(saved.email);if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
         setBcSeenTs(Date.now());setChatSeenTs(Date.now());
-        setSc(hasOnboarded?"home":"onboard");
+        if(!hasOnboarded)setSc("onboard");
+        else if(!hasPropBets){
+          const existing2=(await DB.get("propbets/"+ek(saved.email)))||{};
+          setObProps({q0:existing2.q0||"",q1:existing2.q1||"",q2:existing2.q2||"",q3:existing2.q3||"",q4:existing2.q4||""});
+          setSc("propbets");
+        }
+        else setSc("home");
       }catch(e){console.error("auto-login",e);if(!cancelled)setSc("login");}
     };
     const t=setTimeout(()=>{if(!cancelled)setSc("login");},7000);
@@ -1498,11 +1505,11 @@ export default function App(){
         if(!ans||userAns==null||userAns==="")return s;
         return s+(String(userAns)===String(ans)?PTS.prop:0);
       },0);
-      scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email)+bonusPts+propPts+sbPts,acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4,bonusPts,propPts,sbPts};
+      scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email)+bonusPts+propPts+sbPts,acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4,bonusPts,propPts,sbPts,userProps:allPropBets[emk]||{}};
     });
     return scores;
   },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride,bonusAnswers,allBonusPicks,propAnswers,allPropBets,scoreBandAnswers]);
-  const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[]})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
+  const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[],userProps:{}})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
   /* AUTH */
   function clearAuthForm(){setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setShowForgotPw(false);setShowForgotPw2(false);}
@@ -1510,7 +1517,22 @@ export default function App(){
   async function doRegister(){const now=Date.now();regAttempts.current=regAttempts.current.filter(t=>now-t<REG_WINDOW);if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts."});return;}regAttempts.current.push(now);setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;const nErr=validateName(authName);if(nErr)errs.name=nErr;const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;if(authPw!==authPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};if(u2[em]||u2[ek(em)]){setAuthErrors({email:"Account already exists."});setAuthLoading(false);return;}const existingPending=await DB.get("pending")||{};if(existingPending[ek(em)]){setAuthErrors({email:"Registration already pending."});setAuthLoading(false);return;}const isFirstUser=Object.keys(u2).length===0||em===SUPER_ADMIN;if(isFirstUser){const ex={email:em,name:authName.trim(),joined:new Date().toISOString(),approved:true};await DB.set("u",{...u2,[em]:ex});await DB.set("pw_"+ek(em),await sha256(authPw));const verify=await DB.get("u")||{};const entry=verify[em]||verify[ek(em)];if(!entry){setAuthErrors({email:"Registration failed."});setAuthLoading(false);return;}setUsers(verify);await doSignIn(em,entry,true);}else{await DB.set("pw_"+ek(em),await sha256(authPw));const pending=await DB.get("pending")||{};pending[ek(em)]={email:em,name:authName.trim(),joined:new Date().toISOString()};await DB.set("pending",pending);setSc("pending_approval");}}catch(err){console.error("register",err);setAuthErrors({email:"Registration failed."});}setAuthLoading(false);}
   async function doForgotStep1(){setAuthLoading(true);const em=normalizeEmail(authEmail);const eErr=validateEmail(em);if(eErr){setAuthErrors({email:eErr});setAuthLoading(false);return;}const u2=await DB.get("u")||{};if(!u2[em]&&!u2[ek(em)]){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}setAuthErrors({});setForgotStep(2);setAuthLoading(false);}
   async function doForgotStep2(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const pErr=validatePassword(forgotNewPw,"register");if(pErr)errs.pw=pErr;if(forgotNewPw!==forgotNewPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}await DB.set("pw_"+ek(em),await sha256(forgotNewPw));toast2("Password reset! Please sign in.","ok");const se=authEmail;clearAuthForm();setAuthMode("login");setAuthEmail(se);setAuthLoading(false);}
-  async function doSignIn(em,ex,isNew=false){setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);await persistSession(em);const{freshAP,hasOnboarded}=await reloadShared(em);setMyPicks(freshAP[ek(em)]||{});setBcSeenTs(Date.now());setChatSeenTs(Date.now());if(isNew||!hasOnboarded)setSc("onboard");else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}}
+  async function doSignIn(em,ex,isNew=false){
+    setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
+    setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
+    await persistSession(em);
+    const{freshAP,hasOnboarded,hasPropBets}=await reloadShared(em);
+    setMyPicks(freshAP[ek(em)]||{});
+    setBcSeenTs(Date.now());setChatSeenTs(Date.now());
+    if(isNew||!hasOnboarded)setSc("onboard");
+    else if(!hasPropBets){
+      // Pre-fill any partial answers already in DB
+      const existing=normPB[ek(em)]||{};
+      setObProps({q0:existing.q0||"",q1:existing.q1||"",q2:existing.q2||"",q3:existing.q3||"",q4:existing.q4||""});
+      setSc("propbets");toast2("One quick thing — fill in your season prop bets! 🏏");
+    }
+    else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
+  }
   async function logout(){Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}clearTimeout(tRef.current);if(sessionEmail){try{const ou=await DB.get("online")||{};delete ou[ek(sessionEmail)];await DB.set("online",ou);await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}catch(e){console.error(e);}}setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");}
   async function approveUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];const u2=await DB.get("u")||{};u2[entry.email]={...entry,approved:true};await DB.set("u",u2);await DB.set("pending",pu);setUsers({...users,[entry.email]:{...entry,approved:true}});setPendingUsers({...pu});toast2(entry.name+" approved! ✅","ok");const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"🎉 "+entry.name+" has joined! Welcome!",ts:Date.now(),sys:true}]);setChat(nc);await DB.set("ch",nc);}
   async function rejectUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];await DB.set("pending",pu);await DB.set("pw_"+emk,null);setPendingUsers({...pu});toast2(entry.name+" rejected","error");}
@@ -1834,6 +1856,53 @@ export default function App(){
     {toast&&<Tst t={toast}/>}
   </div>;
 
+  /* ── STANDALONE PROP BETS SCREEN (for already-onboarded users) ── */
+  if(sc==="propbets"){
+    const allFilled=PROP_QUESTIONS.every((q,i)=>obProps[`q${i}`]&&obProps[`q${i}`]!=="");
+    async function submitStandalonePropBets(){
+      const unanswered=PROP_QUESTIONS.filter((q,i)=>!obProps[`q${i}`]||obProps[`q${i}`]==="");
+      if(unanswered.length>0){toast2("Answer all "+unanswered.length+" of 5 prop bet questions","error");return;}
+      await savePropBets(obProps);
+      setSc("home");toast2("Prop bets locked! Good luck 🏏","ok");
+    }
+    return<div className="app" style={{minHeight:"100vh"}}><style>{CSS}</style>
+      <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}>
+        <p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Hey {user?.name} — one more thing!</p>
+        <p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:1,margin:"4px 0 0"}}>SEASON PROP BETS</p>
+        <p style={{color:"rgba(255,255,255,.65)",fontSize:12,margin:"6px 0 0",lineHeight:1.5}}>These were added after you registered. Answer all 5 to unlock the full +{PTS.prop*5}pts!</p>
+      </div>
+      <div style={{padding:"20px 16px"}}>
+        <div style={{display:"flex",gap:6,marginBottom:16,alignItems:"center"}}>
+          {PROP_QUESTIONS.map((q,i)=>{
+            const filled=!!(obProps[q.id]&&obProps[q.id]!=="");
+            return<div key={q.id} style={{flex:1,height:4,borderRadius:2,background:filled?"#1D428A":"#e2e8f0",transition:"background .3s"}}/>;
+          })}
+          <span style={{fontSize:11,color:"#64748b",whiteSpace:"nowrap",fontWeight:600,marginLeft:6}}>
+            {PROP_QUESTIONS.filter((q,i)=>obProps[`q${i}`]&&obProps[`q${i}`]!=="").length}/5
+          </span>
+        </div>
+        {PROP_QUESTIONS.map((q,i)=>{
+          const val=obProps[q.id]||"";
+          const filled=!!(val&&val!=="");
+          return<div key={q.id} style={{background:filled?"#f0fdf4":"#f8faff",border:"1px solid "+(filled?"#bbf7d0":"#e2e8f0"),borderRadius:10,padding:"12px 14px",marginBottom:10,transition:"all .2s"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+              <p style={{fontSize:12,fontWeight:700,color:"#1D428A",margin:0}}>Q{i+1} · +{PTS.prop}pts</p>
+              {filled?<span style={{fontSize:10,color:"#15803d",fontWeight:700}}>✓ Answered</span>:<span style={{fontSize:10,color:"#ef4444",fontWeight:600}}>Required</span>}
+            </div>
+            <p style={{fontSize:13,color:"#1a2540",fontWeight:600,margin:"0 0 10px",lineHeight:1.4}}>{q.label}</p>
+            {q.type==="player"&&<select className="sel" value={val} onChange={e=>setObProps(p=>({...p,[q.id]:e.target.value}))} style={{borderColor:filled?"#bbf7d0":"#e2e8f0"}}><option value="">Select player…</option>{ALL_PLAYERS.map(({p,t})=><option key={p+t} value={p}>{p} ({t})</option>)}</select>}
+            {q.type==="team"&&<select className="sel" value={val} onChange={e=>setObProps(p=>({...p,[q.id]:e.target.value}))} style={{borderColor:filled?"#bbf7d0":"#e2e8f0"}}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{TF[t]}</option>)}</select>}
+            {q.type==="yesno"&&<div style={{display:"flex",gap:8}}><button className={"bq-btn yes"+(val==="true"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"true"}))}>✅ Yes</button><button className={"bq-btn no"+(val==="false"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"false"}))}>❌ No</button></div>}
+          </div>;
+        })}
+        <button className="lbtn" disabled={!allFilled} onClick={submitStandalonePropBets} style={{opacity:allFilled?1:.4,marginTop:8}}>
+          Lock Prop Bets 🔒
+        </button>
+      </div>
+      {toast&&<Tst t={toast}/>}
+    </div>;
+  }
+
   if(sc==="picks"&&am){
     const maxPts=PTS.toss+PTS.win+PTS.motm+PTS.streak+(draft.sb?PTS.scoreBand:0);
     return<div className="app" style={{paddingBottom:32}}><style>{CSS}</style>
@@ -1976,6 +2045,31 @@ export default function App(){
             <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>{u.userSp?<><TLogo t={u.userSp} sz={16}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw&&u.userSp===sw?"#15803d":"#1D428A"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
             <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>{(u.userT4||[]).length>0?(u.userT4||[]).map(t=><TLogo key={t} t={t} sz={16}/>):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
           </div>
+          {/* Prop bets row */}
+          {(()=>{
+            const up2=u.userProps||{};
+            const hasSomeProps=PROP_QUESTIONS.some((q,i)=>up2[`q${i}`]&&up2[`q${i}`]!=="");
+            if(!hasSomeProps)return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}><span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>🔮 Prop bets not yet answered</span></div>;
+            const propLabels=["🏅 Orange","💜 Purple","📈 Hi-Total","⚡ Super Over","⬇️ Last"];
+            return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}>
+              <p style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 5px"}}>🔮 Season Prop Bets</p>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {PROP_QUESTIONS.map((q,i)=>{
+                  const val=up2[`q${i}`]||"";
+                  const correctAns=propAnswers?.[`q${i}`]||"";
+                  const isCorrect=correctAns&&val&&String(val)===String(correctAns);
+                  const isWrong=correctAns&&val&&String(val)!==String(correctAns);
+                  const shortVal=q.type==="player"?val.split(" ").slice(-1)[0]:q.type==="yesno"?(val==="true"?"Yes":"No"):val;
+                  return<div key={q.id} style={{display:"flex",alignItems:"center",gap:3,background:isCorrect?"#f0fdf4":isWrong?"#fef2f2":"#f8faff",border:"1px solid "+(isCorrect?"#bbf7d0":isWrong?"#fecaca":"#e2e8f0"),borderRadius:6,padding:"2px 6px"}}>
+                    <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>{propLabels[i]}:</span>
+                    <span style={{fontSize:10,fontWeight:700,color:isCorrect?"#15803d":isWrong?"#dc2626":"#1a2540"}}>{shortVal||"—"}</span>
+                    {isCorrect&&<span style={{fontSize:9}}>✅</span>}
+                    {isWrong&&<span style={{fontSize:9}}>✗</span>}
+                  </div>;
+                })}
+              </div>
+            </div>;
+          })()}
         </div>
       ))}
       {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
