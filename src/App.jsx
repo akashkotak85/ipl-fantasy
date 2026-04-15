@@ -1520,6 +1520,21 @@ export default function App(){
 
   useEffect(()=>{if(["home","picks","lb","wof","adm"].includes(sc)&&email)reloadShared(email);},[sc,email]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Enforce prop bets: whenever user arrives at home screen, check if props filled
+  const propBetsSkipped=useRef(false);
+  useEffect(()=>{
+    if(sc!=="home"||!email||email===SUPER_ADMIN)return;
+    if(propBetsSkipped.current)return; // user already skipped this session
+    const emk2=ek(email);
+    const userPb=allPropBets[emk2]||{};
+    const filled=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+    if(!filled){
+      setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
+      setSc("propbets");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sc,email,allPropBets]);
+
   useEffect(()=>{
     Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};
     Object.keys(reminders).forEach(mid=>{if(!reminders[mid])return;const m=ms.find(x=>x.id===parseInt(mid)||x.id===mid);if(!m)return;const diff=cutoff(m).getTime()-30*60*1000-Date.now();if(diff>0&&diff<24*60*60*1000)remTimers.current[mid]=setTimeout(()=>toast2("⏰ "+m.home+" vs "+m.away+" locks in 30 mins!"),diff);});
@@ -1991,12 +2006,13 @@ export default function App(){
       const unanswered=PROP_QUESTIONS.filter((q,i)=>!obProps[`q${i}`]||obProps[`q${i}`]==="");
       if(unanswered.length>0){toast2("Answer all "+unanswered.length+" of 5 prop bet questions","error");return;}
       await savePropBets(obProps);
+      propBetsSkipped.current=true; // mark as done so effect doesn't redirect again
       setSc("home");toast2("Prop bets locked! Good luck 🏏","ok");
     }
     return<div className="app" style={{minHeight:"100vh",paddingBottom:68}}><style>{CSS}</style>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <button onClick={()=>setSc("home")} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",fontSize:13,cursor:"pointer",borderRadius:8,padding:"4px 10px",fontFamily:"'Barlow',sans-serif"}}>← Skip for now</button>
+          <button onClick={()=>{propBetsSkipped.current=true;setSc("home");}} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",fontSize:13,cursor:"pointer",borderRadius:8,padding:"4px 10px",fontFamily:"'Barlow',sans-serif"}}>← Skip for now</button>
           <span style={{color:"rgba(255,255,255,.5)",fontSize:12}}>({PROP_QUESTIONS.filter((q,i)=>obProps[`q${i}`]&&obProps[`q${i}`]!=="").length}/5 answered)</span>
         </div>
         <p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Hey {user?.name} — one more thing!</p>
@@ -2141,6 +2157,21 @@ export default function App(){
     </div>
 
     {sc==="home"&&<>
+      {/* Prop bets reminder banner — shows if user skipped the prop bets prompt */}
+      {email&&email!==SUPER_ADMIN&&(()=>{
+        const emk2=ek(email);
+        const userPb=allPropBets[emk2]||{};
+        const filled=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+        if(filled)return null;
+        const answeredCount=PROP_QUESTIONS.filter((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="").length;
+        return<div style={{background:"#FEF3C7",borderBottom:"1px solid #FDE68A",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <div>
+            <p style={{color:"#92400E",fontSize:12,fontWeight:700,margin:0}}>🔮 Season Prop Bets not answered ({answeredCount}/5)</p>
+            <p style={{color:"#B8860B",fontSize:11,margin:"2px 0 0"}}>Miss out on up to +{PTS.prop*5}pts — answer now!</p>
+          </div>
+          <button onClick={()=>{propBetsSkipped.current=false;setSc("propbets");}} style={{background:"#1D428A",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif"}}>Answer →</button>
+        </div>;
+      })()}
       <div style={{display:"flex",background:"#fff",borderBottom:"1px solid #e2e8f0"}}>
         {[["today","Today ("+todayMs.length+")"],["done","Results ("+done.length+")"],["up","Schedule ("+upMs.length+")"],["season","Season"]].map(([t,l])=><button key={t} className={"tbtn"+(htab===t?" on":"")} onClick={()=>setHtab(t)}>{l}</button>)}
       </div>
