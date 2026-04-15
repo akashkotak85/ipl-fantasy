@@ -2187,31 +2187,44 @@ export default function App(){
               <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>✅ Result: {showVal(m.result.toss)} · {showVal(m.result.win)} · {showVal(m.result.motm)}</div>
               {BONUS_QUESTIONS[m.id]&&(()=>{
                 const bAns=bonusAnswers[String(m.id)]??bonusAnswers[m.id];
+                const mid2=String(m.id);
+                async function saveBonusAns(v){
+                  const upd=Object.assign({},bonusAnswers);upd[mid2]=v;
+                  setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Bonus answer saved","ok");
+                }
+                async function clearBonusAns(){
+                  const upd=Object.assign({},bonusAnswers);delete upd[mid2];
+                  setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Cleared");
+                }
                 return<div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 10px",marginTop:6}}>
                   <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>❓ Bonus Q Answer</p>
                   <p style={{fontSize:11,color:"#1a2540",margin:"0 0 6px",lineHeight:1.4}}>{BONUS_QUESTIONS[m.id]}</p>
                   <div style={{display:"flex",gap:6}}>
-                    {[true,false].map(v=><button key={String(v)} onClick={async()=>{const upd={...bonusAnswers,[String(m.id)]:v};setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Bonus answer saved","ok");}} style={{flex:1,padding:"6px",borderRadius:8,background:bAns===v?(v?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:bAns===v?(v?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(bAns===v?(v?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v?"✅ YES":"❌ NO"}</button>}
-                    {bAns!=null&&<button onClick={async()=>{const upd={...bonusAnswers};delete upd[String(m.id)];setBonusAnswers(upd);await DB.set("bonusans",upd);toast2("Cleared");}} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
+                    {[true,false].map(v=><button key={String(v)} onClick={()=>saveBonusAns(v)} style={{flex:1,padding:"6px",borderRadius:8,background:bAns===v?(v?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:bAns===v?(v?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(bAns===v?(v?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v?"✅ YES":"❌ NO"}</button>)}
+                    {bAns!=null&&<button onClick={clearBonusAns} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
                   </div>
                 </div>;
               })()}
               {/* Score Band Answer */}
-              <div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 10px",marginTop:6}}>
-                <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>📊 First Innings Score Band</p>
-                <div style={{display:"flex",gap:6}}>
-                  {SCORE_BANDS.map(band=>{
-                    const cur=scoreBandAnswers[String(m.id)];
-                    return<button key={band.id} onClick={async()=>{
-                      const upd={...scoreBandAnswers,[String(m.id)]:band.id};
-                      setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Score band saved","ok");
-                    }} style={{flex:1,padding:"7px 4px",borderRadius:8,background:cur===band.id?"#1D428A":"#f1f5f9",color:cur===band.id?"#fff":"#475569",border:"1px solid "+(cur===band.id?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700,textAlign:"center"}}>
-                      {band.emoji} {band.short}
-                    </button>;
-                  })}
-                  {scoreBandAnswers[String(m.id)]&&<button onClick={async()=>{const upd={...scoreBandAnswers};delete upd[String(m.id)];setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Cleared");}} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
-                </div>
-              </div>
+              {(()=>{
+                const mid3=String(m.id);
+                const cur=scoreBandAnswers[mid3];
+                async function saveSb(bandId){
+                  const upd=Object.assign({},scoreBandAnswers);upd[mid3]=bandId;
+                  setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Score band saved","ok");
+                }
+                async function clearSb(){
+                  const upd=Object.assign({},scoreBandAnswers);delete upd[mid3];
+                  setScoreBandAnswers(upd);await DB.set("sbans",upd);toast2("Cleared");
+                }
+                return<div style={{background:"#F4F6FB",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 10px",marginTop:6}}>
+                  <p style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>📊 First Innings Score Band</p>
+                  <div style={{display:"flex",gap:6}}>
+                    {SCORE_BANDS.map(band=><button key={band.id} onClick={()=>saveSb(band.id)} style={{flex:1,padding:"7px 4px",borderRadius:8,background:cur===band.id?"#1D428A":"#f1f5f9",color:cur===band.id?"#fff":"#475569",border:"1px solid "+(cur===band.id?"#1D428A":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700,textAlign:"center"}}>{band.emoji} {band.short}</button>)}
+                    {cur&&<button onClick={clearSb} style={{padding:"6px 10px",borderRadius:8,background:"#f1f5f9",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11}}>✕</button>}
+                  </div>
+                </div>;
+              })()}
             </div>:<div>
               {["toss","win","motm"].map(field=>(
                 <div key={field} style={{marginBottom:8}}>
@@ -2403,14 +2416,21 @@ export default function App(){
           <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Enter correct answers at season end — each correct user pick = +{PTS.prop}pts.</p>
           {PROP_QUESTIONS.map((q,i)=>{
             const cur=propAnswers?.[q.id]||"";
+            const qid=q.id;
+            async function savePropAns(val){
+              const upd=Object.assign({},propAnswers);upd[qid]=val;
+              setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Prop answer saved","ok");
+            }
             return<div key={q.id} style={{marginBottom:12}}>
               <p style={{fontSize:11,fontWeight:700,color:"#1D428A",margin:"0 0 3px"}}>Q{i+1} · {q.label}</p>
-              {q.type==="player"&&<select className="sel" value={cur} onChange={async e=>{const upd={...propAnswers,[q.id]:e.target.value};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Prop answer saved","ok");}}><option value="">Select correct player…</option>{ALL_PLAYERS.map(({p,t})=><option key={p+t} value={p}>{p} ({t})</option>)}</select>}
-              {q.type==="team"&&<select className="sel" value={cur} onChange={async e=>{const upd={...propAnswers,[q.id]:e.target.value};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Prop answer saved","ok");}}><option value="">Select correct team…</option>{TEAMS.map(t=><option key={t} value={t}>{TF[t]}</option>)}</select>}
-              {q.type==="yesno"&&<div style={{display:"flex",gap:8}}>{["true","false"].map(v=><button key={v} onClick={async()=>{const upd={...propAnswers,[q.id]:v};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Prop answer saved","ok");}} style={{flex:1,padding:"7px",borderRadius:8,background:cur===v?(v==="true"?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:cur===v?(v==="true"?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(cur===v?(v==="true"?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v==="true"?"✅ Yes":"❌ No"}</button>)}</div>}
+              {q.type==="player"&&<select className="sel" value={cur} onChange={e=>savePropAns(e.target.value)}><option value="">Select correct player…</option>{ALL_PLAYERS.map(({p,t})=><option key={p+t} value={p}>{p} ({t})</option>)}</select>}
+              {q.type==="team"&&<select className="sel" value={cur} onChange={e=>savePropAns(e.target.value)}><option value="">Select correct team…</option>{TEAMS.map(t=><option key={t} value={t}>{TF[t]}</option>)}</select>}
+              {q.type==="yesno"&&<div style={{display:"flex",gap:8}}>{["true","false"].map(v=><button key={v} onClick={()=>savePropAns(v)} style={{flex:1,padding:"7px",borderRadius:8,background:cur===v?(v==="true"?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:cur===v?(v==="true"?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(cur===v?(v==="true"?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:12,fontWeight:700}}>{v==="true"?"✅ Yes":"❌ No"}</button>)}</div>}
             </div>;
           })}
         </div>
+        <div className="ac">
+          <p className="st">EXPORT DATA</p>
           <div style={{display:"flex",gap:8,flexDirection:"column"}}>
             <button className="pbtn" onClick={exportCSV}>📊 Export Leaderboard CSV</button>
             <button className="pbtn" style={{background:"linear-gradient(135deg,#0f6e56,#1D9E75)"}} onClick={exportPicksCSV}>📋 Export All Picks CSV</button>
