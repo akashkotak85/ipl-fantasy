@@ -247,21 +247,26 @@ function normalizeAP(raw){
   Object.keys(raw).forEach(k=>{
     const ck=canonicalKey(k);
     const userPicks=raw[k];
-    if(!userPicks||typeof userPicks!=="object"||Array.isArray(userPicks)){
+    if(!userPicks||typeof userPicks!=="object"){
       out[ck]={};
       return;
     }
     const normalized={};
-    Object.keys(userPicks).forEach(mid=>{
-      const pick=userPicks[mid];
-      const smid=String(mid); // ALWAYS string key — never let Firebase coercion survive
-      // Keep ANY pick object — even partial ones. Dropping here was the bug.
-      if(pick&&typeof pick==="object"&&!Array.isArray(pick)){
+    // Firebase RTDB may coerce {1:{},2:{},3:{}} to an array [null,{},{},{}]
+    // when keys are consecutive integers. Recover by using array indices as match IDs.
+    const entries=Array.isArray(userPicks)
+      ?userPicks.map((pick,idx)=>[String(idx),pick]).filter(([,pick])=>pick&&typeof pick==="object")
+      :Object.entries(userPicks);
+    entries.forEach(([mid,pick])=>{
+      if(!pick||typeof pick!=="object"||Array.isArray(pick))return;
+      const smid=String(mid);
+      // Only keep picks that have at least one meaningful field
+      if(pick.toss||pick.win||pick.motm||pick.sb){
         normalized[smid]={
           toss: pick.toss||"",
           win:  pick.win||"",
           motm: pick.motm||"",
-          sb:   pick.sb||"",   // first innings score band
+          sb:   pick.sb||"",
         };
       }
     });
@@ -1493,14 +1498,14 @@ export default function App(){
         if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         const u2=await DB.get("u")||{};const ex=u2[saved.email]||null;
         if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
-        // FIX: repair DB on every auto-login to fix any lingering key coercion
-        await forceRepair();if(cancelled)return;
+        // FIX: repair DB on every auto-login REMOVED — too dangerous (caused data loss).
+        // Repair is now admin-only via the DB Repair button in admin panel.
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
         const{freshAP,hasOnboarded,hasPropBets,userPropBets}=await reloadShared(saved.email);if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
         setBcSeenTs(Date.now());setChatSeenTs(Date.now());
         if(!hasOnboarded)setSc("onboard");
-        else if(!hasPropBets){
+        else if(!hasPropBets&&saved.email!==SUPER_ADMIN){
           setObProps({q0:userPropBets.q0||"",q1:userPropBets.q1||"",q2:userPropBets.q2||"",q3:userPropBets.q3||"",q4:userPropBets.q4||""});
           setSc("propbets");
         }
@@ -1606,7 +1611,7 @@ export default function App(){
 
   /* AUTH */
   function clearAuthForm(){setAuthEmail("");setAuthPw("");setAuthPw2("");setAuthName("");setAuthErrors({});setShowPw(false);setShowPw2(false);setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setShowForgotPw(false);setShowForgotPw2(false);}
-  async function doLogin(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;if(!authPw)errs.pw="Password is required";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};const storedHash=await DB.get("pw_"+ek(em));const userEntry=u2[em]||u2[ek(em)];if(!userEntry||storedHash==null){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}if(userEntry.approved===false){setAuthErrors({email:"Account pending admin approval."});setAuthLoading(false);return;}const inputHash=await sha256(authPw);const match=storedHash===inputHash||storedHash===authPw;if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);await forceRepair();setUsers(u2);await doSignIn(em,userEntry);}catch(e){console.error("login",e);setAuthErrors({email:"Something went wrong."});}setAuthLoading(false);}
+  async function doLogin(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;if(!authPw)errs.pw="Password is required";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};const storedHash=await DB.get("pw_"+ek(em));const userEntry=u2[em]||u2[ek(em)];if(!userEntry||storedHash==null){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}if(userEntry.approved===false){setAuthErrors({email:"Account pending admin approval."});setAuthLoading(false);return;}const inputHash=await sha256(authPw);const match=storedHash===inputHash||storedHash===authPw;if(!match){setAuthErrors({pw:"Incorrect password."});setAuthLoading(false);return;}if(storedHash===authPw)await DB.set("pw_"+ek(em),inputHash);setUsers(u2);await doSignIn(em,userEntry);}catch(e){console.error("login",e);setAuthErrors({email:"Something went wrong."});}setAuthLoading(false);}
   async function doRegister(){const now=Date.now();regAttempts.current=regAttempts.current.filter(t=>now-t<REG_WINDOW);if(regAttempts.current.length>=REG_LIMIT){setAuthErrors({email:"Too many attempts."});return;}regAttempts.current.push(now);setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const eErr=validateEmail(em);if(eErr)errs.email=eErr;const nErr=validateName(authName);if(nErr)errs.name=nErr;const pErr=validatePassword(authPw,"register");if(pErr)errs.pw=pErr;if(authPw!==authPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}try{const u2=await DB.get("u")||{};if(u2[em]||u2[ek(em)]){setAuthErrors({email:"Account already exists."});setAuthLoading(false);return;}const existingPending=await DB.get("pending")||{};if(existingPending[ek(em)]){setAuthErrors({email:"Registration already pending."});setAuthLoading(false);return;}const isFirstUser=Object.keys(u2).length===0||em===SUPER_ADMIN;if(isFirstUser){const ex={email:em,name:authName.trim(),joined:new Date().toISOString(),approved:true};await DB.set("u",{...u2,[em]:ex});await DB.set("pw_"+ek(em),await sha256(authPw));const verify=await DB.get("u")||{};const entry=verify[em]||verify[ek(em)];if(!entry){setAuthErrors({email:"Registration failed."});setAuthLoading(false);return;}setUsers(verify);await doSignIn(em,entry,true);}else{await DB.set("pw_"+ek(em),await sha256(authPw));const pending=await DB.get("pending")||{};pending[ek(em)]={email:em,name:authName.trim(),joined:new Date().toISOString()};await DB.set("pending",pending);setSc("pending_approval");}}catch(err){console.error("register",err);setAuthErrors({email:"Registration failed."});}setAuthLoading(false);}
   async function doForgotStep1(){setAuthLoading(true);const em=normalizeEmail(authEmail);const eErr=validateEmail(em);if(eErr){setAuthErrors({email:eErr});setAuthLoading(false);return;}const u2=await DB.get("u")||{};if(!u2[em]&&!u2[ek(em)]){setAuthErrors({email:"No account found."});setAuthLoading(false);return;}setAuthErrors({});setForgotStep(2);setAuthLoading(false);}
   async function doForgotStep2(){setAuthLoading(true);const em=normalizeEmail(authEmail);const errs={};const pErr=validatePassword(forgotNewPw,"register");if(pErr)errs.pw=pErr;if(forgotNewPw!==forgotNewPw2)errs.pw2="Passwords do not match";if(Object.keys(errs).length){setAuthErrors(errs);setAuthLoading(false);return;}await DB.set("pw_"+ek(em),await sha256(forgotNewPw));toast2("Password reset! Please sign in.","ok");const se=authEmail;clearAuthForm();setAuthMode("login");setAuthEmail(se);setAuthLoading(false);}
@@ -1618,7 +1623,7 @@ export default function App(){
     setMyPicks(freshAP[ek(em)]||{});
     setBcSeenTs(Date.now());setChatSeenTs(Date.now());
     if(isNew||!hasOnboarded)setSc("onboard");
-    else if(!hasPropBets){
+    else if(!hasPropBets&&em!==SUPER_ADMIN){
       setObProps({q0:userPropBets.q0||"",q1:userPropBets.q1||"",q2:userPropBets.q2||"",q3:userPropBets.q3||"",q4:userPropBets.q4||""});
       setSc("propbets");toast2("One quick thing — fill in your season prop bets! 🏏");
     }
@@ -1988,8 +1993,12 @@ export default function App(){
       await savePropBets(obProps);
       setSc("home");toast2("Prop bets locked! Good luck 🏏","ok");
     }
-    return<div className="app" style={{minHeight:"100vh"}}><style>{CSS}</style>
+    return<div className="app" style={{minHeight:"100vh",paddingBottom:68}}><style>{CSS}</style>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <button onClick={()=>setSc("home")} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",fontSize:13,cursor:"pointer",borderRadius:8,padding:"4px 10px",fontFamily:"'Barlow',sans-serif"}}>← Skip for now</button>
+          <span style={{color:"rgba(255,255,255,.5)",fontSize:12}}>({PROP_QUESTIONS.filter((q,i)=>obProps[`q${i}`]&&obProps[`q${i}`]!=="").length}/5 answered)</span>
+        </div>
         <p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Hey {user?.name} — one more thing!</p>
         <p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:1,margin:"4px 0 0"}}>SEASON PROP BETS</p>
         <p style={{color:"rgba(255,255,255,.65)",fontSize:12,margin:"6px 0 0",lineHeight:1.5}}>These were added after you registered. Answer all 5 to unlock the full +{PTS.prop*5}pts!</p>
@@ -2021,8 +2030,10 @@ export default function App(){
         <button className="lbtn" disabled={!allFilled} onClick={submitStandalonePropBets} style={{opacity:allFilled?1:.4,marginTop:8}}>
           Lock Prop Bets 🔒
         </button>
+        {!allFilled&&<p style={{fontSize:11,color:"#94a3b8",marginTop:10,textAlign:"center"}}>Or tap "← Skip for now" above to explore your picks first and come back later.</p>}
       </div>
       {toast&&<Tst t={toast}/>}
+      <AppNav sc={sc} setSc={setSc} navItems={navItems} chatU={chatU} pendingCount={pendingCount} setAm={setAm} setChatU={setChatU} setChatSeenTs={setChatSeenTs} setBcSeenTs={setBcSeenTs}/>
     </div>;
   }
 
@@ -2233,12 +2244,17 @@ export default function App(){
         if(avail>0&&correct===avail)base+=PTS.streak;
         // Score band pts
         const sbAns2=scoreBandAnswers[String(m.id)]??scoreBandAnswers[Number(m.id)];
-        const sbOk2=sbAns2&&p.sb&&p.sb===sbAns2;
+        const sbOk2=!!(sbAns2&&p.sb&&p.sb===sbAns2);
         if(sbOk2)base+=PTS.scoreBand;
+        // Bonus question per-match pts
+        const bqAns3=bonusAnswers[String(m.id)]??bonusAnswers[Number(m.id)];
+        const myBQ3=myBonusPicks[String(m.id)];
+        const bqOk3=!!(bqAns3!=null&&myBQ3!=null&&myBQ3===bqAns3);
+        if(bqOk3)base+=PTS.bonus;
         if(isPerfect){perfect++;streakCur++;streakBest=Math.max(streakBest,streakCur);}else streakCur=0;
         const mOv=((matchPtsOverride[myEk]||{})[m.id])??((matchPtsOverride[myEk]||{})[String(m.id)])??0;
         const pts=(base*mult)+mOv;totalPts+=pts;
-        return{m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv,tA,wA,mA,sbOk:sbOk2,sbAns:sbAns2};
+        return{m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,mOv,tA,wA,mA,sbOk:sbOk2,sbAns:sbAns2,bqOk:bqOk3,bqAns:bqAns3,myBQ:myBQ3};
       });
       const acc=rows.length?Math.round(rows.filter(r=>r.tossOk||r.winOk||r.motmOk).length/rows.length*100):0;
       const tossAcc=rows.filter(r=>r.tA).length?Math.round(rows.filter(r=>r.tossOk).length/rows.filter(r=>r.tA).length*100):0;
@@ -2261,7 +2277,11 @@ export default function App(){
         <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"hidden"}}>
           {[["pending","Pending ("+pending.length+")"],["played","Results ("+played.length+")"],["upcoming","Schedule"]].map(([t,l])=><button key={t} className={"tbtn"+(ptab===t?" on":"")} onClick={()=>setPtab(t)}>{l}</button>)}
         </div>
-        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>{p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}{(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null?<span> · Bonus: {myBQ?"Yes":"No"}</span>:null;})()}</div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA,sbOk,sbAns})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,minWidth:60,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}{p?.sb&&<div style={{flex:1,minWidth:60,background:sbAns?(sbOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>1st inn</p><p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{sbAns?(sbOk?"✓ +10":"✗"):"TBD"}</p></div>}</div></div>))}
+        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
+                  {p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}
+                  {p?.sb&&<span> · 📊 {SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</span>}
+                  {(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null?<span> · ❓ {myBQ?"Yes":"No"}</span>:null;})()}
+                </div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA,sbOk,sbAns,bqOk,bqAns,myBQ})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,minWidth:60,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}{p?.sb&&<div style={{flex:1,minWidth:60,background:sbAns?(sbOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>📊 Band</p><p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{sbAns?(sbOk?"✓ +"+PTS.scoreBand:"✗"):"TBD"}</p></div>}{myBQ!=null&&<div style={{flex:1,minWidth:60,background:bqAns!=null?(bqOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>❓ Bonus</p><p style={{fontSize:11,fontWeight:700,color:bqAns!=null?(bqOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{myBQ?"Yes":"No"}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{bqAns!=null?(bqOk?"✓ +"+PTS.bonus:"✗"):"TBD"}</p></div>}</div></div>))}
         {ptab==="upcoming"&&(schedule.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{color:"#94a3b8",fontSize:13}}>No upcoming matches.</p></div>:schedule.map(m=>{
           const hasPick=!!getP(myPicks,m.id);const lk=isMatchLocked(m,lockedMatches);const hasRem=!!reminders[m.id];
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
@@ -2404,7 +2424,7 @@ export default function App(){
         {/* Repair DB button — always visible at top of results */}
         <div className="ac" style={{background:"#EBF0FA",border:"2px solid #1D428A"}}>
           <p className="st">🔧 DB REPAIR TOOL</p>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Run this after any double-header day to normalise all pick keys and fix any visibility issues. Safe to run at any time.</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Safely re-normalises all pick keys. The fixed code now <b>recovers</b> Firebase-coerced arrays rather than wiping them. Run only when needed — not automatic anymore.</p>
           <button className="pbtn" disabled={repairLoading} onClick={adminRepairDB}>
             {repairLoading?"Repairing…":"🔧 Repair & Reload All Picks"}
           </button>
