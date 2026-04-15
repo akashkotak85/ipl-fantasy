@@ -1080,13 +1080,18 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
   </div>;
 }
 
-function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
+function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,onSaveSeasonData,spk,t4pk,allPropBets,allBonusPicks,toast2}){
   const[selUser,setSelUser]=useState("");
   const[selMatch,setSelMatch]=useState(null);
-  const[draft,setDraft]=useState({toss:"",win:"",motm:""});
+  const[draft,setDraft]=useState({toss:"",win:"",motm:"",sb:"",bqAns:null});
   const[saving,setSaving]=useState(false);
   const[userSearch,setUserSearch]=useState("");
   const[matchSearch,setMatchSearch]=useState("");
+  // Season override state
+  const[ovChamp,setOvChamp]=useState("");
+  const[ovT4,setOvT4]=useState([]);
+  const[ovProps,setOvProps]=useState({q0:"",q1:"",q2:"",q3:"",q4:""});
+  const[savingSeason,setSavingSeason]=useState("");
 
   const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
   const filteredUsers=approvedUsers.filter(u=>u.name.toLowerCase().includes(userSearch.toLowerCase())||u.email.toLowerCase().includes(userSearch.toLowerCase()));
@@ -1094,21 +1099,46 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
   const filteredMs=playableMs.filter(m=>(m.mn+m.home+m.away+m.date).toLowerCase().includes(matchSearch.toLowerCase()));
 
   const existingPick=selUser&&selMatch?getP(allPicks[ek(selUser)]||{},selMatch.id):null;
+  const existingBQ=selUser&&selMatch?(allBonusPicks[ek(selUser)]||{})[String(selMatch.id)]:undefined;
+  const hasBQ=selMatch&&!!BONUS_QUESTIONS[selMatch.id];
+  const allReady=!!(draft.toss&&draft.win&&draft.motm&&draft.sb&&(!hasBQ||draft.bqAns!==null));
+
+  // Pre-fill season data when user is selected
+  function selectUser(email){
+    const emk=ek(email);
+    setSelUser(email);setSelMatch(null);
+    setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setUserSearch("");
+    setOvChamp(spk[emk]||"");
+    setOvT4(t4pk[emk]||[]);
+    const ep=allPropBets[emk]||{};
+    setOvProps({q0:ep.q0||"",q1:ep.q1||"",q2:ep.q2||"",q3:ep.q3||"",q4:ep.q4||""});
+  }
 
   async function handleSave(){
     if(!selUser||!selMatch){toast2("Select a user and match","error");return;}
-    if(!draft.toss||!draft.win||!draft.motm){toast2("Fill all 3 pick fields","error");return;}
+    if(!draft.toss||!draft.win||!draft.motm||!draft.sb){toast2("Fill Q1–Q4","error");return;}
+    if(hasBQ&&draft.bqAns===null){toast2("Answer the bonus question (Q5)","error");return;}
     setSaving(true);
-    const ok=await onSave(selUser,selMatch,{toss:draft.toss,win:draft.win,motm:draft.motm});
-    if(ok){
-      // Reset for next entry but keep user selected for convenience
-      setSelMatch(null);
-      setDraft({toss:"",win:"",motm:""});
-    }
+    const ok=await onSave(selUser,selMatch,{toss:draft.toss,win:draft.win,motm:draft.motm,sb:draft.sb},draft.bqAns);
+    if(ok){setSelMatch(null);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});}
     setSaving(false);
   }
 
+  async function handleSaveChampion(){
+    if(!selUser||!ovChamp){toast2("Select a team","error");return;}
+    setSavingSeason("champ");await onSaveSeasonData(selUser,"champion",ovChamp);setSavingSeason("");
+  }
+  async function handleSaveTop4(){
+    if(!selUser||ovT4.length!==4){toast2("Select exactly 4 teams","error");return;}
+    setSavingSeason("t4");await onSaveSeasonData(selUser,"top4",ovT4);setSavingSeason("");
+  }
+  async function handleSaveProps(){
+    if(!selUser){return;}
+    setSavingSeason("props");await onSaveSeasonData(selUser,"props",ovProps);setSavingSeason("");
+  }
+
   return(
+    <div>
     <div className="ac">
       <p className="st" style={{marginBottom:12}}>📸 MANUAL PICK ENTRY (SCREENSHOT EVIDENCE)</p>
       <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#92400E"}}>
@@ -1123,7 +1153,7 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
           const emk=ek(u.email);
           const pickCount=Object.keys(allPicks[emk]||{}).length;
           return(
-            <div key={u.email} onClick={()=>{setSelUser(u.email);setSelMatch(null);setDraft({toss:"",win:"",motm:""}); setUserSearch("");}}
+            <div key={u.email} onClick={()=>selectUser(u.email)}
               style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selUser===u.email?"#EBF0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
               <Av name={u.name} sz={28}/>
               <div style={{flex:1}}>
@@ -1145,7 +1175,7 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
             const hasPick=!!getP(allPicks[ek(selUser)]||{},m.id);
             const locked=isMatchLocked(m,{});
             return(
-              <div key={m.id} onClick={()=>{setSelMatch(m);setDraft({toss:"",win:"",motm:""}); setMatchSearch("");}}
+              <div key={m.id} onClick={()=>{setSelMatch(m);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setMatchSearch("");}}
                 style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selMatch?.id===m.id?"#EBF0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1168,19 +1198,20 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
 
       {/* Existing pick warning */}
       {existingPick&&<div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:12,color:"#92400E"}}>
-        ⚠️ This user already has a pick for {selMatch?.mn}: <b>{existingPick.toss}</b> toss · <b>{existingPick.win}</b> win · POTM: <b>{existingPick.motm?.split(" ").slice(-1)[0]}</b>. Saving will overwrite it.
+        ⚠️ Existing pick for {selMatch?.mn}: <b>{existingPick.toss}</b> toss · <b>{existingPick.win}</b> win · POTM: <b>{existingPick.motm?.split(" ").slice(-1)[0]}</b>{existingPick.sb?` · Band: ${existingPick.sb}`:""}. Saving will overwrite.
+        {existingBQ!==undefined&&<span> · Bonus: {existingBQ?"Yes":"No"}</span>}
       </div>}
 
-      {/* Step 3: Pick Entry */}
+      {/* Step 3: Full 5-question pick entry */}
       {selUser&&selMatch&&<>
         <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:12,padding:"14px",marginBottom:14}}>
-          <p style={{fontSize:11,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,marginBottom:12}}>
-            Step 3 — Enter Pick · {selMatch.mn}: {selMatch.home} vs {selMatch.away}
+          <p style={{fontSize:11,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,marginBottom:14}}>
+            Step 3 — Enter All 5 Picks · {selMatch.mn}: {selMatch.home} vs {selMatch.away}
           </p>
 
-          {/* Toss */}
-          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Toss Winner</p>
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
+          {/* Q1: Toss */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Q1 · Toss Winner</p>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[selMatch.home,selMatch.away].map(t=>(
               <button key={t} onClick={()=>setDraft(d=>({...d,toss:t}))}
                 style={{flex:1,padding:"10px 6px",borderRadius:10,border:"2px solid "+(draft.toss===t?"#1D428A":"#e2e8f0"),background:draft.toss===t?"#EBF0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
@@ -1190,9 +1221,9 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
             ))}
           </div>
 
-          {/* Winner */}
-          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Match Winner</p>
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
+          {/* Q2: Winner */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Q2 · Match Winner</p>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[selMatch.home,selMatch.away].map(t=>(
               <button key={t} onClick={()=>setDraft(d=>({...d,win:t}))}
                 style={{flex:1,padding:"10px 6px",borderRadius:10,border:"2px solid "+(draft.win===t?"#1D428A":"#e2e8f0"),background:draft.win===t?"#EBF0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
@@ -1202,25 +1233,90 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,toast2}){
             ))}
           </div>
 
-          {/* POTM */}
-          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Player of the Match</p>
-          <PotmDropdown homeTeam={selMatch.home} awayTeam={selMatch.away} value={draft.motm} onChange={v=>setDraft(d=>({...d,motm:v}))}/>
+          {/* Q3: POTM */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Q3 · Player of the Match</p>
+          <div style={{marginBottom:14}}>
+            <PotmDropdown homeTeam={selMatch.home} awayTeam={selMatch.away} value={draft.motm} onChange={v=>setDraft(d=>({...d,motm:v}))}/>
+          </div>
+
+          {/* Q4: Score Band */}
+          <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Q4 · First Innings Score Band</p>
+          <div style={{display:"flex",gap:6,marginBottom:4}}>
+            {SCORE_BANDS.map(band=>(
+              <button key={band.id} onClick={()=>setDraft(d=>({...d,sb:d.sb===band.id?"":band.id}))}
+                style={{flex:1,padding:"8px 4px",borderRadius:10,border:"2px solid "+(draft.sb===band.id?"#1D428A":"#e2e8f0"),background:draft.sb===band.id?"#EBF0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <span style={{fontSize:18}}>{band.emoji}</span>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:draft.sb===band.id?"#1D428A":"#64748b"}}>{band.short}</span>
+              </button>
+            ))}
+          </div>
+          {!draft.sb&&<p style={{fontSize:10,color:"#ef4444",marginBottom:10,fontWeight:600}}>⚠ Required</p>}
+          {draft.sb&&<p style={{fontSize:10,color:"#94a3b8",marginBottom:10}}>Selected: {SCORE_BANDS.find(b=>b.id===draft.sb)?.label}</p>}
+
+          {/* Q5: Bonus Question */}
+          {hasBQ&&<>
+            <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4}}>Q5 · Bonus Question</p>
+            <p style={{fontSize:11,color:"#475569",marginBottom:8,lineHeight:1.4,fontStyle:"italic"}}>{BONUS_QUESTIONS[selMatch.id]}</p>
+            <div style={{display:"flex",gap:8,marginBottom:draft.bqAns===null?4:10}}>
+              <button className={"bq-btn yes"+(draft.bqAns===true?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===true?null:true}))}>✅ Yes</button>
+              <button className={"bq-btn no"+(draft.bqAns===false?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===false?null:false}))}>❌ No</button>
+            </div>
+            {draft.bqAns===null&&<p style={{fontSize:10,color:"#ef4444",marginBottom:10,fontWeight:600}}>⚠ Required</p>}
+          </>}
 
           {/* Summary */}
-          {draft.toss&&draft.win&&draft.motm&&(
-            <div style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginTop:12,border:"1px solid #bfdbfe",fontSize:12}}>
-              <p style={{color:"#1e40af",fontWeight:700,margin:"0 0 6px",fontSize:11}}>WILL SAVE:</p>
-              <p style={{color:"#1a2540",margin:0}}>
-                <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b> → {selMatch.mn}: <b>{draft.toss}</b> toss · <b>{draft.win}</b> win · POTM: <b>{draft.motm?.split(" ").slice(-1)[0]}</b>
-              </p>
-            </div>
-          )}
+          {allReady&&<div style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginTop:4,border:"1px solid #bfdbfe",fontSize:12}}>
+            <p style={{color:"#1e40af",fontWeight:700,margin:"0 0 6px",fontSize:11,textTransform:"uppercase"}}>Will save:</p>
+            <p style={{color:"#1a2540",margin:0,lineHeight:1.6}}>
+              <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b> → {selMatch.mn}:{" "}
+              <b>{draft.toss}</b> toss · <b>{draft.win}</b> win · <b>{draft.motm?.split(" ").slice(-1)[0]}</b> POTM · <b>{draft.sb}</b> band{hasBQ?` · Bonus: ${draft.bqAns?"Yes":"No"}`:""}
+            </p>
+          </div>}
         </div>
 
-        <button className="pbtn" disabled={saving||!draft.toss||!draft.win||!draft.motm} onClick={handleSave}>
+        <button className="pbtn" disabled={saving||!allReady} onClick={handleSave} style={{marginBottom:8}}>
           {saving?"Saving…":"💾 Save Pick for "+Object.values(users).find(u=>u.email===selUser)?.name}
         </button>
       </>}
+    </div>
+
+    {/* ── Season Data Override ── */}
+    {selUser&&<div className="ac" style={{marginTop:14}}>
+      <p className="st" style={{marginBottom:4}}>🔧 SEASON DATA OVERRIDE</p>
+      <p style={{fontSize:11,color:"#64748b",marginBottom:14}}>Override champion, top 4, and prop bets for <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b>.</p>
+
+      {/* Champion */}
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🏆 Champion Pick</p>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+        {TEAMS.map(t=><button key={t} onClick={()=>setOvChamp(t)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:ovChamp===t?"#1D428A":"#f8faff",border:"2px solid "+(ovChamp===t?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={20}/><span style={{fontSize:11,fontWeight:700,color:ovChamp===t?"#fff":"#475569"}}>{t}</span></button>)}
+      </div>
+      <button className="pbtn" disabled={!ovChamp||savingSeason==="champ"} onClick={handleSaveChampion} style={{marginBottom:14,opacity:ovChamp?1:.4}}>
+        {savingSeason==="champ"?"Saving…":"💾 Save Champion: "+(ovChamp||"—")}
+      </button>
+
+      {/* Top 4 */}
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🏅 Top 4 Picks · {ovT4.length}/4</p>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+        {TEAMS.map(t=>{const sel=ovT4.includes(t);return<button key={t} onClick={()=>{if(sel)setOvT4(p=>p.filter(x=>x!==t));else if(ovT4.length<4)setOvT4(p=>[...p,t]);else toast2("Max 4 teams","error");}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sel?"#1D428A":"#f8faff",border:"2px solid "+(sel?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={20}/><span style={{fontSize:11,fontWeight:700,color:sel?"#fff":"#475569"}}>{t}</span>{sel&&<span style={{fontSize:10,background:"rgba(255,255,255,.25)",color:"#fff",borderRadius:4,padding:"0 4px"}}>#{ovT4.indexOf(t)+1}</span>}</button>;})}</div>
+      <button className="pbtn" disabled={ovT4.length!==4||savingSeason==="t4"} onClick={handleSaveTop4} style={{marginBottom:14,opacity:ovT4.length===4?1:.4}}>
+        {savingSeason==="t4"?"Saving…":"💾 Save Top 4"}
+      </button>
+
+      {/* Prop Bets */}
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>🔮 Season Prop Bets</p>
+      {PROP_QUESTIONS.map((q,i)=>{
+        const val=ovProps[q.id]||"";
+        return<div key={q.id} style={{marginBottom:10}}>
+          <p style={{fontSize:11,fontWeight:700,color:"#1D428A",margin:"0 0 4px"}}>Q{i+1} · {q.label}</p>
+          {q.type==="player"&&<select className="sel" value={val} onChange={e=>setOvProps(p=>({...p,[q.id]:e.target.value}))}><option value="">Select player…</option>{ALL_PLAYERS.map(({p,t})=><option key={p+t} value={p}>{p} ({t})</option>)}</select>}
+          {q.type==="team"&&<select className="sel" value={val} onChange={e=>setOvProps(p=>({...p,[q.id]:e.target.value}))}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{TF[t]}</option>)}</select>}
+          {q.type==="yesno"&&<div style={{display:"flex",gap:8}}><button className={"bq-btn yes"+(val==="true"?" on":"")} onClick={()=>setOvProps(p=>({...p,[q.id]:"true"}))}>✅ Yes</button><button className={"bq-btn no"+(val==="false"?" on":"")} onClick={()=>setOvProps(p=>({...p,[q.id]:"false"}))}>❌ No</button></div>}
+        </div>;
+      })}
+      <button className="pbtn" disabled={savingSeason==="props"} onClick={handleSaveProps} style={{background:"linear-gradient(135deg,#0f6e56,#1D9E75)"}}>
+        {savingSeason==="props"?"Saving…":"💾 Save Prop Bets"}
+      </button>
+    </div>}
     </div>
   );
 }
@@ -1650,11 +1746,19 @@ export default function App(){
     Uses the same atomic DB.setUserPick path to avoid any key coercion.
     Works on locked matches and completed matches (admin override).
   */
-  async function adminSavePick(targetEmail,match,pick){
+  async function adminSavePick(targetEmail,match,pick,bqAns){
     const targetEmk=ek(targetEmail);
     const sid=String(match.id);
-    const ok=await DB.setUserPick(targetEmk,sid,pick);
+    const ok=await DB.setUserPick(targetEmk,sid,{toss:pick.toss,win:pick.win,motm:pick.motm,sb:pick.sb||""});
     if(!ok){toast2("Save failed","error");return false;}
+    // Save bonus answer if provided
+    if(BONUS_QUESTIONS[match.id]&&bqAns!==null&&bqAns!==undefined){
+      const bqPath="bq/"+targetEmk+"/"+sid;
+      await DB.set(bqPath,bqAns);
+      const freshBQ=normalizeKeyMap(await DB.get("bq")||{});
+      setAllBonusPicks(freshBQ);
+      if(targetEmail===email)setMyBonusPicks(freshBQ[myEk]||{});
+    }
     // Re-fetch and normalise to update local state
     const freshAPRaw=await DB.get("ap");
     const freshAP=normalizeAP(freshAPRaw);
@@ -1663,6 +1767,24 @@ export default function App(){
     const targetName=Object.values(users).find(u=>u.email===targetEmail)?.name||targetEmail;
     toast2("✅ Pick saved for "+targetName,"ok");
     return true;
+  }
+
+  async function adminSaveSeasonData(targetEmail,type,data){
+    const targetEmk=ek(targetEmail);
+    const targetName=Object.values(users).find(u=>u.email===targetEmail)?.name||targetEmail;
+    if(type==="champion"){
+      const upd={...spk,[targetEmk]:data};setSpk(upd);await DB.set("sp",upd);
+      if(targetEmail===email)setMySp(data);
+      toast2("✅ Champion saved for "+targetName,"ok");
+    }else if(type==="top4"){
+      const upd={...t4pk,[targetEmk]:data};setT4pk(upd);await DB.set("t4",upd);
+      if(targetEmail===email)setMyT4(data);
+      toast2("✅ Top 4 saved for "+targetName,"ok");
+    }else if(type==="props"){
+      const upd={...allPropBets,[targetEmk]:data};setAllPropBets(upd);await DB.set("propbets/"+targetEmk,data);
+      if(targetEmail===email)setMyPropBets(data);
+      toast2("✅ Prop bets saved for "+targetName,"ok");
+    }
   }
 
   /*
@@ -2272,7 +2394,7 @@ export default function App(){
       </div>}
 
       {/* ── MANUAL PICK ENTRY TAB ── */}
-      {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} toast2={toast2}/>}
+      {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2}/>}
 
       {/* ── PICK STATUS TAB ── */}
       {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers}/>}
