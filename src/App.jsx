@@ -1385,8 +1385,9 @@ export default function App(){
     const normBQ=normalizeKeyMap(bqAll);setAllBonusPicks(normBQ);if(em)setMyBonusPicks(normBQ[emk]||{});
     const normPB=normalizeKeyMap(pbAll);setAllPropBets(normPB);if(em)setMyPropBets(normPB[emk]||{});
     if(paAll)setPropAnswers(paAll);
-    const hasPropBets=!!(em&&normPB[emk]&&PROP_QUESTIONS.every((q,i)=>normPB[emk][`q${i}`]&&normPB[emk][`q${i}`]!==""));
-    return{freshAP,hasOnboarded:!!(nsp[emk]),hasPropBets};
+    const userPropBets=em?(normPB[emk]||{}):null;
+    const hasPropBets=!!(em&&userPropBets&&PROP_QUESTIONS.every((q,i)=>userPropBets[`q${i}`]&&userPropBets[`q${i}`]!==""));
+    return{freshAP,hasOnboarded:!!(nsp[emk]),hasPropBets,userPropBets:userPropBets||{}};
   },[buildBaseMatches]);
 
   useEffect(()=>{
@@ -1402,13 +1403,12 @@ export default function App(){
         // FIX: repair DB on every auto-login to fix any lingering key coercion
         await forceRepair();if(cancelled)return;
         setUser(ex);setEmail(saved.email);setIsAdmin(saved.email===SUPER_ADMIN);setSessionEmail(saved.email);
-        const{freshAP,hasOnboarded,hasPropBets}=await reloadShared(saved.email);if(cancelled)return;
+        const{freshAP,hasOnboarded,hasPropBets,userPropBets}=await reloadShared(saved.email);if(cancelled)return;
         setMyPicks(freshAP[ek(saved.email)]||{});
         setBcSeenTs(Date.now());setChatSeenTs(Date.now());
         if(!hasOnboarded)setSc("onboard");
         else if(!hasPropBets){
-          const existing2=(await DB.get("propbets/"+ek(saved.email)))||{};
-          setObProps({q0:existing2.q0||"",q1:existing2.q1||"",q2:existing2.q2||"",q3:existing2.q3||"",q4:existing2.q4||""});
+          setObProps({q0:userPropBets.q0||"",q1:userPropBets.q1||"",q2:userPropBets.q2||"",q3:userPropBets.q3||"",q4:userPropBets.q4||""});
           setSc("propbets");
         }
         else setSc("home");
@@ -1521,14 +1521,12 @@ export default function App(){
     setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
     await persistSession(em);
-    const{freshAP,hasOnboarded,hasPropBets}=await reloadShared(em);
+    const{freshAP,hasOnboarded,hasPropBets,userPropBets}=await reloadShared(em);
     setMyPicks(freshAP[ek(em)]||{});
     setBcSeenTs(Date.now());setChatSeenTs(Date.now());
     if(isNew||!hasOnboarded)setSc("onboard");
     else if(!hasPropBets){
-      // Pre-fill any partial answers already in DB
-      const existing=normPB[ek(em)]||{};
-      setObProps({q0:existing.q0||"",q1:existing.q1||"",q2:existing.q2||"",q3:existing.q3||"",q4:existing.q4||""});
+      setObProps({q0:userPropBets.q0||"",q1:userPropBets.q1||"",q2:userPropBets.q2||"",q3:userPropBets.q3||"",q4:userPropBets.q4||""});
       setSc("propbets");toast2("One quick thing — fill in your season prop bets! 🏏");
     }
     else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
