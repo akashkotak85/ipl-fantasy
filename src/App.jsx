@@ -1071,7 +1071,6 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                     </td>
                   </>:<td colSpan={selM.result?8:7} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
                 </tr>;
-                </tr>;
               })}
             </tbody>
           </table>
