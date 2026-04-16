@@ -991,7 +991,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
               <col style={{width:"11%"}}/>
               <col style={{width:"16%"}}/>
               <col style={{width:"10%"}}/>
-              {selM.result&&<col style={{width:"16%"}}/>}
+              {selM.result&&<col style={{width:"10%"}}/><col style={{width:"10%"}}/>}
             </colgroup>
             <thead>
               <tr style={{borderBottom:"2px solid #e2e8f0"}}>
@@ -1062,9 +1062,9 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                       </span>
                     </td>
                     {selM.result&&<td style={{textAlign:"center",padding:"6px 2px"}}>
-                      <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>
+                      <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>                     </td>}                     <td style={{textAlign:"center",padding:"6px 2px"}}>{(()=>{const bqA=bonusAnswers?.[String(selM.id)];const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];const bqOk3=bqA!=null&&uBQ!=null&&uBQ===bqA;return uBQ!=null?<span style={{fontSize:10,fontWeight:700,color:bqA!=null?(bqOk3?"#15803d":"#dc2626"):"#1a2540"}}>{uBQ?"Yes":"No"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk3?" ✓":" ✗"}</span>}</span>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>;})()}</td>                     {selM.result&&<td style={{textAlign:"center",padding:"6px 2px"}}><span className="C" style={{fontSize:13,fontWeight:800,color:
                     </td>}
-                  </>:<td colSpan={selM.result?7:6} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                  </>:<td colSpan={selM.result?8:7} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
                 </tr>;
               })}
             </tbody>
