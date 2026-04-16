@@ -99,9 +99,11 @@ const BASE_MATCHES=[
 const PTS={toss:10,win:20,motm:30,streak:15,season:200,top4:50,bonus:15,prop:100,scoreBand:10};
 
 const SCORE_BANDS=[
+  {id:"<150",label:"Below 150",short:"<150",emoji:"💀"},
   {id:"150-170",label:"150 – 170",short:"150–170",emoji:"📉"},
   {id:"171-190",label:"171 – 190",short:"171–190",emoji:"📊"},
-  {id:"190+",label:"190 and above",short:"190+",emoji:"💥"},
+  {id:"191-210",label:"191 – 210",short:"191–210",emoji:"💥"},
+  {id:"210+",label:"210 and above",short:"210+",emoji:"🚀"},
 ];
 const EMOJIK=["fire","cry","aim","rage","clap","boom"];
 const EMOJIV={fire:"🔥",cry:"😭",aim:"🎯",rage:"😤",clap:"👏",boom:"🤯"};
@@ -1064,7 +1066,11 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                     {selM.result&&<td style={{textAlign:"center",padding:"6px 2px"}}>
                       <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>
                     </td>}
-                  <td style={{textAlign:"center",padding:"6px 2px"}}>{(()=>{const bqA=bonusAnswers?.[String(selM.id)];const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];const bqOk3=bqA!=null&&uBQ!=null&&uBQ===bqA;return uBQ!=null?<span style={{fontSize:10,fontWeight:700,color:bqA!=null?(bqOk3?"#15803d":"#dc2626"):"#1a2540"}}>{uBQ?"Yes":"No"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk3?" ✓":" ✗"}</span>}</span>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>;})()}</td>                   </>:<td colSpan={selM.result?8:7} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                  <td style={{textAlign:"center",padding:"6px 2px"}}>{(()=>{const bqA=bonusAnswers?.[String(selM.id)];const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];const bqOk3=bqA!=null&&uBQ!=null&&uBQ===bqA;return uBQ!=null?<span style={{fontSize:10,fontWeight:700,color:bqA!=null?(bqOk3?"#15803d":"#dc2626"):"#1a2540"}}>{uBQ?"Yes":"No"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk3?" ✓":" ✗"}</span>}</span>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>;})()}</td>                   <td style={{textAlign:"center",padding:"6px 2px"}}>
+                      <button onClick={async()=>{if(!confirm("Reset pick for "+u.name+"?"))return;const{db,dbMod}=await(async()=>{const[app,db]=await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);const _app=app.getApps().length?app.getApp():app.initializeApp({apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"});return{db:db.getDatabase(_app),dbMod:db};})();await dbMod.remove(dbMod.ref(db,"ipl26_ap/"+emk+"/"+String(selM.id)));await dbMod.remove(dbMod.ref(db,"ipl26_bq/"+emk+"/"+String(selM.id)));const freshAP=await DB.get("ap");const normAP=normalizeAP(freshAP||{});window.location.reload();}} style={{padding:"3px 7px",borderRadius:6,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:10,fontWeight:700}}>↩️</button>
+                    </td>
+                  </>:<td colSpan={selM.result?8:7} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                </tr>;
                 </tr>;
               })}
             </tbody>
