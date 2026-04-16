@@ -999,7 +999,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Toss</th>
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Win</th>
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>POTM</th>
-                <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>📊</th>                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>❓</th>                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>❓</th>
+                <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>📊</th>                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>❓</th>
                 {selM.result&&<th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Pts</th>}
               </tr>
             </thead>
@@ -1024,7 +1024,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                   const avail=[tA,wA,mA].filter(Boolean).length;
                   const correct=[tossOk,winOk,motmOk].filter(Boolean).length;
                   if(avail>0&&correct===avail)base+=PTS.streak;
-                  if(sbOk)base+=PTS.scoreBand;
+                  if(sbOk)base+=PTS.scoreBand;                   const bqAns=bonusAnswers?.[String(selM.id)];                   const userBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];                   const bqOk2=bqAns!=null&&userBQ!=null&&userBQ===bqAns;                   if(bqOk2)base+=PTS.bonus;
                   rowPts=base*mult;
                 }
                 const rowBg=p?(selM.result?(rowPts>0?"#f0fdf4":"#fff7f7"):"#FFFBEB"):"#fafafa";
@@ -1064,7 +1064,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                     {selM.result&&<td style={{textAlign:"center",padding:"6px 2px"}}>
                       <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>
                     </td>}
-                  </>:<td colSpan={selM.result?6:5} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                  </>:<td colSpan={selM.result?7:6} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
                 </tr>;
               })}
             </tbody>
