@@ -991,7 +991,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
               <col style={{width:"11%"}}/>
               <col style={{width:"16%"}}/>
               <col style={{width:"10%"}}/>
-              {selM.result&&<col style={{width:"10%"}}/>               <col style={{width:"16%"}}/>}
+              {selM.result&&<col style={{width:"16%"}}/>}
             </colgroup>
             <thead>
               <tr style={{borderBottom:"2px solid #e2e8f0"}}>
