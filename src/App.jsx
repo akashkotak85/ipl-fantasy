@@ -658,7 +658,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
       {mp&&(
         <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"7px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>
-          My pick: {mp.toss} toss · {mp.win} win · POTM: {mp.motm?.split(" ").slice(-1)[0]}
+          <p style={{fontSize:10,fontWeight:700,color:"#15803d",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>🔒 Your Locked Picks</p>           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>             {[["🎰 Toss",mp.toss],["🏆 Winner",mp.win],["⭐ POTM",mp.motm?.split(" ").slice(-1)[0]||"—"],["📊 1st Inn",mp.sb?SCORE_BANDS.find(b=>b.id===mp.sb)?.short||mp.sb:"—"]].map(([l,v])=>(               <div key={l} style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px"}}>                 <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>{l}</p>                 <p style={{fontSize:11,fontWeight:700,color:"#1a2540",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v}</p>               </div>             ))}           </div>           {(()=>{             const myBQ=myBonusPicks?.[String(m.id)];             const bqAns=bonusAnswers?.[String(m.id)];             const bqOk=bqAns!=null&&myBQ!=null&&myBQ===bqAns;             return myBQ!=null               ?<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px",marginTop:6,display:"flex",alignItems:"center",justifyContent:"space-between"}}>                   <div>                     <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>❓ Bonus Q</p>                     <p style={{fontSize:11,fontWeight:700,color:"#1a2540",margin:"2px 0 0"}}>{myBQ?"Yes":"No"}</p>                   </div>                   {bqAns!=null&&<span style={{fontSize:11,fontWeight:700,color:bqOk?"#15803d":"#dc2626"}}>{bqOk?"✓ Correct":"✗ Wrong"}</span>}                 </div>               :null;           })()}
           {mp.sb&&<span style={{marginLeft:8,color:"#1D428A",fontWeight:700}}>· 1st inn: {SCORE_BANDS.find(b=>b.id===mp.sb)?.short||mp.sb}</span>}
         </div>
       )}
@@ -896,7 +896,7 @@ function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,onClose}){
 /* ════════════════════════════════════════════════════════════════
    ADMIN PICK STATUS PANEL
    ════════════════════════════════════════════════════════════════ */
-function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail,scoreBandAnswers}){
+function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail,scoreBandAnswers,bonusAnswers,allBonusPicks}){
   const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away)).sort((a,b)=>Number(a.id)-Number(b.id));
   const[psMatch,setPsMatch]=useState(()=>playableMs[0]?.id??null);
   const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
@@ -986,12 +986,12 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,tableLayout:"fixed"}}>
             <colgroup>
-              <col style={{width:"30%"}}/>
-              <col style={{width:"13%"}}/>
-              <col style={{width:"13%"}}/>
-              <col style={{width:"17%"}}/>
-              <col style={{width:"12%"}}/>
-              {selM.result&&<col style={{width:"15%"}}/>}
+              <col style={{width:"26%"}}/>
+              <col style={{width:"11%"}}/>
+              <col style={{width:"11%"}}/>
+              <col style={{width:"16%"}}/>
+              <col style={{width:"10%"}}/>
+              {selM.result&&<col style={{width:"10%"}}/>               <col style={{width:"16%"}}/>}
             </colgroup>
             <thead>
               <tr style={{borderBottom:"2px solid #e2e8f0"}}>
@@ -999,7 +999,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Toss</th>
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Win</th>
                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>POTM</th>
-                <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>📊</th>
+                <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>📊</th>                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>❓</th>                 <th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>❓</th>
                 {selM.result&&<th style={{textAlign:"center",padding:"6px 2px",color:"#64748b",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.3}}>Pts</th>}
               </tr>
             </thead>
@@ -1064,7 +1064,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                     {selM.result&&<td style={{textAlign:"center",padding:"6px 2px"}}>
                       <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>
                     </td>}
-                  </>:<td colSpan={selM.result?5:4} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                  </>:<td colSpan={selM.result?6:5} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
                 </tr>;
               })}
             </tbody>
@@ -2309,7 +2309,7 @@ export default function App(){
           {[["pending","Pending ("+pending.length+")"],["played","Results ("+played.length+")"],["upcoming","Schedule"]].map(([t,l])=><button key={t} className={"tbtn"+(ptab===t?" on":"")} onClick={()=>setPtab(t)}>{l}</button>)}
         </div>
         {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>✅</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
-                  {p?.toss} toss · {p?.win} win · POTM: {p?.motm?.split(" ").slice(-1)[0]}
+                  <p style={{fontSize:10,fontWeight:700,color:"#15803d",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>Your Predictions</p>           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>             {[["🎰 Toss",p?.toss],["🏆 Winner",p?.win],["⭐ POTM",p?.motm?.split(" ").slice(-1)[0]||"—"],["📊 1st Innings",p?.sb?SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb:"—"]].map(([l,v])=>(               <div key={l} style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px"}}>                 <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>{l}</p>                 <p style={{fontSize:12,fontWeight:700,color:"#1a2540",margin:"2px 0 0"}}>{v||"—"}</p>               </div>             ))}           </div>           {(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null             ?<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px",marginTop:6}}>                 <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>❓ Bonus Q</p>                 <p style={{fontSize:12,fontWeight:700,color:"#1a2540",margin:"2px 0 0"}}>{myBQ?"Yes":"No"}</p>               </div>             :null;})()}
                   {p?.sb&&<span> · 📊 {SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</span>}
                   {(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null?<span> · ❓ {myBQ?"Yes":"No"}</span>:null;})()}
                 </div></div>;}))}{ptab==="played"&&(played.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>⏳</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No results yet.</p></div>:[...rows].reverse().map(({m,p,tossOk,winOk,motmOk,isPerfect,pts,mult,tA,wA,mA,sbOk,sbAns,bqOk,bqAns,myBQ})=><div key={m.id} style={{background:"#fff",border:"1px solid "+(isPerfect?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date}</span><div style={{display:"flex",gap:6,alignItems:"center"}}>{isPerfect&&<span style={{fontSize:11}}>🎯 Perfect</span>}{mult>1&&<span style={{background:"#FF822A",color:"#fff",fontSize:9,padding:"2px 6px",borderRadius:10,fontWeight:700}}>2×</span>}<span className="C" style={{color:pts>0?"#15803d":"#94a3b8",fontSize:14,fontWeight:700}}>+{pts}pts</span></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[["Toss",p?.toss,m.result?.toss,tossOk,tA],["Win",p?.win,m.result?.win,winOk,wA],["POTM",p?.motm?.split(" ").slice(-1)[0],m.result?.motm?.split(" ").slice(-1)[0],motmOk,mA]].map(([l,pv,rv,ok,avail])=><div key={l} style={{flex:1,minWidth:60,background:!avail?"#f1f5f9":ok?"#f0fdf4":"#fef2f2",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:11,fontWeight:700,color:!avail?"#94a3b8":ok?"#15803d":"#dc2626",margin:"2px 0 0"}}>{pv||"—"}</p>{!avail?<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>N/A</p>:<p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{ok?"✓":"✗"} {rv||"NR"}</p>}</div>)}{p?.sb&&<div style={{flex:1,minWidth:60,background:sbAns?(sbOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>📊 Band</p><p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{sbAns?(sbOk?"✓ +"+PTS.scoreBand:"✗"):"TBD"}</p></div>}{myBQ!=null&&<div style={{flex:1,minWidth:60,background:bqAns!=null?(bqOk?"#f0fdf4":"#fef2f2"):"#f1f5f9",borderRadius:8,padding:"6px 8px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase"}}>❓ Bonus</p><p style={{fontSize:11,fontWeight:700,color:bqAns!=null?(bqOk?"#15803d":"#dc2626"):"#1a2540",margin:"2px 0 0"}}>{myBQ?"Yes":"No"}</p><p style={{fontSize:9,color:"#94a3b8",margin:"1px 0 0"}}>{bqAns!=null?(bqOk?"✓ +"+PTS.bonus:"✗"):"TBD"}</p></div>}</div></div>))}
@@ -2448,7 +2448,7 @@ export default function App(){
       {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2}/>}
 
       {/* ── PICK STATUS TAB ── */}
-      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers}/>}
+      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks}/>}
 
       {/* ── RESULTS TAB ── */}
       {admTab==="results"&&<div>
