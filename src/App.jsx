@@ -1480,7 +1480,7 @@ export default function App(){
     if(mpo)setMatchPtsOverride(normalizeKeyMap(mpo));
     if(bonusAns)setBonusAnswers(bonusAns);
     if(sba)setScoreBandAnswers(sba);
-    const normBQ=normalizeKeyMap(bqAll);setAllBonusPicks(normBQ);if(em)setMyBonusPicks(normBQ[emk]||{});
+    const normBQ={};if(bqAll&&typeof bqAll==="object"){Object.keys(bqAll).forEach(k=>{normBQ[canonicalKey(k)]=bqAll[k];});}setAllBonusPicks(normBQ);if(em)setMyBonusPicks(normBQ[emk]||{});
     const normPB=normalizeKeyMap(pbAll);setAllPropBets(normPB);if(em)setMyPropBets(normPB[emk]||{});
     if(paAll)setPropAnswers(paAll);
     const userPropBets=em?(normPB[emk]||{}):null;
