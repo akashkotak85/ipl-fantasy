@@ -1,23 +1,31 @@
 /*
-  StockMarket.jsx — IPL Fantasy Stock Exchange v2
-  Sub-tabs: Market | My Portfolio | Rankings | Admin(admin-only)
-  All live inside the single "📈 Market" bottom-nav item.
-  ─────────────────────────────────────────────────────────────
-  FIREBASE PATHS (all prefixed with ipl26_):
-    ipl26_stocks          { RCB:100, ... }
-    ipl26_portfolios      { encodedEmail: { coins, shares, history, initialized } }
-    ipl26_price_history   { RCB:[100,115,...] }  last 30 data points per team
-    ipl26_market_payout   { done:true, ts, leaderboard }
+  StockMarket.jsx — IPL Fantasy Stock Exchange v3
+  Sub-tabs: Market | My Portfolio | Rankings | Rules | Admin(admin-only)
+
+  NEW in v3:
+  ─ Rules tab with full examples
+  ─ Auto price update: whenever ms prop contains a newly finalised
+    match result that hasn't been processed yet, prices update
+    automatically — no admin button tap needed.
+    Processed match IDs are stored at ipl26_stock_processed_matches
+    so each result is applied exactly once.
+
+  FIREBASE PATHS (all prefixed ipl26_):
+    ipl26_stocks                  { RCB:100, ... }
+    ipl26_portfolios              { encodedEmail: { coins, shares, history } }
+    ipl26_price_history           { RCB:[100,115,...] }
+    ipl26_market_payout           { done:true, ts, leaderboard }
+    ipl26_stock_processed_matches { "1":true, "7":true, ... }  ← NEW
 */
 
 import * as React from "react";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 /* ─── constants ──────────────────────────────────────────────── */
-const TEAMS = ["RCB","SRH","MI","KKR","CSK","RR","PBKS","GT","LSG","DC"];
+const TEAMS  = ["RCB","SRH","MI","KKR","CSK","RR","PBKS","GT","LSG","DC"];
 const TF = { RCB:"Royal Challengers Bengaluru",SRH:"Sunrisers Hyderabad",MI:"Mumbai Indians",KKR:"Kolkata Knight Riders",CSK:"Chennai Super Kings",RR:"Rajasthan Royals",PBKS:"Punjab Kings",GT:"Gujarat Titans",LSG:"Lucknow Super Giants",DC:"Delhi Capitals" };
 const TC = { RCB:{bg:"#C8102E",dk:"#FFD700"},SRH:{bg:"#FF822A",dk:"#1B1B1B"},MI:{bg:"#004BA0",dk:"#fff"},KKR:{bg:"#3A225D",dk:"#FFD700"},CSK:{bg:"#F5C600",dk:"#003566"},RR:{bg:"#2D0A6B",dk:"#E91E8C"},PBKS:{bg:"#ED1B24",dk:"#fff"},GT:{bg:"#1B3A6B",dk:"#B5985A"},LSG:{bg:"#A72056",dk:"#fff"},DC:{bg:"#00008B",dk:"#fff"} };
-const LOGOS = { RCB:"https://documents.iplt20.com/ipl/RCB/Logos/Logooutline/RCBoutline.png",SRH:"https://documents.iplt20.com/ipl/SRH/Logos/Logooutline/SRHoutline.png",MI:"https://documents.iplt20.com/ipl/MI/Logos/Logooutline/MIoutline.png",KKR:"https://documents.iplt20.com/ipl/KKR/Logos/Logooutline/KKRoutline.png",CSK:"https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png",RR:"https://documents.iplt20.com/ipl/RR/Logos/Logooutline/RRoutline.png",PBKS:"https://documents.iplt20.com/ipl/PBKS/Logos/Logooutline/PBKSoutline.png",GT:"https://documents.iplt20.com/ipl/GT/Logos/Logooutline/GToutline.png",LSG:"https://documents.iplt20.com/ipl/LSG/Logos/Logooutline/LSGoutline.png",DC:"https://documents.iplt20.com/ipl/DC/Logos/LogoOutline/DCoutline.png" };
+const LOGOS  = { RCB:"https://documents.iplt20.com/ipl/RCB/Logos/Logooutline/RCBoutline.png",SRH:"https://documents.iplt20.com/ipl/SRH/Logos/Logooutline/SRHoutline.png",MI:"https://documents.iplt20.com/ipl/MI/Logos/Logooutline/MIoutline.png",KKR:"https://documents.iplt20.com/ipl/KKR/Logos/Logooutline/KKRoutline.png",CSK:"https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png",RR:"https://documents.iplt20.com/ipl/RR/Logos/Logooutline/RRoutline.png",PBKS:"https://documents.iplt20.com/ipl/PBKS/Logos/Logooutline/PBKSoutline.png",GT:"https://documents.iplt20.com/ipl/GT/Logos/Logooutline/GToutline.png",LSG:"https://documents.iplt20.com/ipl/LSG/Logos/Logooutline/LSGoutline.png",DC:"https://documents.iplt20.com/ipl/DC/Logos/LogoOutline/DCoutline.png" };
 
 const STARTING_COINS = 1000;
 const STARTING_PRICE = 100;
@@ -27,11 +35,13 @@ const PRICE_FLOOR    = 50;
 const PRICE_CEIL     = 300;
 const TOTAL_MATCHES  = 74;
 const PAYOUT_PTS     = [500, 300, 150, 75, 75];
+const NR             = "NO_RESULT";
 
 const PFX = "ipl26_";
 const ek  = e => (e||"").trim().toLowerCase().replace(/\./g,"_dot_").replace(/@/g,"_at_");
+const isNR = v => !v || v === NR;
 
-/* ─── Firebase (reuses same app instance as App.jsx) ─────────── */
+/* ─── Firebase ───────────────────────────────────────────────── */
 const firebaseConfig = { apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e" };
 const firebaseReady = (async()=>{
   const [app,db] = await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);
@@ -39,17 +49,17 @@ const firebaseReady = (async()=>{
   return { db:db.getDatabase(_app), dbMod:db };
 })();
 const MDB = {
-  get:  async k     => { try{ const{db,dbMod}=await firebaseReady; const s=await dbMod.get(dbMod.ref(db,PFX+k)); return s.exists()?s.val():null; }catch(e){ console.error("MDB.get",k,e); return null; } },
-  set:  async(k,v)  => { try{ const{db,dbMod}=await firebaseReady; if(v==null) await dbMod.remove(dbMod.ref(db,PFX+k)); else await dbMod.set(dbMod.ref(db,PFX+k),v); }catch(e){ console.error("MDB.set",k,e); } },
-  path: async(p,v)  => { try{ const{db,dbMod}=await firebaseReady; await dbMod.set(dbMod.ref(db,PFX+p),v); }catch(e){ console.error("MDB.path",p,e); } },
+  get:  async k    => { try{ const{db,dbMod}=await firebaseReady; const s=await dbMod.get(dbMod.ref(db,PFX+k)); return s.exists()?s.val():null; }catch(e){ console.error("MDB.get",k,e); return null; } },
+  set:  async(k,v) => { try{ const{db,dbMod}=await firebaseReady; if(v==null) await dbMod.remove(dbMod.ref(db,PFX+k)); else await dbMod.set(dbMod.ref(db,PFX+k),v); }catch(e){ console.error("MDB.set",k,e); } },
+  path: async(p,v) => { try{ const{db,dbMod}=await firebaseReady; await dbMod.set(dbMod.ref(db,PFX+p),v); }catch(e){ console.error("MDB.path",p,e); } },
 };
 
 /* ─── Pure helpers ───────────────────────────────────────────── */
-const clamp       = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
-const fmt         = n => Number(n).toLocaleString("en-IN");
-const initPrices  = () => Object.fromEntries(TEAMS.map(t=>[t,STARTING_PRICE]));
-const initPort    = () => ({ coins:STARTING_COINS, shares:Object.fromEntries(TEAMS.map(t=>[t,0])), history:[], initialized:true });
-const portVal     = (port,prices) => { if(!port||!prices) return 0; return (port.coins||0)+TEAMS.reduce((s,t)=>s+(port.shares?.[t]||0)*(prices[t]||STARTING_PRICE),0); };
+const clamp      = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const fmt        = n => Number(n).toLocaleString("en-IN");
+const initPrices = () => Object.fromEntries(TEAMS.map(t=>[t,STARTING_PRICE]));
+const initPort   = () => ({ coins:STARTING_COINS, shares:Object.fromEntries(TEAMS.map(t=>[t,0])), history:[], initialized:true });
+const portVal    = (port,prices) => { if(!port||!prices) return 0; return (port.coins||0)+TEAMS.reduce((s,t)=>s+(port.shares?.[t]||0)*(prices[t]||STARTING_PRICE),0); };
 
 /* ─── TLogo ──────────────────────────────────────────────────── */
 function TLogo({t,sz=36}){
@@ -74,35 +84,116 @@ function Spark({data,color}){
   return <svg width={W} height={H} style={{display:"block"}}><polyline points={pts} fill="none" stroke={color||"#1D428A"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
-/* ─── WinnerLoserPicker — must be a real component, not IIFE ─── */
-function WinnerLoserPicker({onApply}){
-  const [winner,setWinner]=useState("");
-  const [loser, setLoser] =useState("");
-  return (
-    <div>
-      <p style={{fontSize:11,fontWeight:600,color:"#475569",margin:"0 0 6px"}}>1. Winner team:</p>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-        {TEAMS.map(t=>(
-          <button key={t} onClick={()=>setWinner(w=>w===t?"":t)}
-            style={{padding:"4px 9px",borderRadius:8,background:winner===t?(TC[t]?.bg||"#1D428A"):"#f8faff",color:winner===t?"#fff":"#475569",border:"1px solid "+(winner===t?"transparent":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700}}>
-            {t}
-          </button>
-        ))}
+/* ─── Rules tab content ──────────────────────────────────────── */
+function RulesTab(){
+  const rules=[
+    {
+      icon:"💰",title:"Starting Balance",
+      body:"Every player starts with ₹1,000 coins when they first open the Market. This is your seed capital — use it wisely!",
+      example:"You open the Market → you immediately have ₹1,000 to invest.",
+    },
+    {
+      icon:"📈",title:"Buying Shares",
+      body:`Pick any IPL team and buy whole shares at the current market price. You can buy multiple shares at once. Your coins are deducted immediately.`,
+      example:"RCB is priced at ₹115. You buy 3 shares → ₹345 deducted. You now hold 3 RCB shares worth ₹345.",
+    },
+    {
+      icon:"📉",title:"Selling Shares",
+      body:"Sell any shares you hold at the current price. Coins are returned to your wallet instantly. You can sell anytime the market is open.",
+      example:"You hold 3 RCB shares. RCB climbed to ₹130. You sell all 3 → get ₹390 back. Profit: ₹45.",
+    },
+    {
+      icon:"🏆",title:"How Prices Move — Win",
+      body:`When a team wins a match, their share price rises by +₹${WIN_DELTA} automatically the moment admin finalises the result. No manual action needed.`,
+      example:`CSK beats MI. CSK was at ₹100 → jumps to ₹115. If you held 5 CSK shares, your holding is now worth ₹575 instead of ₹500.`,
+    },
+    {
+      icon:"💀",title:"How Prices Move — Loss",
+      body:`When a team loses, their share price drops by ₹${Math.abs(LOSS_DELTA)} automatically. Prices can't fall below the floor of ₹${PRICE_FLOOR}.`,
+      example:`MI loses to CSK. MI was at ₹95 → drops to ₹85. If you held 4 MI shares, your holding drops from ₹380 to ₹340.`,
+    },
+    {
+      icon:"🌧",title:"Washout / No Result",
+      body:"If a match has no result (rain, abandonment), neither team's price changes. The match is simply skipped in the price calculation.",
+      example:"RCB vs SRH gets washed out. Both teams' prices stay exactly where they were.",
+    },
+    {
+      icon:"🔒",title:"Trading Window — When You Can Trade",
+      body:"You can buy and sell freely at any time EXCEPT during the 35-minute window before a match starts (same as the prediction lock). Trading reopens once the match starts.",
+      example:"M25 starts at 7:30 PM. Trading is blocked from 6:55 PM. Once the match begins, trading reopens for all other teams.",
+    },
+    {
+      icon:"📊",title:"Price Limits",
+      body:`Share prices are bounded. The floor is ₹${PRICE_FLOOR} (a team can't go below this no matter how many losses) and the ceiling is ₹${PRICE_CEIL} (a team can't rise above this).`,
+      example:`A team on a 10-match winning streak can't go above ₹${PRICE_CEIL}. A team in terrible form can't fall below ₹${PRICE_FLOOR}.`,
+    },
+    {
+      icon:"🏅",title:"Season End Payout — Bonus Prediction Points",
+      body:"When all 74 matches are done, final portfolio values are ranked. Top 5 portfolios earn bonus prediction points added to the main leaderboard.",
+      example:`1st place portfolio → +${PAYOUT_PTS[0]}pts · 2nd → +${PAYOUT_PTS[1]}pts · 3rd → +${PAYOUT_PTS[2]}pts · 4th & 5th → +${PAYOUT_PTS[3]}pts each.`,
+    },
+    {
+      icon:"🧠",title:"Strategy Tips",
+      body:"Buy teams early in the season before they go on winning streaks. Sell after a big win (price is high). Don't hold a team through a tough stretch of fixtures. Diversify — don't put all your coins in one team.",
+      example:"GT faces 3 weak opponents in a row. You buy 10 GT shares at ₹100. They win all 3 → price reaches ₹145. You sell for ₹1,450. Profit: +₹450.",
+    },
+  ];
+
+  return(
+    <div className="smfi">
+      <div style={{background:"linear-gradient(135deg,#0f2456,#1D428A)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
+        <p style={{fontFamily:"'Barlow Condensed',sans-serif",color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>📖 HOW TO PLAY</p>
+        <p style={{color:"#bfdbfe",fontSize:11,margin:"4px 0 0"}}>IPL Stock Exchange — Rules &amp; Examples</p>
       </div>
-      <p style={{fontSize:11,fontWeight:600,color:"#475569",margin:"0 0 6px"}}>2. Loser team:</p>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-        {TEAMS.filter(t=>t!==winner).map(t=>(
-          <button key={t} onClick={()=>setLoser(l=>l===t?"":t)}
-            style={{padding:"4px 9px",borderRadius:8,background:loser===t?"#dc2626":"#f8faff",color:loser===t?"#fff":"#475569",border:"1px solid "+(loser===t?"#dc2626":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:700}}>
-            {t}
-          </button>
-        ))}
+
+      {/* Quick reference card */}
+      <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:14,padding:"14px",marginBottom:14}}>
+        <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#92400E",textTransform:"uppercase",letterSpacing:1,margin:"0 0 10px"}}>⚡ Quick Reference</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {[
+            ["Starting Coins",`₹${fmt(STARTING_COINS)}`,"#1D428A"],
+            ["Starting Price",`₹${STARTING_PRICE}/share`,"#1D428A"],
+            ["Win = Price ↑",`+₹${WIN_DELTA} per win`,"#15803d"],
+            ["Loss = Price ↓",`−₹${Math.abs(LOSS_DELTA)} per loss`,"#dc2626"],
+            ["Price Floor",`₹${PRICE_FLOOR} min`,"#92400E"],
+            ["Price Ceiling",`₹${PRICE_CEIL} max`,"#92400E"],
+            ["Trade Lock","35 min before match","#7c3aed"],
+            ["Whole shares","No fractions","#475569"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"rgba(255,255,255,.75)",borderRadius:8,padding:"8px 10px"}}>
+              <p style={{fontSize:9,color:"#92400E",fontWeight:600,textTransform:"uppercase",letterSpacing:.3,margin:0}}>{l}</p>
+              <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:c,margin:"2px 0 0"}}>{v}</p>
+            </div>
+          ))}
+        </div>
       </div>
-      <button style={{width:"100%",padding:"11px",borderRadius:10,background:winner&&loser?"linear-gradient(135deg,#1D428A,#2a5bbf)":"#94a3b8",color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,letterSpacing:1,textTransform:"uppercase",border:"none",cursor:winner&&loser?"pointer":"not-allowed",opacity:winner&&loser?1:.5}}
-        disabled={!winner||!loser}
-        onClick={()=>{ onApply(winner,loser); setWinner(""); setLoser(""); }}>
-        Apply: {winner||"?"} +{WIN_DELTA} · {loser||"?"} {LOSS_DELTA}
-      </button>
+
+      {/* Season payout table */}
+      <div style={{background:"linear-gradient(135deg,#FFF9E6,#FFFBF0)",border:"1px solid #FDE68A",borderRadius:14,padding:"14px",marginBottom:14}}>
+        <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#92400E",textTransform:"uppercase",letterSpacing:1,margin:"0 0 10px"}}>🏅 Season-End Bonus Points</p>
+        {[["🥇 1st","Highest portfolio value",PAYOUT_PTS[0]],["🥈 2nd","",PAYOUT_PTS[1]],["🥉 3rd","",PAYOUT_PTS[2]],["4th","",PAYOUT_PTS[3]],["5th","",PAYOUT_PTS[4]]].map(([rank,note,pts])=>(
+          <div key={rank} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid rgba(253,230,138,.5)"}}>
+            <span style={{fontSize:12,color:"#92400E",fontWeight:600}}>{rank} {note&&<span style={{fontSize:10,color:"#B45309",fontWeight:400}}>— {note}</span>}</span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:"#1D428A"}}>+{pts}pts</span>
+          </div>
+        ))}
+        <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",lineHeight:1.5}}>These bonus points are added to your main fantasy leaderboard score at the end of the season.</p>
+      </div>
+
+      {/* Detailed rules */}
+      {rules.map((r,i)=>(
+        <div key={i} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:14,padding:"14px",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <span style={{fontSize:20}}>{r.icon}</span>
+            <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,color:"#1a2540",margin:0}}>{r.title}</p>
+          </div>
+          <p style={{fontSize:12,color:"#475569",lineHeight:1.6,margin:"0 0 10px"}}>{r.body}</p>
+          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 12px"}}>
+            <p style={{fontSize:9,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>💡 Example</p>
+            <p style={{fontSize:11,color:"#1e40af",lineHeight:1.5,margin:0,fontStyle:"italic"}}>{r.example}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -115,6 +206,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
   const [portfolio,     setPortfolio]     = useState(null);
   const [allPortfolios, setAllPortfolios] = useState({});
   const [priceHistory,  setPriceHistory]  = useState({});
+  const [processed,     setProcessed]     = useState({});  // { "matchId": true }
   const [payoutDone,    setPayoutDone]    = useState(false);
   const [tab,           setTab]           = useState("market");
   const [selectedTeam,  setSelectedTeam]  = useState(null);
@@ -123,6 +215,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
   const [busy,          setBusy]          = useState(false);
   const [adminTab,      setAdminTab]      = useState("prices");
   const [adminDelta,    setAdminDelta]    = useState({});
+  const autoRunning     = useRef(false); // prevents concurrent auto-update runs
 
   const myEk = useMemo(()=>ek(email),[email]);
 
@@ -130,13 +223,15 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
   const loadData = useCallback(async()=>{
     setLoading(true);
     try{
-      const [rawP,rawPort,rawHist,rawPayout] = await Promise.all([
-        MDB.get("stocks"), MDB.get("portfolios"), MDB.get("price_history"), MDB.get("market_payout"),
+      const [rawP,rawPort,rawHist,rawPayout,rawProc] = await Promise.all([
+        MDB.get("stocks"), MDB.get("portfolios"), MDB.get("price_history"),
+        MDB.get("market_payout"), MDB.get("stock_processed_matches"),
       ]);
       const p = rawP||initPrices();
       if(!rawP) await MDB.set("stocks",p);
       setPrices(p);
       setPriceHistory(rawHist||{});
+      setProcessed(rawProc||{});
       const allP = rawPort||{};
       setAllPortfolios(allP);
       let myP = allP[myEk];
@@ -148,6 +243,83 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
   },[myEk]);
 
   useEffect(()=>{ loadData(); },[loadData]);
+
+  /* ────────────────────────────────────────────────────────────
+     AUTO PRICE UPDATE
+     Runs whenever ms changes (i.e. whenever admin finalises a
+     match result in the Results tab). Finds any match that:
+       1. Has a result with a valid winner (not a washout)
+       2. Has NOT already been processed (tracked in Firebase)
+     Then applies +WIN_DELTA to the winner and +LOSS_DELTA to the
+     loser, marks the match as processed, and shows a toast.
+     Uses autoRunning ref to prevent concurrent runs.
+  ──────────────────────────────────────────────────────────────*/
+  useEffect(()=>{
+    if(!ms||ms.length===0) return;
+
+    async function runAutoUpdate(){
+      if(autoRunning.current) return;
+      autoRunning.current = true;
+      try{
+        // Re-fetch processed map fresh from DB to avoid stale closure
+        const freshProc = (await MDB.get("stock_processed_matches")) || {};
+        const freshPrices = (await MDB.get("stocks")) || initPrices();
+        const freshHist = (await MDB.get("price_history")) || {};
+
+        const toProcess = ms.filter(m=>{
+          if(!m.result) return false;
+          if(isNR(m.result.win)) return false; // skip washouts
+          const sid = String(m.id);
+          return !freshProc[sid];
+        });
+
+        if(toProcess.length === 0){ autoRunning.current=false; return; }
+
+        let np = {...freshPrices};
+        let nh = {...freshHist};
+        const newProc = {...freshProc};
+
+        for(const m of toProcess){
+          const winner = m.result.win;
+          // Loser is the other team in the match
+          const loser  = TEAMS.includes(m.home) && m.home !== winner ? m.home
+                       : TEAMS.includes(m.away) && m.away !== winner ? m.away
+                       : null;
+
+          if(TEAMS.includes(winner)){
+            np[winner] = clamp((np[winner]||STARTING_PRICE)+WIN_DELTA, PRICE_FLOOR, PRICE_CEIL);
+            if(!nh[winner]) nh[winner]=[STARTING_PRICE];
+            nh[winner] = [...nh[winner], np[winner]].slice(-30);
+          }
+          if(loser && TEAMS.includes(loser)){
+            np[loser] = clamp((np[loser]||STARTING_PRICE)+LOSS_DELTA, PRICE_FLOOR, PRICE_CEIL);
+            if(!nh[loser]) nh[loser]=[STARTING_PRICE];
+            nh[loser] = [...nh[loser], np[loser]].slice(-30);
+          }
+          newProc[String(m.id)] = true;
+        }
+
+        await MDB.set("stocks", np);
+        await MDB.set("price_history", nh);
+        await MDB.set("stock_processed_matches", newProc);
+
+        setPrices(np);
+        setPriceHistory(nh);
+        setProcessed(newProc);
+
+        if(toProcess.length === 1){
+          const m = toProcess[0];
+          toast2(`📈 Market updated: ${m.result.win} +₹${WIN_DELTA}`,"ok");
+        } else {
+          toast2(`📈 Market updated for ${toProcess.length} matches`,"ok");
+        }
+      }catch(e){ console.error("SM autoUpdate",e); }
+      autoRunning.current = false;
+    }
+
+    runAutoUpdate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[ms]);
 
   /* ── Trading lock (35 min before any today match) ──────────── */
   const tradingBlocked = useMemo(()=>{
@@ -199,20 +371,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
     setBusy(false);
   }
 
-  /* ── Admin: apply match result prices ──────────────────────── */
-  async function applyPriceUpdate(winner,loser){
-    if(!prices) return;
-    const np={...prices};
-    if(winner&&TEAMS.includes(winner)) np[winner]=clamp(np[winner]+WIN_DELTA,PRICE_FLOOR,PRICE_CEIL);
-    if(loser &&TEAMS.includes(loser))  np[loser] =clamp(np[loser]+LOSS_DELTA,PRICE_FLOOR,PRICE_CEIL);
-    const nh={...priceHistory};
-    TEAMS.forEach(t=>{ if(!nh[t]) nh[t]=[STARTING_PRICE]; nh[t]=[...nh[t],np[t]].slice(-30); });
-    await MDB.set("stocks",np); await MDB.set("price_history",nh);
-    setPrices(np); setPriceHistory(nh);
-    toast2(`Prices: ${winner} +${WIN_DELTA} / ${loser} ${LOSS_DELTA}`,"ok");
-  }
-
-  /* ── Admin: apply manual deltas ────────────────────────────── */
+  /* ── Admin: manual price delta override ────────────────────── */
   async function applyManualDelta(){
     if(!prices) return;
     const np={...prices}, nh={...priceHistory}; let changed=0;
@@ -229,6 +388,18 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
     const p=initPrices(), h=Object.fromEntries(TEAMS.map(t=>[t,[STARTING_PRICE]]));
     await MDB.set("stocks",p); await MDB.set("price_history",h);
     setPrices(p); setPriceHistory(h); toast2("Prices reset to ₹100 ✅","ok");
+  }
+
+  /* ── Admin: reset processed matches (re-run all auto-updates) ── */
+  async function resetProcessed(){
+    if(!confirm("This will re-process all match results and re-apply price changes. Only use if prices got corrupted.")) return;
+    await MDB.set("stock_processed_matches",null);
+    await MDB.set("stocks",initPrices());
+    await MDB.set("price_history",null);
+    setProcessed({});
+    setPrices(initPrices());
+    setPriceHistory({});
+    toast2("Processed matches cleared — prices will recalculate","ok");
   }
 
   /* ── Admin: grant coins ────────────────────────────────────── */
@@ -283,9 +454,13 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
 
   const sortedTeams = prices ? [...TEAMS].sort((a,b)=>(prices[b]||STARTING_PRICE)-(prices[a]||STARTING_PRICE)) : TEAMS;
 
+  // Count auto-processed matches for admin display
+  const processedCount = Object.keys(processed).length;
+  const totalDone = ms.filter(m=>m.result&&!isNR(m.result.win)).length;
+
   /* ── CSS ───────────────────────────────────────────────────── */
   const CSS=`
-    .sm-stab{flex:1;padding:9px 2px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:10px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
+    .sm-stab{flex:1;padding:8px 2px;border:none;background:transparent;color:#94a3b8;border-bottom:2px solid transparent;font-family:'Barlow',sans-serif;font-weight:600;font-size:9px;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;}
     .sm-stab.on{color:#1D428A;border-bottom:2px solid #1D428A;}
     .sm-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:12px;}
     .sm-pbtn{width:100%;padding:11px;border-radius:10px;background:linear-gradient(135deg,#1D428A,#2a5bbf);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:1px;text-transform:uppercase;border:none;cursor:pointer;}
@@ -307,7 +482,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
     </div>
   );
 
-  const subTabs=[["market","📊 Market"],["portfolio","💼 Portfolio"],["rankings","🏆 Rankings"],...(isAdmin?[["admin","⚙️ Admin"]]:[])] ;
+  const subTabs=[["market","📊 Market"],["portfolio","💼 Mine"],["rankings","🏆 Ranks"],["rules","📖 Rules"],...(isAdmin?[["admin","⚙️ Admin"]]:[])] ;
 
   return (
     <div style={{paddingBottom:16}}>
@@ -342,7 +517,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
         {tab==="market"&&(
           <div className="smfi">
             <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"9px 13px",marginBottom:14,fontSize:11,color:"#92400E",lineHeight:1.5}}>
-              💡 <b>Win</b> +{WIN_DELTA} · <b>Loss</b> {LOSS_DELTA} · Floor ₹{PRICE_FLOOR} · Ceiling ₹{PRICE_CEIL} · Whole shares only
+              💡 <b>Win</b> +₹{WIN_DELTA} · <b>Loss</b> −₹{Math.abs(LOSS_DELTA)} · Floor ₹{PRICE_FLOOR} · Ceiling ₹{PRICE_CEIL} · Prices update automatically after each match result
             </div>
 
             {sortedTeams.map(team=>{
@@ -358,7 +533,6 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
               return (
                 <div key={team} className={`sm-tcard${sel?" sel":""}`}
                   onClick={()=>{ setSelectedTeam(sel?null:team); setTradeQty(1); }}>
-                  {/* Row */}
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <TLogo t={team} sz={42}/>
                     <div style={{flex:1,minWidth:0}}>
@@ -373,7 +547,6 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                     </div>
                   </div>
 
-                  {/* Trade panel (expands on tap) */}
                   {sel&&(
                     <div style={{marginTop:14,borderTop:"1px solid #e2e8f0",paddingTop:14}} onClick={e=>e.stopPropagation()}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -410,15 +583,14 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
         {/* ════════ MY PORTFOLIO ════════ */}
         {tab==="portfolio"&&(
           <div className="smfi">
-            {/* Summary */}
             <div className="sm-card" style={{background:"linear-gradient(135deg,#EBF0FA,#f4f7ff)",border:"1px solid #bfdbfe"}}>
               <p style={{fontFamily:"'Barlow Condensed',sans-serif",color:"#1D428A",fontSize:13,fontWeight:700,textTransform:"uppercase",letterSpacing:1,margin:"0 0 12px"}}>My Portfolio Summary</p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {[
-                  ["💰 Cash",         `₹${fmt(Math.round(myCoins))}`],
-                  ["📈 Shares Value",  `₹${fmt(Math.round(myValue-myCoins))}`],
-                  ["🏦 Total Value",   `₹${fmt(Math.round(myValue))}`],
-                  [myPL>=0?"📊 Gain":"📊 Loss", `${myPL>=0?"+":""}₹${fmt(Math.round(Math.abs(myPL)))}`],
+                  ["💰 Cash",`₹${fmt(Math.round(myCoins))}`],
+                  ["📈 Shares Value",`₹${fmt(Math.round(myValue-myCoins))}`],
+                  ["🏦 Total Value",`₹${fmt(Math.round(myValue))}`],
+                  [myPL>=0?"📊 Gain":"📊 Loss",`${myPL>=0?"+":""}₹${fmt(Math.round(Math.abs(myPL)))}`],
                 ].map(([l,v])=>(
                   <div key={l} style={{background:"rgba(255,255,255,.75)",borderRadius:10,padding:"8px 10px"}}>
                     <p style={{fontSize:9,color:"#64748b",margin:0,textTransform:"uppercase",letterSpacing:.3}}>{l}</p>
@@ -428,7 +600,6 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
               </div>
             </div>
 
-            {/* Holdings */}
             <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"4px 0 8px"}}>Holdings</p>
             {TEAMS.filter(t=>(myShares[t]||0)>0).length===0
               ? <div className="sm-card" style={{textAlign:"center",padding:"28px"}}><p style={{fontSize:32,margin:0}}>📭</p><p style={{color:"#94a3b8",fontSize:12,marginTop:8}}>No shares yet — open Market tab to buy!</p></div>
@@ -456,7 +627,6 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                 })
             }
 
-            {/* Trade history */}
             {myHistory.length>0&&(
               <>
                 <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"8px 0 8px"}}>Trade History</p>
@@ -519,9 +689,28 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
           </div>
         )}
 
+        {/* ════════ RULES ════════ */}
+        {tab==="rules"&&<RulesTab/>}
+
         {/* ════════ ADMIN ════════ */}
         {tab==="admin"&&isAdmin&&(
           <div className="smfi">
+            {/* Auto-update status banner */}
+            <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <span style={{fontSize:14}}>⚡</span>
+                <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,color:"#15803d",textTransform:"uppercase",letterSpacing:.5,margin:0}}>Auto Price Updates Active</p>
+              </div>
+              <p style={{fontSize:12,color:"#166534",margin:"0 0 6px",lineHeight:1.5}}>
+                Prices update automatically when you finalise a match result in the Results tab. No manual action needed.
+              </p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:"#15803d",fontWeight:600}}>{processedCount}/{totalDone} match results processed</span>
+                {processedCount<totalDone&&<span style={{fontSize:10,color:"#15803d",background:"#dcfce7",padding:"2px 8px",borderRadius:10,fontWeight:700}}>⏳ {totalDone-processedCount} pending</span>}
+                {processedCount===totalDone&&totalDone>0&&<span style={{fontSize:10,color:"#15803d",background:"#dcfce7",padding:"2px 8px",borderRadius:10,fontWeight:700}}>✅ All up to date</span>}
+              </div>
+            </div>
+
             <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"hidden"}}>
               {[["prices","💰 Prices"],["tools","🔧 Tools"]].map(([t,l])=>(
                 <button key={t} className={`sm-atab${adminTab===t?" on":""}`} onClick={()=>setAdminTab(t)}>{l}</button>
@@ -530,14 +719,16 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
 
             {adminTab==="prices"&&(
               <>
+                {/* Current prices table with manual delta option */}
                 <div className="sm-card">
-                  <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"0 0 12px"}}>Current Prices &amp; Manual Overrides</p>
+                  <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"0 0 6px"}}>Current Prices</p>
+                  <p style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>Prices update automatically from match results. Use manual overrides only to correct errors.</p>
                   <div style={{overflowX:"auto"}}>
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                       <colgroup><col style={{width:"23%"}}/><col style={{width:"14%"}}/><col style={{width:"13%"}}/><col style={{width:"50%"}}/></colgroup>
                       <thead>
                         <tr style={{borderBottom:"2px solid #e2e8f0"}}>
-                          {["Team","Price","Δ","Override"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 6px",color:"#64748b",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>{h}</th>)}
+                          {["Team","Price","Δ","Manual Override"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 6px",color:"#64748b",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>{h}</th>)}
                         </tr>
                       </thead>
                       <tbody>
@@ -545,6 +736,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                           const price=prices?.[team]??STARTING_PRICE;
                           const hist=priceHistory[team]||[STARTING_PRICE];
                           const delta=hist.length>=2?price-hist[hist.length-2]:0;
+                          const wasProcessed=ms.filter(m=>m.result&&!isNR(m.result.win)&&(m.result.win===team||(m.home===team&&m.result.win!==team)||(m.away===team&&m.result.win!==team))).some(m=>processed[String(m.id)]);
                           return (
                             <tr key={team} style={{borderBottom:"1px solid #f1f5f9"}}>
                               <td style={{padding:"7px 6px"}}>
@@ -579,10 +771,28 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                   )}
                 </div>
 
+                {/* Processed matches log */}
                 <div className="sm-card">
-                  <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"0 0 8px"}}>Quick — Match Result Price Update</p>
-                  <p style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>Applies +{WIN_DELTA} to winner, {LOSS_DELTA} to loser. Use after each match result.</p>
-                  <WinnerLoserPicker onApply={applyPriceUpdate}/>
+                  <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"0 0 10px"}}>Auto-Processed Match Log</p>
+                  <div style={{maxHeight:200,overflowY:"auto"}}>
+                    {ms.filter(m=>m.result&&!isNR(m.result.win)).sort((a,b)=>Number(b.id)-Number(a.id)).map(m=>{
+                      const done2=!!processed[String(m.id)];
+                      return(
+                        <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
+                          <div>
+                            <p style={{fontSize:12,fontWeight:600,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p>
+                            <p style={{fontSize:10,color:"#94a3b8",margin:0}}>Winner: <b style={{color:"#15803d"}}>{m.result.win}</b></p>
+                          </div>
+                          <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8,background:done2?"#f0fdf4":"#fef2f2",color:done2?"#15803d":"#dc2626"}}>
+                            {done2?"✅ Applied":"⏳ Pending"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {ms.filter(m=>m.result&&!isNR(m.result.win)).length===0&&(
+                      <p style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"16px 0",margin:0}}>No match results yet.</p>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -616,6 +826,12 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                   <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#64748b",textTransform:"uppercase",letterSpacing:1,margin:"0 0 8px"}}>Reset All Prices</p>
                   <p style={{fontSize:12,color:"#94a3b8",marginBottom:10}}>Resets every team to ₹{STARTING_PRICE}. Does NOT touch portfolios or coins.</p>
                   <button className="sm-dbtn" onClick={resetPrices}>⚠️ Reset All Prices to ₹{STARTING_PRICE}</button>
+                </div>
+
+                <div className="sm-card" style={{border:"1px solid #fecaca",background:"#fff7f7"}}>
+                  <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#dc2626",textTransform:"uppercase",letterSpacing:1,margin:"0 0 8px"}}>🔁 Reset & Reprocess All Results</p>
+                  <p style={{fontSize:12,color:"#94a3b8",marginBottom:10,lineHeight:1.5}}>Clears processed match log and resets all prices to ₹{STARTING_PRICE}. The auto-update will then reapply all existing match results from scratch. Use only if prices got corrupted.</p>
+                  <button className="sm-dbtn" onClick={resetProcessed}>⚠️ Reset Prices &amp; Reprocess All</button>
                 </div>
 
                 <div className="sm-card">
