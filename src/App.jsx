@@ -2442,7 +2442,7 @@ export default function App(){
 
       {/* Admin tab bar */}
       <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"auto"}}>
-        {[["approvals","✅ Approve"],["manpick","📸 Pick Entry"],["results","📊 Results"],["pickstatus","👁 Pick Status"],["users","👥 Users"],["analytics","📈 Analytics"],["matches","🏏 Matches"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>)}
+        {[["approvals","✅ Approve"],["manpick","📸 Pick Entry"],["results","📊 Results"],["pickstatus","👁 Pick Status"],["users","👥 Users"],["analytics","📈 Analytics"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=><button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>)}
       </div>
 
       {/* ── APPROVALS TAB ── */}
@@ -2484,9 +2484,6 @@ export default function App(){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <div><p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{m.date} · {m.time}</p></div>
               <div style={{display:"flex",gap:6}}>
-                <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"4px 10px",borderRadius:8,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:11,fontWeight:600}}>
-                  {(lockedMatches[m.id]??lockedMatches[String(m.id)])==="locked"?"🔒":((lockedMatches[m.id]??lockedMatches[String(m.id)])==="unlocked"?"🔓":"⏱")}
-                </button>
               </div>
             </div>
             {/* Match result: entry form OR done display */}
@@ -2685,27 +2682,7 @@ export default function App(){
         </div>;
       })()}
 
-      {/* ── MATCHES TAB ── */}
-      {admTab==="matches"&&<div>
-        <div className="ac">
-          <p className="st">ADD MANUAL MATCH</p>
-          {[["Match #","mn","text","e.g. M75"],["Date","date","date",""],["Time","time","time",""],["Venue","venue","text","Optional"]].map(([l,k,type,ph])=>(
-            <div key={k} style={{marginBottom:8}}>
-              <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px"}}>{l}</p>
-              <input className="inp" type={type} placeholder={ph} value={manMatchForm[k]} onChange={e=>setManMatchForm(p=>({...p,[k]:e.target.value}))}/>
-            </div>
-          ))}
-          {[["Home","home"],["Away","away"]].map(([l,k])=>(
-            <div key={k} style={{marginBottom:8}}>
-              <p style={{fontSize:11,color:"#64748b",fontWeight:600,margin:"0 0 4px"}}>{l} Team</p>
-              <select className="sel" value={manMatchForm[k]} onChange={e=>setManMatchForm(p=>({...p,[k]:e.target.value}))}>
-                {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          ))}
-          <button className="pbtn" style={{marginTop:8}} onClick={addManualMatch}>+ Add Match</button>
-        </div>
-      </div>}
+      
 
       {/* ── CONTROLS TAB ── */}
       {admTab==="controls"&&<div>
@@ -2715,7 +2692,24 @@ export default function App(){
           <div className="ctrl-row"><div><p style={{fontWeight:600,fontSize:13,color:"#1a2540",margin:0}}>Chat Muted</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>Disable chat for all users</p></div><Toggle on={chatMuted} onChange={async v=>{setChatMuted(v);await DB.set("chatmuted",v);toast2(v?"Chat muted":"Chat open");}}/></div>
         </div>
         <div className="ac">
-          <p className="st">DOUBLE HEADER MATCH</p>
+          <p className="st">MATCH SETTINGS</p>
+          <p style={{fontSize:11,color:"#64748b",marginBottom:12}}>Lock/unlock individual matches, set double header, and mystery match.</p>
+          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🔒 Match Lock Controls</p>
+          <div style={{maxHeight:200,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+            {ms.filter(m=>!isTBD(m)&&!m.result).map(m=>{
+              const st=lockedMatches[m.id]??lockedMatches[String(m.id)];
+              return<div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderBottom:"1px solid #f1f5f9"}}>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:12,fontWeight:600,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p>
+                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time}</p>
+                </div>
+                <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"4px 10px",borderRadius:8,background:st==="locked"?"#fee2e2":st==="unlocked"?"#f0fdf4":"#f1f5f9",color:st==="locked"?"#991b1b":st==="unlocked"?"#15803d":"#475569",border:"1px solid "+(st==="locked"?"#fecaca":st==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600}}>
+                  {st==="locked"?"🔒 Locked":st==="unlocked"?"🔓 Unlocked":"⏱ Auto"}
+                </button>
+              </div>;
+            })}
+          </div>
+          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>⚡ DOUBLE HEADER MATCH</p>
           <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Select which match gets 2× points multiplier.</p>
           <select className="sel" value={doubleMatch??""} onChange={async e=>{const v=e.target.value===""?null:Number(e.target.value);setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⚡ Double: M"+v:"Double removed");}}>
             <option value="">None</option>
