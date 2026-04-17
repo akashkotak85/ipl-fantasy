@@ -1081,7 +1081,7 @@ function PickStatusPanel({ms,users,allPicks,doubleMatch,lockedMatches,adminEmail
                       <span className="C" style={{fontSize:13,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span>
                     </td>}
                   <td style={{textAlign:"center",padding:"6px 2px"}}>{(()=>{const bqA=bonusAnswers?.[String(selM.id)];const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];const bqOk3=bqA!=null&&uBQ!=null&&uBQ===bqA;return uBQ!=null?<span style={{fontSize:10,fontWeight:700,color:bqA!=null?(bqOk3?"#15803d":"#dc2626"):"#1a2540"}}>{uBQ?"Yes":"No"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk3?" ✓":" ✗"}</span>}</span>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>;})()}</td>                   <td style={{textAlign:"center",padding:"6px 2px"}}>
-                      <button onClick={async()=>{if(!confirm("Reset pick for "+u.name+"?"))return;const{db,dbMod}=await(async()=>{const[app,db]=await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);const _app=app.getApps().length?app.getApp():app.initializeApp({apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"});return{db:db.getDatabase(_app),dbMod:db};})();await dbMod.remove(dbMod.ref(db,"ipl26_ap/"+emk+"/"+String(selM.id)));await dbMod.remove(dbMod.ref(db,"ipl26_bq/"+emk+"/"+String(selM.id)));const freshAP=await DB.get("ap");const normAP=normalizeAP(freshAP||{});window.location.reload();}} style={{padding:"3px 7px",borderRadius:6,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:10,fontWeight:700}}>↩️</button>
+                      <button onClick={async()=>{if(!confirm("Reset pick for "+u.name+"?"))return;const{db,dbMod}=await(async()=>{const[app,db]=await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);const _app=app.getApps().length?app.getApp():app.initializeApp({apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e"});return{db:db.getDatabase(_app),dbMod:db};})();await dbMod.remove(dbMod.ref(db,"ipl26_ap/"+emk+"/"+String(selM.id)));await dbMod.remove(dbMod.ref(db,"ipl26_bq/"+emk+"/"+String(selM.id)));const freshAP=await DB.get("ap");const normAP=normalizeAP(freshAP||{});window.location.reload();}} style={{padding:"3px 7px",borderRadius:6,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:10,fontWeight:700}}↩️</button>
                     </td>
                   </>:<td colSpan={selM.result?8:7} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
                 </tr>;
@@ -1424,25 +1424,10 @@ export default function App(){
   const[obProps,setObProps]=useState({q0:"",q1:"",q2:"",q3:"",q4:""});
   // Reveal theatre
   const[revealMatchId,setRevealMatchId]=useState(null);
-  // Momentum Market — Season Stock Exchange
-  const[marketEnabled,setMarketEnabled]=useState(false);
-  const[myCoins,setMyCoins]=useState(1000);
-  const[myShares,setMyShares]=useState({});
-  const[allShares,setAllShares]=useState({});
-  const[stockPrices,setStockPrices]=useState(()=>Object.fromEntries(TEAMS.map(t=>[t,100])));
-  const[marketPayoutDone,setMarketPayoutDone]=useState(false);
 
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const lastPendingCount=useRef(0);
   const toast2=useCallback((msg,type="info")=>{setToast({msg,type});clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(null),3500);},[]);
-  useEffect(()=>{
-    if(!marketEnabled||!email)return;
-    const initCoins=async()=>{
-      const freshCoins=await DB.get("mkt_coins/"+myEk);
-      if(freshCoins==null){await DB.set("mkt_coins/"+myEk,1000);setMyCoins(1000);}
-    };
-    initCoins();
-  },[marketEnabled,email]);
   const myEk=useMemo(()=>ek(email),[email]);
 
   useEffect(()=>{if(!email||!user)return;const ping=async()=>{const now=Date.now();const ou=await DB.get("online")||{};ou[ek(email)]={name:user.name,ts:now};Object.keys(ou).forEach(k=>{if(now-ou[k].ts>90000)delete ou[k];});await DB.set("online",ou);setOnlineUsers({...ou});};ping();const id=setInterval(ping,30000);return()=>clearInterval(id);},[email,user]);
@@ -1477,14 +1462,6 @@ export default function App(){
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride"),
       DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans")
     ]);
-    const[mktEnabled,mktHoldings,mktCoins,mktDiv]=await Promise.all([
-      DB.get("mkt_enabled"),DB.get("mkt_holdings"),DB.get("mkt_coins"),DB.get("mkt_dividends")
-    ]);
-    if(mktEnabled!=null)setMarketEnabled(!!mktEnabled);
-    if(mktHoldings){const nh=normalizeKeyMap(mktHoldings);setAllShares(nh);if(em)setMyShares(nh[ek(em)]||{});}
-    if(mktCoins){const nc=normalizeKeyMap(mktCoins);if(em){const userCoins=nc[ek(em)];if(userCoins==null){await DB.set("mkt_coins/"+ek(em),1000);setMyCoins(1000);}else setMyCoins(userCoins);}}
-    if(mktDiv&&typeof mktDiv==="object"){const prices={};TEAMS.forEach(t=>{prices[t]=mktDiv[t]??100;});setStockPrices(prices);}
-    const mktPayout=await DB.get("mkt_payout_done");if(mktPayout)setMarketPayoutDone(true);
     if(u){const nu={};Object.keys(u).forEach(k=>{const entry=u[k];if(entry?.email)nu[ek(entry.email)]=entry;});setUsers(nu);}
     if(pu)setPendingUsers(pu);else setPendingUsers({});
 
@@ -1800,10 +1777,6 @@ export default function App(){
     const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:trashMsg+bonusLine,ts:Date.now(),sys:true}]);
     setChat(newCh);await DB.set("ch",newCh);
     toast2("Result saved! ✅","ok");
-    if(marketEnabled&&result.win&&!isNR(result.win)){
-      const loser=matchObj.home===result.win?matchObj.away:matchObj.home;
-      await updateStockPrices(result.win,isNR(result.win)?null:loser);
-    }
     await reloadShared(email);
   }
 
@@ -1893,30 +1866,7 @@ export default function App(){
   async function toggleMatchLock(mid){const cur=lockedMatches[mid]??lockedMatches[String(mid)];const next=cur==="locked"?"unlocked":cur==="unlocked"?null:"locked";const upd={...lockedMatches};if(next===null)delete upd[mid];else upd[mid]=next;setLockedMatches(upd);await DB.set("lockedm",upd);toast2(next==="locked"?"🔒 Locked":next==="unlocked"?"🔓 Unlocked":"↩️ Auto");}
   async function adjustPts(em,delta){const emk=ek(em);const cur=manualPtsAdj[emk]||0;const upd={...manualPtsAdj,[emk]:cur+delta};setManualPtsAdj(upd);await DB.set("ptsadj",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
   async function setMatchPts(em,mid,delta){const emk=ek(em);const cur=((matchPtsOverride[emk]||{})[mid])||0;const upd={...matchPtsOverride,[emk]:{...(matchPtsOverride[emk]||{}),[mid]:cur+delta}};setMatchPtsOverride(upd);await DB.set("matchptsoverride",upd);toast2((delta>0?"+":"")+delta+" pts","ok");}
-  async function setSeasonWinner(t){
-    setSw(t);await DB.set("sw",t);
-    if(marketEnabled){
-      const allU=Object.values(users).filter(u=>u?.email&&u.approved!==false);
-      const freshHoldings=normalizeKeyMap(await DB.get("mkt_holdings")||{});
-      const freshDiv=await DB.get("mkt_dividends")||{};
-      const pts=await DB.get("ptsadj")||{};
-      for(const u of allU){
-        const emk=ek(u.email);
-        const holding=(freshHoldings[emk]||{})[t]||0;
-        if(holding>0){
-          const bonus=Math.floor(holding/10)*50;
-          pts[emk]=(pts[emk]||0)+bonus;
-          freshDiv[emk]=(freshDiv[emk]||0)+bonus;
-        }
-      }
-      await DB.set("ptsadj",pts);
-      await DB.set("mkt_dividends",freshDiv);
-      setManualPtsAdj(normalizeKeyMap(pts));
-      setMarketDividends(freshDiv);
-      toast2("🏆 Champion bonus paid to "+t+" investors!","ok");
-    }
-    toast2("Champion: "+t+" 🏆","ok");
-  }
+  async function setSeasonWinner(t){setSw(t);await DB.set("sw",t);toast2("Champion: "+t+" 🏆","ok");}
   async function toggleMaintenance(v){setMaintenance(v);await DB.set("maintenance",v);toast2(v?"🔒 App locked":"✅ App live","ok");}
   async function submitBonusPick(mid,ans){
     const sid=String(mid);
@@ -1926,74 +1876,6 @@ export default function App(){
     setAllBonusPicks(allUpd);
     await DB.set("bq/"+myEk+"/"+sid,ans);
     toast2(ans?"Bonus: Yes locked 👍":"Bonus: No locked 👎","ok");
-  }
-  async function buyShares(team,coins){
-    if(!marketEnabled){toast2("Market is disabled","error");return;}
-    if(marketPayoutDone){toast2("Season over — market is closed","error");return;}
-    if(coins<=0||coins>myCoins){toast2("Enter valid amount","error");return;}
-    const price=stockPrices[team]||100;
-    const shares=Math.floor(coins/price);
-    if(shares<=0){toast2("Not enough coins for 1 share at "+price+" coins","error");return;}
-    const spent=shares*price;
-    const newShares={...myShares,[team]:(myShares[team]||0)+shares};
-    const newCoins=myCoins-spent;
-    setMyShares(newShares);setMyCoins(newCoins);
-    await DB.set("mkt_holdings/"+myEk,newShares);
-    await DB.set("mkt_coins/"+myEk,newCoins);
-    setAllShares(prev=>({...prev,[myEk]:newShares}));
-    toast2("Bought "+shares+" share"+(shares>1?"s":"")+" of "+team+" @ "+price+" coins each 📈","ok");
-  }
-  async function sellShares(team,sharesToSell){
-    if(!marketEnabled){toast2("Market is disabled","error");return;}
-    const cur=myShares[team]||0;if(cur<=0){toast2("No shares to sell","error");return;}
-    const price=stockPrices[team]||100;
-    const sell=Math.min(sharesToSell,cur);
-    const earned=sell*price;
-    const newShares={...myShares,[team]:cur-sell};
-    if(newShares[team]===0)delete newShares[team];
-    const newCoins=myCoins+earned;
-    setMyShares(newShares);setMyCoins(newCoins);
-    await DB.set("mkt_holdings/"+myEk,newShares);
-    await DB.set("mkt_coins/"+myEk,newCoins);
-    setAllShares(prev=>({...prev,[myEk]:newShares}));
-    toast2("Sold "+sell+" share"+(sell>1?"s":"")+" of "+team+" for "+earned+" coins 📉","ok");
-  }
-  async function updateStockPrices(winTeam,loseTeam){
-    const newPrices={...stockPrices};
-    if(winTeam&&newPrices[winTeam]!=null){newPrices[winTeam]=Math.min(300,newPrices[winTeam]+15);}
-    if(loseTeam&&newPrices[loseTeam]!=null){newPrices[loseTeam]=Math.max(50,newPrices[loseTeam]-10);}
-    setStockPrices(newPrices);
-    await DB.set("mkt_dividends",newPrices);
-    return newPrices;
-  }
-  async function adminDoSeasonPayout(){
-    if(marketPayoutDone){toast2("Payout already done","error");return;}
-    const allU=Object.values(users).filter(u=>u?.email&&u.approved!==false);
-    const freshShares=normalizeKeyMap(await DB.get("mkt_holdings")||{});
-    const freshCoins=normalizeKeyMap(await DB.get("mkt_coins")||{});
-    const portfolios=allU.map(u=>{
-      const emk=ek(u.email);
-      const shares=freshShares[emk]||{};
-      const coins=freshCoins[emk]||0;
-      const shareValue=Object.entries(shares).reduce((s,[t,n])=>s+(stockPrices[t]||100)*n,0);
-      return{u,emk,total:coins+shareValue};
-    }).sort((a,b)=>b.total-a.total);
-    const payouts=[500,300,150,75,75];
-    const pts=await DB.get("ptsadj")||{};
-    const chatLines=["📈 SEASON MARKET FINAL RESULTS!\n"];
-    portfolios.slice(0,5).forEach(({u,emk,total},i)=>{
-      const bonus=payouts[i]||0;
-      if(bonus>0){pts[emk]=(pts[emk]||0)+bonus;}
-      chatLines.push(`${i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)} ${u.name} — Portfolio: ${Math.round(total)} coins → +${bonus}pts`);
-    });
-    await DB.set("ptsadj",pts);
-    await DB.set("mkt_payout_done",true);
-    setManualPtsAdj(normalizeKeyMap(pts));
-    setMarketPayoutDone(true);
-    const latest=await DB.get("ch")||[];
-    const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:chatLines.join("\n"),ts:Date.now(),sys:true}]);
-    setChat(nc);await DB.set("ch",nc);
-    toast2("🏆 Season market payout complete!","ok");
   }
   async function savePropBets(props){
     setMyPropBets(props);
@@ -2053,8 +1935,8 @@ export default function App(){
   };
 
   const navItems=isAdmin
-    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["market","📈","Market"],["chat","💬","Chat"],["adm","⚙️","Admin"]]
-    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["market","📈","Market"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
+    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
+    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
 
   const hdr=useMemo(()=><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"13px 16px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2492,55 +2374,6 @@ export default function App(){
       </div>
     </div>}
 
-    {sc==="market"&&(()=>{
-      const myPortfolioValue=myCoins+Object.entries(myShares).reduce((s,[t,n])=>s+(stockPrices[t]||100)*n,0);
-      const totalMatches=ms.filter(m=>!isTBD(m)).length;
-      const doneMatches=ms.filter(m=>m.result&&!isTBD(m)).length;
-      const seasonPct=Math.round(doneMatches/totalMatches*100);
-      return<div style={{padding:"16px"}}>
-        {!marketEnabled&&<div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"16px",textAlign:"center",marginBottom:14}}><p style={{fontSize:32,marginBottom:8}}>📈</p><p className="C" style={{color:"#92400E",fontSize:18,fontWeight:800,letterSpacing:1}}>MARKET COMING SOON</p><p style={{color:"#B45309",fontSize:13,marginTop:6}}>Admin hasn't enabled the Stock Exchange yet.</p></div>}
-        {marketEnabled&&<>
-          <div style={{background:"linear-gradient(135deg,#0f2456,#1D428A)",borderRadius:14,padding:"16px",marginBottom:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>📈 IPL STOCK EXCHANGE</p><p style={{color:"#bfdbfe",fontSize:11,marginTop:2}}>Season-long · Payout at final whistle</p></div>
-              {marketPayoutDone&&<span style={{background:"#FFE57F",color:"#1a2540",fontSize:10,fontWeight:800,padding:"3px 8px",borderRadius:8}}>SEASON CLOSED</span>}
-            </div>
-            <div style={{display:"flex",gap:8,marginTop:10}}>
-              {[["💰",myCoins,"Coins"],["📊",Object.values(myShares).reduce((a,b)=>a+b,0),"Shares"],["💼",Math.round(myPortfolioValue),"Portfolio"]].map(([ic,val,lbl])=>(
-                <div key={lbl} style={{flex:1,background:"rgba(255,255,255,.12)",borderRadius:10,padding:"8px 4px",textAlign:"center"}}>
-                  <p style={{fontSize:13,margin:0}}>{ic}</p>
-                  <p className="C" style={{color:"#FFE57F",fontSize:15,fontWeight:800,margin:"2px 0 0"}}>{val}</p>
-                  <p style={{color:"rgba(255,255,255,.6)",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p>
-                </div>
-              ))}
-            </div>
-            <div style={{marginTop:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"rgba(255,255,255,.6)",fontSize:10}}>Season progress</span><span style={{color:"#FFE57F",fontSize:10,fontWeight:700}}>{doneMatches}/{totalMatches} matches · {seasonPct}%</span></div>
-              <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,.15)",overflow:"hidden"}}><div style={{height:"100%",width:seasonPct+"%",background:"#FFE57F",borderRadius:2}}/></div>
-            </div>
-          </div>
-          <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>
-            💡 Buy shares at current price. Win → price +15. Loss → price -10. Sell anytime. Top 3 portfolios at season end win pts bonuses!
-          </div>
-          {marketPayoutDone&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#15803d",fontWeight:600}}>
-            🏆 Season complete! Final payouts have been distributed. Check the leaderboard for your market bonus pts.
-          </div>}
-          {TEAMS.map(t=>{
-            const price=stockPrices[t]||100;
-            const myAmt=myShares[t]||0;
-            const totalShares=Object.values(allShares).reduce((s,h)=>s+(h[t]||0),0);
-            const form=getTeamForm(t,ms,5);
-            const priceChange=price-100;
-            const[buyAmt,setBuyAmt]=React.useState(0);
-            const maxSharesCanBuy=Math.floor(myCoins/price);
-            return<div key={t} style={{background:"#fff",border:"1px solid "+(myAmt>0?"#bfdbfe":"#e2e8f0"),borderRadius:12,padding:"14px",marginBottom:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <TLogo t={t} sz={36}/>
-                <div style={{flex:1}}>
-                  <p className="C" style={{color:"#1a2540",fontSize:15,fontW
-
-    </div>;})()} 
-
     {sc==="wof"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#D4AF37,#F0C060)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#1a2540",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>🌟 WALL OF FAME</p><p style={{color:"#5a4000",fontSize:12,marginTop:4}}>Perfect prediction history</p></div>
       {(()=>{
@@ -2590,39 +2423,6 @@ export default function App(){
           <p style={{color:"#64748b",fontSize:12,lineHeight:1.6,margin:0}}>{d}</p>
         </div>
       ))}
-      {marketEnabled&&<div style={{background:"linear-gradient(135deg,#0f2456,#1D428A)",borderRadius:12,padding:"14px",marginBottom:10}}>
-        <p style={{fontWeight:700,fontSize:13,color:"#FFE57F",margin:"0 0 10px"}}>📈 Momentum Market — How It Works</p>
-        {[
-          ["💰 Starting Coins","Every player gets 1000 coins at the start of the season. These never reset — manage them wisely across the entire IPL season."],
-          ["📊 Buying Shares","Go to the Market tab and buy shares in any IPL team at their current price. Each team starts at 100 coins per share. You can buy shares in multiple teams."],
-          ["📈 Stock Prices","Prices move automatically after every match result: winning team +15 coins per share, losing team -10 coins per share. Prices range between 50 (floor) and 300 (ceiling). Buy low, sell high!"],
-          ["💼 Your Portfolio","Your portfolio value = coins you have + (shares you own × current price). This is what counts at season end. Track it in the Market tab."],
-          ["📉 Selling","Sell shares anytime to get coins back at the current price. If a team is on a losing streak, sell before the price drops further!"],
-          ["🏆 Season End Payout","When all matches are done, portfolios are ranked. Top 3 get massive pts bonuses: 1st place +500pts, 2nd place +300pts, 3rd place +150pts, 4th & 5th +75pts each."],
-          ["🎯 Strategy Tips","Buy in-form teams early before prices rise. Sell struggling teams before they drop further. Diversify across 3-4 teams. Check form dots on each team card to spot momentum."],
-        ].map(([t,d])=><div key={t} style={{marginBottom:10,background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
-          <p style={{fontWeight:700,fontSize:12,color:"#FFE57F",margin:"0 0 4px"}}>{t}</p>
-          <p style={{color:"rgba(255,255,255,.75)",fontSize:12,lineHeight:1.6,margin:0}}>{d}</p>
-        </div>)}
-        <div style={{background:"rgba(255,215,0,.15)",border:"1px solid rgba(255,215,0,.3)",borderRadius:8,padding:"10px 12px",marginTop:4}}>
-          <p style={{color:"#FFE57F",fontSize:12,fontWeight:700,margin:"0 0 6px"}}>🎓 Full Example — Follow Akash's Week</p>
-          {[
-            ["Season Start","Akash gets 1000 coins. MI are in form — he buys 6 shares at 100 coins each (600 coins). Keeps 400 coins spare to trade later."],
-            ["MI lose 2","Stock drops -10 twice. MI now at 125. Akash still up (bought at 100). He decides to hold — MI still have good matches ahead."],
-            ["Priya's move","Priya bought RCB shares early at 80 coins (after 2 losses). RCB then won 4 straight — now at 140. She sells all shares for big profit and reinvests in GT."],
-            ["End of Season","Akash: 400 coins + 6 MI shares × 155 = 1330 total. Priya: 850 coins + GT shares = 1580 total. Priya finishes 1st → +500pts. Akash finishes 2nd → +300pts. 🏆"],
-          ].map(([day,desc],i)=><div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
-            <div style={{background:"rgba(255,215,0,.25)",borderRadius:6,padding:"2px 8px",flexShrink:0,minWidth:80,textAlign:"center"}}>
-              <span style={{color:"#FFE57F",fontSize:10,fontWeight:700}}>{day}</span>
-            </div>
-            <p style={{color:"rgba(255,255,255,.75)",fontSize:11,margin:0,lineHeight:1.6}}>{desc}</p>
-          </div>)}
-          <div style={{borderTop:"1px solid rgba(255,215,0,.2)",paddingTop:8,marginTop:4}}>
-            <p style={{color:"#FFE57F",fontSize:11,fontWeight:700,margin:"0 0 2px"}}>💡 Market points are added on top of your prediction points</p>
-            <p style={{color:"rgba(255,255,255,.6)",fontSize:11,margin:0}}>It's a separate bonus track — smart investors can climb the leaderboard even on weeks their predictions go wrong.</p>
-          </div>
-        </div>
-      </div>}
       <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"14px",marginBottom:10}}>
         <p style={{fontWeight:700,fontSize:13,color:"#92400E",margin:"0 0 8px"}}>📊 Full Points Summary</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -2929,57 +2729,6 @@ export default function App(){
           {doubleMatch&&<div style={{marginTop:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
             ✅ Mystery match set — users will see 2× revealed at lock time for {ms.find(m=>Number(m.id)===Number(doubleMatch))?.mn||"selected match"}.
           </div>}
-        </div>
-        <div className="ac">
-          <p className="st">📈 MOMENTUM MARKET</p>
-          <div className="ctrl-row"><div><p style={{fontWeight:600,fontSize:13,color:"#1a2540",margin:0}}>Market Enabled</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>Turn on/off the Momentum Market for all users</p></div><Toggle on={marketEnabled} onChange={async v=>{setMarketEnabled(v);await DB.set("mkt_enabled",v);toast2(v?"📈 Market open!":"📉 Market closed","ok");}}/></div>
-          {marketEnabled&&<>
-            <div style={{marginTop:12}}>
-              <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>📊 Current Stock Prices</p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-                {TEAMS.map(t=>{
-                  const price=stockPrices[t]||100;
-                  const change=price-100;
-                  return<div key={t} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:"#f8faff",border:"1px solid #e2e8f0"}}>
-                    <TLogo t={t} sz={16}/>
-                    <div>
-                      <span style={{fontSize:11,fontWeight:700,color:"#1a2540",display:"block"}}>{t}</span>
-                      <span style={{fontSize:10,fontWeight:700,color:change>0?"#15803d":change<0?"#dc2626":"#94a3b8"}}>{price} {change>0?"+"+change:change<0?change:""}</span>
-                    </div>
-                  </div>;
-                })}
-              </div>
-              <p style={{fontSize:10,color:"#94a3b8",marginBottom:12}}>Prices update automatically when you enter match results. Win = +15, Loss = -10. Floor: 50, Ceiling: 300.</p>
-            </div>
-            <div style={{borderTop:"1px solid #f1f5f9",paddingTop:12,marginTop:4}}>
-              <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>🏆 Season End Payout</p>
-              <p style={{fontSize:11,color:"#64748b",marginBottom:8}}>Trigger once at end of season. Calculates everyone's portfolio value (coins + shares × price), ranks them, and awards pts: 1st +500pts, 2nd +300pts, 3rd +150pts, 4th & 5th +75pts each. Announces in chat.</p>
-              {marketPayoutDone?<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",fontWeight:600}}>✅ Season payout already done.</div>
-              :<button className="pbtn" onClick={()=>{if(confirm("Pay season market payout? This cannot be undone."))adminDoSeasonPayout();}} style={{background:"linear-gradient(135deg,#D4AF37,#F0C060)",color:"#1a2540"}}>🏆 Trigger Season End Payout</button>}
-            </div>
-            <div style={{borderTop:"1px solid #f1f5f9",paddingTop:12,marginTop:12}}>
-              <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Current Shareholdings</p>
-              {TEAMS.map(t=>{
-                const totalShares=Object.values(allShares).reduce((s,h)=>s+(h[t]||0),0);
-                if(totalShares===0)return null;
-                const investors=Object.entries(allShares).filter(([,h])=>h[t]>0);
-                return<div key={t} style={{marginBottom:10,background:"#f8faff",borderRadius:8,padding:"8px 10px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                    <TLogo t={t} sz={18}/>
-                    <span className="C" style={{fontSize:13,fontWeight:700,color:"#1D428A"}}>{t}</span>
-                    <span style={{fontSize:10,color:"#94a3b8",marginLeft:"auto"}}>{stockPrices[t]||100} coins/share · {totalShares} shares</span>
-                  </div>
-                  {investors.map(([emk,h])=>{
-                    const u=Object.values(users).find(u=>ek(u.email)===emk);
-                    return<div key={emk} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",color:"#475569"}}>
-                      <span>{u?.name||emk}</span>
-                      <span style={{fontWeight:600,color:"#1D428A"}}>{h[t]} shares · {(h[t]||0)*(stockPrices[t]||100)} coins value</span>
-                    </div>;
-                  })}
-                </div>;
-              })}
-            </div>
-          </>}
         </div>
         <div className="ac">
           <p className="st">SEASON WINNER (CHAMPION)</p>
