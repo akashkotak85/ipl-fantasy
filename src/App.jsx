@@ -2539,6 +2539,8 @@ export default function App(){
                 <div style={{flex:1}}>
                   <p className="C" style={{color:"#1a2540",fontSize:15,fontW
 
+    };})()}
+
     {sc==="wof"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#D4AF37,#F0C060)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#1a2540",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>🌟 WALL OF FAME</p><p style={{color:"#5a4000",fontSize:12,marginTop:4}}>Perfect prediction history</p></div>
       {(()=>{
