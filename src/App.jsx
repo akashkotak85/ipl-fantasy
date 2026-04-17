@@ -1,6 +1,7 @@
 import * as React from "react";
 import{useState,useEffect,useRef,useCallback,useMemo}from"react";
 import MatchIntelPanel from"./MatchIntelPanel.jsx";
+import StockMarket from"./StockMarket.jsx";
 
 const LOGOS={IPL:"https://documents.iplt20.com/ipl/assets/images/ipl-logo-new-old.png",RCB:"https://documents.iplt20.com/ipl/RCB/Logos/Logooutline/RCBoutline.png",SRH:"https://documents.iplt20.com/ipl/SRH/Logos/Logooutline/SRHoutline.png",MI:"https://documents.iplt20.com/ipl/MI/Logos/Logooutline/MIoutline.png",KKR:"https://documents.iplt20.com/ipl/KKR/Logos/Logooutline/KKRoutline.png",CSK:"https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png",RR:"https://documents.iplt20.com/ipl/RR/Logos/Logooutline/RRoutline.png",PBKS:"https://documents.iplt20.com/ipl/PBKS/Logos/Logooutline/PBKSoutline.png",GT:"https://documents.iplt20.com/ipl/GT/Logos/Logooutline/GToutline.png",LSG:"https://documents.iplt20.com/ipl/LSG/Logos/Logooutline/LSGoutline.png",DC:"https://documents.iplt20.com/ipl/DC/Logos/LogoOutline/DCoutline.png"};
 const TC={RCB:{bg:"#C8102E",dk:"#FFD700"},SRH:{bg:"#FF822A",dk:"#1B1B1B"},MI:{bg:"#004BA0",dk:"#fff"},KKR:{bg:"#3A225D",dk:"#FFD700"},CSK:{bg:"#F5C600",dk:"#003566"},RR:{bg:"#2D0A6B",dk:"#E91E8C"},PBKS:{bg:"#ED1B24",dk:"#fff"},GT:{bg:"#1B3A6B",dk:"#B5985A"},LSG:{bg:"#A72056",dk:"#fff"},DC:{bg:"#00008B",dk:"#fff"}};
@@ -1537,7 +1538,7 @@ export default function App(){
   // eslint-disable-next-line
   },[]);
 
-  useEffect(()=>{if(["home","picks","lb","wof","adm"].includes(sc)&&email)reloadShared(email);},[sc,email]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(["home","picks","lb","wof","adm","stock"].includes(sc)&&email)reloadShared(email);},[sc,email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enforce prop bets: whenever user arrives at home screen, check if props filled
   const propBetsSkipped=useRef(false);
@@ -1908,6 +1909,16 @@ export default function App(){
   }
 
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
+  async function handleStockPayout(payoutPtsMap){
+    const curAdj=await DB.get("ptsadj")||{};
+    const updAdj={...curAdj};
+    Object.entries(payoutPtsMap).forEach(([emk,pts])=>{
+      updAdj[emk]=(updAdj[emk]||0)+pts;
+    });
+    await DB.set("ptsadj",updAdj);
+    setManualPtsAdj(updAdj);
+    toast2(`🏆 Market payout applied to ${Object.keys(payoutPtsMap).length} players`,"ok");
+  }
   function exportPicksCSV(){
     const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away)).sort((a,b)=>Number(a.id)-Number(b.id));
     const users2=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
@@ -1935,8 +1946,8 @@ export default function App(){
   };
 
   const navItems=isAdmin
-    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
-    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
+    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["stock","📈","Market"],["adm","⚙️","Admin"]]
+    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["stock","📈","Market"]];
 
   const hdr=useMemo(()=><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"13px 16px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2437,7 +2448,17 @@ export default function App(){
     </div>}
 
     {/* ════════ ADMIN PANEL ════════ */}
-    {sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
+    {sc==="stock"&&(
+      <StockMarket
+        email={email}
+        users={users}
+        ms={ms}
+        isAdmin={isAdmin}
+        toast2={toast2}
+        onPayout={handleStockPayout}
+      />
+    )}
+	{sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1a2540,#1D428A)",borderRadius:14,padding:"14px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>⚙️ ADMIN PANEL</p></div>
 
       {/* Admin tab bar */}
