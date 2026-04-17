@@ -793,7 +793,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 /* ════════════════════════════════════════════════════════════════
    REVEAL THEATRE — sequential animated pick reveal after lock
    ════════════════════════════════════════════════════════════════ */
-function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,onClose}){
+function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,scoreBandAnswers,onClose}){
   const[revealed,setRevealed]=useState(0);
   const[phase,setPhase]=useState("intro"); // intro | revealing | done
   const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
@@ -878,15 +878,26 @@ function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,onClose}){
             {d.p&&!d.tossOk&&!d.winOk&&!d.motmOk&&m.result&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:8}}>💀 0/3</span>}
             {loneWolf===u.name&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:8}}>🐉 LONE WOLF</span>}
           </div>
-          {d.p&&<div style={{display:"flex",gap:6}}>
+          {d.p&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {[["Toss",d.p.toss,d.tossOk,!isNR(m.result?.toss)],["Winner",d.p.win,d.winOk,!isNR(m.result?.win)],["POTM",d.p.motm?.split(" ").slice(-1)[0],d.motmOk,!isNR(m.result?.motm)]].map(([l,v,ok,avail])=>(
-              <div key={l} style={{flex:1,background:!m.result?"rgba(255,255,255,.08)":!avail?"rgba(255,255,255,.05)":ok?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(m.result&&avail?(ok?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
+              <div key={l} style={{flex:1,minWidth:50,background:!m.result?"rgba(255,255,255,.08)":!avail?"rgba(255,255,255,.05)":ok?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(m.result&&avail?(ok?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
                 <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>{l}</p>
                 <p style={{fontSize:11,fontWeight:700,color:m.result&&avail?(ok?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v||"—"}</p>
                 {m.result&&avail&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{ok?"✓":"✗"}</p>}
               </div>
             ))}
-            {bonusQ&&<div style={{flex:1,background:!bonusAns?"rgba(255,255,255,.08)":d.bqOk?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(bonusAns!=null?(d.bqOk?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
+            {d.p.sb&&(()=>{
+              const sbAns=scoreBandAnswers?.[String(m.id)];
+              const sbOk=!!(sbAns&&d.p.sb===sbAns);
+              const bandShort=SCORE_BANDS.find(b=>b.id===d.p.sb)?.short||d.p.sb;
+              const bandEmoji=SCORE_BANDS.find(b=>b.id===d.p.sb)?.emoji||"📊";
+              return<div style={{flex:1,minWidth:50,background:!sbAns?"rgba(255,255,255,.08)":sbOk?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(sbAns?(sbOk?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
+                <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>1st Inn</p>
+                <p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0"}}>{bandEmoji} {bandShort}</p>
+                {sbAns&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{sbOk?"✓":"✗"}</p>}
+              </div>;
+            })()}
+            {bonusQ&&<div style={{flex:1,minWidth:50,background:!bonusAns?"rgba(255,255,255,.08)":d.bqOk?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(bonusAns!=null?(d.bqOk?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
               <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>Bonus</p>
               <p style={{fontSize:11,fontWeight:700,color:bonusAns!=null?(d.bqOk?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0"}}>{d.bq==null?"—":d.bq?"Yes":"No"}</p>
               {bonusAns!=null&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{d.bqOk?"✓":"✗"}</p>}
@@ -2818,6 +2829,6 @@ export default function App(){
 
     <AppNav sc={sc} setSc={setSc} navItems={navItems} chatU={chatU} pendingCount={pendingCount} setAm={setAm} setChatU={setChatU} setChatSeenTs={setChatSeenTs} setBcSeenTs={setBcSeenTs}/>
     {toast&&<Tst t={toast}/>}
-    {revealMatchId&&(()=>{const rm2=ms.find(m=>Number(m.id)===Number(revealMatchId));return rm2?<RevealTheatre m={rm2} allPicks={allPicks} users={users} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} onClose={()=>setRevealMatchId(null)}/>:null;})()}
+    {revealMatchId&&(()=>{const rm2=ms.find(m=>Number(m.id)===Number(revealMatchId));return rm2?<RevealTheatre m={rm2} allPicks={allPicks} users={users} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} scoreBandAnswers={scoreBandAnswers} onClose={()=>setRevealMatchId(null)}/>:null;})()}
   </div>;
 }
