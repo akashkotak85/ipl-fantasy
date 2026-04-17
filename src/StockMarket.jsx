@@ -89,53 +89,58 @@ function RulesTab(){
   const rules=[
     {
       icon:"💰",title:"Starting Balance",
-      body:"Every player starts with ₹1,000 coins when they first open the Market. This is your seed capital — use it wisely!",
-      example:"You open the Market → you immediately have ₹1,000 to invest.",
+      body:`Every player gets ₹${fmt(STARTING_COINS)} coins the first time they open the Market tab. This is your seed capital — it never resets and cannot be topped up. Spend it wisely across the season.`,
+      example:`You open the Market for the first time → ₹${fmt(STARTING_COINS)} coins appear in your wallet. Your portfolio value starts at ₹${fmt(STARTING_COINS)}.`,
+    },
+    {
+      icon:"🧮",title:"How Your Portfolio Value Is Calculated",
+      body:`Your total portfolio value = Wallet Coins + Share Value. Share value = (shares held in each team) × (current price of that team). This total is what determines your rank on the Market leaderboard and your season-end payout position. You never lose coins by just holding shares — the value just goes up or down with the price.`,
+      example:`You have ₹400 coins left in wallet. You hold 5 RCB shares at ₹115 and 3 MI shares at ₹90.\nShare value = (5 × 115) + (3 × 90) = ₹575 + ₹270 = ₹845.\nTotal portfolio = ₹400 + ₹845 = ₹1,245.\nP&L = ₹1,245 − ₹${fmt(STARTING_COINS)} (starting) = +₹245 gain.`,
     },
     {
       icon:"📈",title:"Buying Shares",
-      body:`Pick any IPL team and buy whole shares at the current market price. You can buy multiple shares at once. Your coins are deducted immediately.`,
-      example:"RCB is priced at ₹115. You buy 3 shares → ₹345 deducted. You now hold 3 RCB shares worth ₹345.",
+      body:`Pick any IPL team and buy whole shares at the current market price. You can buy multiple shares at once. Coins are deducted from your wallet immediately. You cannot buy fractions — only whole share quantities (1, 2, 3…). You cannot spend more coins than you have in your wallet.`,
+      example:`RCB is priced at ₹115. You buy 3 shares → ₹345 deducted from wallet. You now hold 3 RCB shares.\nShare value of RCB = 3 × ₹115 = ₹345.\nYour wallet shrinks, but your total portfolio value stays the same (coins converted to shares).`,
     },
     {
       icon:"📉",title:"Selling Shares",
-      body:"Sell any shares you hold at the current price. Coins are returned to your wallet instantly. You can sell anytime the market is open.",
-      example:"You hold 3 RCB shares. RCB climbed to ₹130. You sell all 3 → get ₹390 back. Profit: ₹45.",
+      body:`Sell any shares you hold at the current market price. The coin value is credited to your wallet instantly. If the price has risen since you bought, you profit — if it dropped, you lose. Selling during a live match is not allowed for that team.`,
+      example:`You bought 3 RCB shares at ₹115 (paid ₹345). RCB went on a winning streak and is now ₹145.\nYou sell all 3 → ₹435 credited to wallet.\nProfit = ₹435 − ₹345 = +₹90.`,
     },
     {
       icon:"🏆",title:"How Prices Move — Win",
-      body:`When a team wins a match, their share price rises by +₹${WIN_DELTA} automatically the moment admin finalises the result. No manual action needed.`,
-      example:`CSK beats MI. CSK was at ₹100 → jumps to ₹115. If you held 5 CSK shares, your holding is now worth ₹575 instead of ₹500.`,
+      body:`When a team wins a match, their share price automatically rises by +₹${WIN_DELTA} the moment the admin finalises the result in the app. This is fully automatic — no manual step needed. The price update reflects immediately in the Market tab.`,
+      example:`CSK beats MI. CSK was at ₹100 → automatically jumps to ₹115.\nIf you held 5 CSK shares: holding value = 5 × ₹115 = ₹575 (was ₹500). Gain = +₹75.`,
     },
     {
       icon:"💀",title:"How Prices Move — Loss",
-      body:`When a team loses, their share price drops by ₹${Math.abs(LOSS_DELTA)} automatically. Prices can't fall below the floor of ₹${PRICE_FLOOR}.`,
-      example:`MI loses to CSK. MI was at ₹95 → drops to ₹85. If you held 4 MI shares, your holding drops from ₹380 to ₹340.`,
+      body:`When a team loses, their share price automatically drops by ₹${Math.abs(LOSS_DELTA)}. This also triggers the moment the admin enters the result. Prices can never fall below the floor of ₹${PRICE_FLOOR}, even after many consecutive losses.`,
+      example:`MI loses to CSK. MI was at ₹95 → automatically drops to ₹85.\nIf you held 4 MI shares: holding value = 4 × ₹85 = ₹340 (was ₹380). Loss = −₹40.`,
     },
     {
       icon:"🌧",title:"Washout / No Result",
-      body:"If a match has no result (rain, abandonment), neither team's price changes. The match is simply skipped in the price calculation.",
-      example:"RCB vs SRH gets washed out. Both teams' prices stay exactly where they were.",
+      body:"If a match is abandoned or has no result due to rain, neither team's price changes. The match is completely skipped in the price engine — it counts as if the match never happened for market purposes.",
+      example:"RCB vs SRH is washed out. RCB stays at ₹110, SRH stays at ₹95. No change for holders of either team.",
     },
     {
-      icon:"🔒",title:"Trading Window — When You Can Trade",
-      body:"You can buy and sell freely at any time EXCEPT during the 35-minute window before a match starts (same as the prediction lock). Trading reopens once the match starts.",
-      example:"M25 starts at 7:30 PM. Trading is blocked from 6:55 PM. Once the match begins, trading reopens for all other teams.",
+      icon:"🔴",title:"Trading Window — Per-Team Lock",
+      body:`Each team's shares lock independently based on their own match schedule. A team is locked for trading during two windows: (1) the 35-minute pre-match window before their game starts, and (2) while their match is live and ongoing. The instant the match result is entered by admin, that team's shares unlock automatically — even if other matches are still running. Teams with no match today are always open to trade.`,
+      example:`M25: GT vs KKR at 7:30 PM IST.\n→ 6:55 PM: GT and KKR cards show 🔴 LIVE — trading blocked for both.\n→ 10:15 PM: Admin enters result. GT and KKR immediately unlock.\nAll other teams (RCB, MI, CSK etc.) were tradeable the entire time.`,
     },
     {
-      icon:"📊",title:"Price Limits",
-      body:`Share prices are bounded. The floor is ₹${PRICE_FLOOR} (a team can't go below this no matter how many losses) and the ceiling is ₹${PRICE_CEIL} (a team can't rise above this).`,
-      example:`A team on a 10-match winning streak can't go above ₹${PRICE_CEIL}. A team in terrible form can't fall below ₹${PRICE_FLOOR}.`,
+      icon:"📊",title:"Price Limits — Floor & Ceiling",
+      body:`Share prices are bounded between ₹${PRICE_FLOOR} and ₹${PRICE_CEIL}. A team can never go below ₹${PRICE_FLOOR} regardless of how many matches they lose, and can never exceed ₹${PRICE_CEIL} no matter how many they win. This prevents extreme runaway values.`,
+      example:`Team A is at ₹${PRICE_FLOOR} and loses again. Price stays at ₹${PRICE_FLOOR} — it doesn't go to ₹${PRICE_FLOOR+LOSS_DELTA}.\nTeam B is at ₹${PRICE_CEIL} and wins again. Price stays at ₹${PRICE_CEIL} — it doesn't go to ₹${PRICE_CEIL+WIN_DELTA}.`,
     },
     {
       icon:"🏅",title:"Season End Payout — Bonus Prediction Points",
-      body:"When all 74 matches are done, final portfolio values are ranked. Top 5 portfolios earn bonus prediction points added to the main leaderboard.",
-      example:`1st place portfolio → +${PAYOUT_PTS[0]}pts · 2nd → +${PAYOUT_PTS[1]}pts · 3rd → +${PAYOUT_PTS[2]}pts · 4th & 5th → +${PAYOUT_PTS[3]}pts each.`,
+      body:`When all ${TOTAL_MATCHES} matches are done, every player's final portfolio value is calculated (wallet coins + all shares at final prices). Players are ranked by this value. The top 5 receive bonus points that are added directly to their main fantasy prediction leaderboard score.`,
+      example:`At season end:\nYou hold ₹200 coins + 4 CSK shares at ₹155 + 2 GT shares at ₹130.\nFinal portfolio = ₹200 + (4×155) + (2×130) = ₹200 + ₹620 + ₹260 = ₹1,080.\nIf that ranks you 2nd → +${PAYOUT_PTS[1]}pts added to your fantasy score.`,
     },
     {
       icon:"🧠",title:"Strategy Tips",
-      body:"Buy teams early in the season before they go on winning streaks. Sell after a big win (price is high). Don't hold a team through a tough stretch of fixtures. Diversify — don't put all your coins in one team.",
-      example:"GT faces 3 weak opponents in a row. You buy 10 GT shares at ₹100. They win all 3 → price reaches ₹145. You sell for ₹1,450. Profit: +₹450.",
+      body:`• Buy teams before their easy run of fixtures, sell after a winning streak when the price is high.\n• Don't hold a team through a tough patch — sell before the price drops.\n• Diversify across 3–4 teams rather than going all-in on one.\n• Your wallet coins also count toward your total — don't forget that cash is part of your portfolio value too.\n• Shares you hold but haven't sold still count toward your season-end ranking, so timing your sell is key.`,
+      example:`GT faces 3 bottom-half teams in a row. You buy 8 GT shares at ₹100 (cost ₹800).\nGT wins all 3 → price reaches ₹145.\nYou sell: 8 × ₹145 = ₹1,160. Profit = +₹360.\nAlternatively, if you hold until season end at ₹145, they still count as ₹1,160 in your final portfolio value.`,
     },
   ];
 
@@ -143,7 +148,30 @@ function RulesTab(){
     <div className="smfi">
       <div style={{background:"linear-gradient(135deg,#0f2456,#1D428A)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}>
         <p style={{fontFamily:"'Barlow Condensed',sans-serif",color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>📖 HOW TO PLAY</p>
-        <p style={{color:"#bfdbfe",fontSize:11,margin:"4px 0 0"}}>IPL Stock Exchange — Rules &amp; Examples</p>
+        <p style={{color:"#bfdbfe",fontSize:11,margin:"4px 0 0"}}>IPL Stock Exchange — Full Rules &amp; Examples</p>
+      </div>
+
+      {/* Portfolio value formula card */}
+      <div style={{background:"linear-gradient(135deg,#EBF0FA,#f4f7ff)",border:"1px solid #bfdbfe",borderRadius:14,padding:"14px",marginBottom:14}}>
+        <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#1e40af",textTransform:"uppercase",letterSpacing:1,margin:"0 0 10px"}}>🧮 Portfolio Value Formula</p>
+        <div style={{background:"rgba(255,255,255,.8)",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+          <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,color:"#1D428A",margin:0,letterSpacing:.5,textAlign:"center"}}>
+            Portfolio = Wallet Coins + (Shares × Current Price)
+          </p>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:8}}>
+          {[
+            ["💰 Wallet","Coins not yet invested","#1D428A"],
+            ["📈 Shares","Teams × current price","#15803d"],
+            ["🏆 Ranking","By total portfolio value","#92400E"],
+            ["📊 P&L","Portfolio − ₹1,000 start","#7c3aed"],
+          ].map(([ic,lbl,c])=>(
+            <div key={lbl} style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"7px 9px",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:14}}>{ic}</span>
+              <p style={{fontSize:10,color:c,fontWeight:700,margin:0,lineHeight:1.3}}>{lbl}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Quick reference card */}
@@ -153,16 +181,16 @@ function RulesTab(){
           {[
             ["Starting Coins",`₹${fmt(STARTING_COINS)}`,"#1D428A"],
             ["Starting Price",`₹${STARTING_PRICE}/share`,"#1D428A"],
-            ["Win = Price ↑",`+₹${WIN_DELTA} per win`,"#15803d"],
-            ["Loss = Price ↓",`−₹${Math.abs(LOSS_DELTA)} per loss`,"#dc2626"],
-            ["Price Floor",`₹${PRICE_FLOOR} min`,"#92400E"],
-            ["Price Ceiling",`₹${PRICE_CEIL} max`,"#92400E"],
-            ["Trade Lock","35 min before match","#7c3aed"],
-            ["Whole shares","No fractions","#475569"],
+            ["Win = Price ↑",`+₹${WIN_DELTA} auto`,"#15803d"],
+            ["Loss = Price ↓",`−₹${Math.abs(LOSS_DELTA)} auto`,"#dc2626"],
+            ["Price Floor",`₹${PRICE_FLOOR} minimum`,"#92400E"],
+            ["Price Ceiling",`₹${PRICE_CEIL} maximum`,"#92400E"],
+            ["Lock","Per-team · pre-match + live","#7c3aed"],
+            ["Shares","Whole numbers only","#475569"],
           ].map(([l,v,c])=>(
             <div key={l} style={{background:"rgba(255,255,255,.75)",borderRadius:8,padding:"8px 10px"}}>
               <p style={{fontSize:9,color:"#92400E",fontWeight:600,textTransform:"uppercase",letterSpacing:.3,margin:0}}>{l}</p>
-              <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:c,margin:"2px 0 0"}}>{v}</p>
+              <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,color:c,margin:"2px 0 0"}}>{v}</p>
             </div>
           ))}
         </div>
@@ -171,13 +199,21 @@ function RulesTab(){
       {/* Season payout table */}
       <div style={{background:"linear-gradient(135deg,#FFF9E6,#FFFBF0)",border:"1px solid #FDE68A",borderRadius:14,padding:"14px",marginBottom:14}}>
         <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,color:"#92400E",textTransform:"uppercase",letterSpacing:1,margin:"0 0 10px"}}>🏅 Season-End Bonus Points</p>
-        {[["🥇 1st","Highest portfolio value",PAYOUT_PTS[0]],["🥈 2nd","",PAYOUT_PTS[1]],["🥉 3rd","",PAYOUT_PTS[2]],["4th","",PAYOUT_PTS[3]],["5th","",PAYOUT_PTS[4]]].map(([rank,note,pts])=>(
-          <div key={rank} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid rgba(253,230,138,.5)"}}>
-            <span style={{fontSize:12,color:"#92400E",fontWeight:600}}>{rank} {note&&<span style={{fontSize:10,color:"#B45309",fontWeight:400}}>— {note}</span>}</span>
+        {[
+          ["🥇 1st",`Highest total portfolio value`,PAYOUT_PTS[0]],
+          ["🥈 2nd","",PAYOUT_PTS[1]],
+          ["🥉 3rd","",PAYOUT_PTS[2]],
+          ["4th","",PAYOUT_PTS[3]],
+          ["5th","",PAYOUT_PTS[4]],
+        ].map(([rank,note,pts])=>(
+          <div key={rank} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid rgba(253,230,138,.5)"}}>
+            <span style={{fontSize:12,color:"#92400E",fontWeight:600}}>{rank}{note?<span style={{fontSize:10,color:"#B45309",fontWeight:400}}> — {note}</span>:""}</span>
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:"#1D428A"}}>+{pts}pts</span>
           </div>
         ))}
-        <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",lineHeight:1.5}}>These bonus points are added to your main fantasy leaderboard score at the end of the season.</p>
+        <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",lineHeight:1.5}}>
+          Portfolio = wallet coins + share values at final prices. Unsold shares count at their closing price — you don't have to sell to rank.
+        </p>
       </div>
 
       {/* Detailed rules */}
@@ -187,10 +223,10 @@ function RulesTab(){
             <span style={{fontSize:20}}>{r.icon}</span>
             <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,color:"#1a2540",margin:0}}>{r.title}</p>
           </div>
-          <p style={{fontSize:12,color:"#475569",lineHeight:1.6,margin:"0 0 10px"}}>{r.body}</p>
+          <p style={{fontSize:12,color:"#475569",lineHeight:1.7,margin:"0 0 10px",whiteSpace:"pre-line"}}>{r.body}</p>
           <div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 12px"}}>
             <p style={{fontSize:9,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>💡 Example</p>
-            <p style={{fontSize:11,color:"#1e40af",lineHeight:1.5,margin:0,fontStyle:"italic"}}>{r.example}</p>
+            <p style={{fontSize:11,color:"#1e40af",lineHeight:1.6,margin:0,fontStyle:"italic",whiteSpace:"pre-line"}}>{r.example}</p>
           </div>
         </div>
       ))}
@@ -321,19 +357,48 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[ms]);
 
-  /* ── Trading lock (35 min before any today match) ──────────── */
-  const tradingBlocked = useMemo(()=>{
-    const today = new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
-    return ms.filter(m=>m.date===today&&!m.result).some(m=>{
+  /* ── Clock tick — re-evaluates lock state every 30 seconds ─── */
+  const [now, setNow] = useState(()=>Date.now());
+  useEffect(()=>{
+    const id = setInterval(()=>setNow(Date.now()), 30000);
+    return ()=>clearInterval(id);
+  },[]);
+
+  /*
+    Per-team lock logic:
+    A team's shares are BLOCKED for trading when:
+      • Their match has started (>= match start time) AND
+      • Their match has NOT yet been finalised (no result in ms)
+      i.e. the match is currently live / in-progress.
+    A team is also blocked during the 35-min pre-match window
+    (same as prediction lock), so users can't snipe just before
+    a match starts.
+    A team is FREE to trade at all other times — including while
+    OTHER teams' matches are happening.
+  */
+  const isTeamLocked = useCallback((team)=>{
+    const today = new Date(now).toLocaleDateString("en-CA",{timeZone:"Asia/Kolkata"});
+    const teamMatches = ms.filter(m=>
+      (m.home===team || m.away===team) &&
+      m.date===today &&
+      !m.result   // only unfinished matches matter
+    );
+    return teamMatches.some(m=>{
       const t=(m.time||"00:00").trim(), p=t.length===4?"0"+t:t;
-      const d=new Date(m.date+"T"+p+":00+05:30");
-      return !isNaN(d.getTime()) && new Date()>=new Date(d-35*60*1000);
+      const matchStart = new Date(m.date+"T"+p+":00+05:30");
+      if(isNaN(matchStart.getTime())) return false;
+      const lockTime  = new Date(matchStart.getTime() - 35*60*1000);
+      // Blocked window: 35 min before start → until match has a result
+      // The upper bound is handled by the !m.result filter above —
+      // once admin sets the result, m.result is set and this match
+      // is excluded, so the team becomes tradeable again automatically.
+      return now >= lockTime.getTime();
     });
-  },[ms]);
+  },[ms, now]);
 
   /* ── Buy ───────────────────────────────────────────────────── */
   async function handleBuy(team){
-    if(tradingBlocked){toast2("Trading paused — match locked 🔒","error");return;}
+    if(isTeamLocked(team)){toast2(`${team} is locked — match in progress 🔒`,"error");return;}
     if(!portfolio||!prices||busy) return;
     const price=prices[team], qty=Math.max(1,tradeQty), total=price*qty;
     if(portfolio.coins<total){toast2(`Need ₹${fmt(total)}, have ₹${fmt(Math.round(portfolio.coins))}`,"error");return;}
@@ -352,7 +417,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
 
   /* ── Sell ──────────────────────────────────────────────────── */
   async function handleSell(team){
-    if(tradingBlocked){toast2("Trading paused — match locked 🔒","error");return;}
+    if(isTeamLocked(team)){toast2(`${team} is locked — match in progress 🔒`,"error");return;}
     if(!portfolio||!prices||busy) return;
     const price=prices[team], qty=Math.max(1,tradeQty), held=portfolio.shares?.[team]||0;
     if(held<qty){toast2(`Only ${held} share${held===1?"":"s"} of ${team}`,"error");return;}
@@ -500,7 +565,13 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
             </div>
           ))}
         </div>
-        {tradingBlocked&&<div style={{marginTop:10,background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#fca5a5",fontWeight:600}}>🔒 Trading paused — match about to start</div>}
+        {(()=>{
+          const lockedTeams=TEAMS.filter(t=>isTeamLocked(t));
+          if(lockedTeams.length===0) return null;
+          return <div style={{marginTop:10,background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#fca5a5",fontWeight:600}}>
+            🔒 Match live — trading paused for: {lockedTeams.join(", ")}
+          </div>;
+        })()}
         {payoutDone&&<div style={{marginTop:10,background:"rgba(255,215,0,.15)",border:"1px solid rgba(255,215,0,.3)",borderRadius:8,padding:"6px 12px",fontSize:11,color:"#FFE57F",fontWeight:600}}>🏆 Season over — final payouts awarded!</div>}
       </div>
 
@@ -517,7 +588,7 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
         {tab==="market"&&(
           <div className="smfi">
             <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"9px 13px",marginBottom:14,fontSize:11,color:"#92400E",lineHeight:1.5}}>
-              💡 <b>Win</b> +₹{WIN_DELTA} · <b>Loss</b> −₹{Math.abs(LOSS_DELTA)} · Floor ₹{PRICE_FLOOR} · Ceiling ₹{PRICE_CEIL} · Prices update automatically after each match result
+              💡 <b>Win</b> +₹{WIN_DELTA} · <b>Loss</b> −₹{Math.abs(LOSS_DELTA)} · Floor ₹{PRICE_FLOOR} · Ceiling ₹{PRICE_CEIL} · Each team locks only during their own live match
             </div>
 
             {sortedTeams.map(team=>{
@@ -527,8 +598,9 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
               const held  = myShares[team]||0;
               const sel   = selectedTeam===team;
               const tc    = TC[team]||{bg:"#333"};
-              const canBuy  = !tradingBlocked && myCoins>=price*tradeQty && !busy;
-              const canSell = !tradingBlocked && held>=tradeQty && !busy;
+              const teamLocked = isTeamLocked(team);
+              const canBuy  = !teamLocked && myCoins>=price*tradeQty && !busy;
+              const canSell = !teamLocked && held>=tradeQty && !busy;
 
               return (
                 <div key={team} className={`sm-tcard${sel?" sel":""}`}
@@ -536,7 +608,10 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <TLogo t={team} sz={42}/>
                     <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,color:"#1a2540",margin:0}}>{team}</p>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,color:"#1a2540",margin:0}}>{team}</p>
+                        {teamLocked&&<span style={{fontSize:9,fontWeight:700,background:"#fee2e2",color:"#991b1b",padding:"2px 6px",borderRadius:8}}>🔴 LIVE</span>}
+                      </div>
                       <p style={{fontSize:10,color:"#64748b",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{TF[team]}</p>
                       {held>0&&<p style={{fontSize:10,color:"#1D428A",fontWeight:700,margin:"2px 0 0"}}>{held} share{held!==1?"s":""} · ₹{fmt(held*price)}</p>}
                     </div>
@@ -549,29 +624,37 @@ export default function StockMarket({ email, users, ms, isAdmin, toast2, onPayou
 
                   {sel&&(
                     <div style={{marginTop:14,borderTop:"1px solid #e2e8f0",paddingTop:14}} onClick={e=>e.stopPropagation()}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-                        <span style={{fontSize:12,color:"#64748b",fontWeight:600,flexShrink:0}}>Qty</span>
-                        <button onClick={()=>setTradeQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",cursor:"pointer",fontSize:18,lineHeight:1,color:"#1a2540",fontWeight:700}}>−</button>
-                        <input type="number" min="1" max="999" value={tradeQty}
-                          onChange={e=>setTradeQty(Math.max(1,parseInt(e.target.value)||1))}
-                          onClick={e=>e.stopPropagation()}
-                          style={{width:56,textAlign:"center",padding:"6px 4px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",fontSize:14,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
-                        <button onClick={()=>setTradeQty(q=>q+1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",cursor:"pointer",fontSize:18,lineHeight:1,color:"#1a2540",fontWeight:700}}>+</button>
-                        <span style={{fontSize:12,color:"#64748b",marginLeft:4}}>= <b style={{color:"#1D428A"}}>₹{fmt(price*tradeQty)}</b></span>
-                      </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>handleBuy(team)} disabled={!canBuy}
-                          style={{flex:1,padding:"11px",borderRadius:10,border:"none",cursor:canBuy?"pointer":"not-allowed",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,textTransform:"uppercase",background:canBuy?"#15803d":"#cbd5e1",color:"#fff"}}>
-                          {busy?"…":`Buy ₹${fmt(price*tradeQty)}`}
-                        </button>
-                        <button onClick={()=>handleSell(team)} disabled={!canSell}
-                          style={{flex:1,padding:"11px",borderRadius:10,border:"none",cursor:canSell?"pointer":"not-allowed",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,textTransform:"uppercase",background:canSell?"#dc2626":"#cbd5e1",color:"#fff"}}>
-                          {busy?"…":`Sell ₹${fmt(price*tradeQty)}`}
-                        </button>
-                      </div>
-                      <p style={{fontSize:10,color:"#94a3b8",marginTop:6,textAlign:"center"}}>
-                        ₹{fmt(Math.round(myCoins))} coins · {held} {team} share{held!==1?"s":""}
-                      </p>
+                      {teamLocked
+                        ? <div style={{background:"#fee2e2",borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+                            <p style={{fontSize:13,fontWeight:700,color:"#991b1b",margin:"0 0 4px"}}>🔴 Match in progress</p>
+                            <p style={{fontSize:11,color:"#dc2626",margin:0}}>{team} shares are locked while their match is live. Trading reopens automatically once the result is in.</p>
+                          </div>
+                        : <>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                              <span style={{fontSize:12,color:"#64748b",fontWeight:600,flexShrink:0}}>Qty</span>
+                              <button onClick={()=>setTradeQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",cursor:"pointer",fontSize:18,lineHeight:1,color:"#1a2540",fontWeight:700}}>−</button>
+                              <input type="number" min="1" max="999" value={tradeQty}
+                                onChange={e=>setTradeQty(Math.max(1,parseInt(e.target.value)||1))}
+                                onClick={e=>e.stopPropagation()}
+                                style={{width:56,textAlign:"center",padding:"6px 4px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",fontSize:14,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
+                              <button onClick={()=>setTradeQty(q=>q+1)} style={{width:32,height:32,borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",cursor:"pointer",fontSize:18,lineHeight:1,color:"#1a2540",fontWeight:700}}>+</button>
+                              <span style={{fontSize:12,color:"#64748b",marginLeft:4}}>= <b style={{color:"#1D428A"}}>₹{fmt(price*tradeQty)}</b></span>
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <button onClick={()=>handleBuy(team)} disabled={!canBuy}
+                                style={{flex:1,padding:"11px",borderRadius:10,border:"none",cursor:canBuy?"pointer":"not-allowed",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,textTransform:"uppercase",background:canBuy?"#15803d":"#cbd5e1",color:"#fff"}}>
+                                {busy?"…":`Buy ₹${fmt(price*tradeQty)}`}
+                              </button>
+                              <button onClick={()=>handleSell(team)} disabled={!canSell}
+                                style={{flex:1,padding:"11px",borderRadius:10,border:"none",cursor:canSell?"pointer":"not-allowed",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,textTransform:"uppercase",background:canSell?"#dc2626":"#cbd5e1",color:"#fff"}}>
+                                {busy?"…":`Sell ₹${fmt(price*tradeQty)}`}
+                              </button>
+                            </div>
+                            <p style={{fontSize:10,color:"#94a3b8",marginTop:6,textAlign:"center"}}>
+                              ₹{fmt(Math.round(myCoins))} coins · {held} {team} share{held!==1?"s":""}
+                            </p>
+                          </>
+                      }
                     </div>
                   )}
                 </div>
