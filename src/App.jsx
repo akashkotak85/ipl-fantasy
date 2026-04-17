@@ -648,13 +648,27 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       )}
 
       {!m.result&&m._partial&&(
-        <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:8}}>
-          <span style={{color:"#92400E",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:6}}>📊 Results</span>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-            {m._partial.toss&&<span style={{color:"#92400E"}}><b>Toss:</b> {m._partial.toss}</span>}
-            {m._partial.win&&<span style={{color:"#92400E"}}><b>Win:</b> {m._partial.win}</span>}
-            {m._partial.motm&&<span style={{color:"#92400E"}}><b>POTM:</b> {m._partial.motm?.split(" ").slice(-1)[0]}</span>}
+        <div style={{background:"linear-gradient(135deg,#FFF9E6,#FEF3C7)",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+            <span style={{fontSize:13}}>📊</span>
+            <span style={{color:"#92400E",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.8}}>Partial Results In</span>
+            <span style={{marginLeft:"auto",background:"#FDE68A",color:"#92400E",fontSize:9,padding:"2px 7px",borderRadius:10,fontWeight:700}}>LIVE</span>
           </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:8}}>
+            {m._partial.toss&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>🎰 Toss</p>
+              <p style={{fontSize:13,fontWeight:700,color:"#1a2540",margin:0}}>{m._partial.toss}</p>
+            </div>}
+            {m._partial.win&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>🏆 Winner</p>
+              <p style={{fontSize:13,fontWeight:700,color:"#15803d",margin:0}}>{m._partial.win}</p>
+            </div>}
+            {m._partial.motm&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>⭐ POTM</p>
+              <p style={{fontSize:13,fontWeight:700,color:"#B8860B",margin:0}}>{m._partial.motm?.split(" ").slice(-1)[0]}</p>
+            </div>}
+          </div>
+          <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",textAlign:"center"}}>Result being finalised by admin…</p>
         </div>
       )}
 
@@ -2707,6 +2721,20 @@ export default function App(){
             <option value="">None</option>
             {ms.filter(m=>!isTBD(m)).map(m=><option key={m.id} value={m.id}>{m.mn}: {m.home} vs {m.away} ({m.date})</option>)}
           </select>
+        </div>
+        <div className="ac">
+          <p className="st">⭐ MYSTERY MATCH</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Set one match as "Mystery" — users don't know it's 2× until it locks. Different from Double Header — this one is hidden until reveal.</p>
+          <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:10,fontSize:12,color:"#92400E"}}>
+            ⚠️ Do NOT set the same match as both Double Header and Mystery. Mystery overrides and reveals at lock.
+          </div>
+          <select className="sel" value={doubleMatch??""} onChange={async e=>{const v=e.target.value===""?null:Number(e.target.value);setDoubleMatch(v);await DB.set("doublematch",v);toast2(v?"⭐ Mystery set: M"+v:"Mystery removed");}}>
+            <option value="">None — no mystery match this week</option>
+            {ms.filter(m=>!isTBD(m)&&!m.result).map(m=><option key={m.id} value={m.id}>{m.mn}: {m.home} vs {m.away} ({m.date})</option>)}
+          </select>
+          {doubleMatch&&<div style={{marginTop:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
+            ✅ Mystery match set — users will see 2× revealed at lock time for {ms.find(m=>Number(m.id)===Number(doubleMatch))?.mn||"selected match"}.
+          </div>}
         </div>
         <div className="ac">
           <p className="st">SEASON WINNER (CHAMPION)</p>
