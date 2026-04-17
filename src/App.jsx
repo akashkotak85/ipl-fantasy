@@ -1448,7 +1448,7 @@ export default function App(){
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride"),
       DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans")
     ]);
-    if(u)setUsers(u);
+    if(u){const nu={};Object.keys(u).forEach(k=>{const entry=u[k];if(entry?.email)nu[ek(entry.email)]=entry;});setUsers(nu);}
     if(pu)setPendingUsers(pu);else setPendingUsers({});
 
     // FIX: always normalise the ap map on every reload — this converts any
