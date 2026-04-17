@@ -495,7 +495,7 @@ body{background:#F4F6FB;}
 .bq-btn{flex:1;padding:9px 6px;border-radius:10px;border:2px solid #e2e8f0;background:#f8faff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .15s;}
 .bq-btn.yes.on{border-color:#15803d;background:#f0fdf4;color:#15803d;}
 .bq-btn.no.on{border-color:#dc2626;background:#fef2f2;color:#dc2626;}
-.reveal-overlay{position:fixed;inset:0;background:rgba(10,20,60,.96);z-index:300;display:flex;flex-direction:column;max-width:430px;left:50%;transform:translateX(-50%);overflow-y:auto;}
+.reveal-overlay{position:fixed;inset:0;background:rgba(10,20,60,.96);z-index:300;display:flex;flex-direction:column;width:100%;max-width:100vw;left:0;transform:none;overflow-y:auto;}
 `;
 
 /* ─── SUB-COMPONENTS ─── */
@@ -1650,7 +1650,7 @@ export default function App(){
     else{setSc("home");toast2("Welcome back, "+ex.name+"! 👋","ok");}
   }
   async function logout(){Object.keys(remTimers.current).forEach(id=>clearTimeout(remTimers.current[id]));remTimers.current={};if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}clearTimeout(tRef.current);if(sessionEmail){try{const ou=await DB.get("online")||{};delete ou[ek(sessionEmail)];await DB.set("online",ou);await DB.set("token_"+ek(sessionEmail),null);await DB.set("session",null);}catch(e){console.error(e);}}setSessionEmail(null);setUser(null);setEmail("");setMyPicks({});setMySp("");setMyT4([]);setIsAdmin(false);setAm(null);setAllPicks({});setSpk({});setT4pk({});setOnlineUsers({});setUsers({});setBcSeenTs(0);setChatSeenTs(Date.now());setChatU(0);setToast(null);clearAuthForm();setSc("login");}
-  async function approveUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];const u2=await DB.get("u")||{};const ukey=ek(entry.email);u2[ukey]={...entry,approved:true};await DB.set("u",u2);await DB.set("pending",pu);setUsers({...users,[ukey]:{...entry,approved:true}});setPendingUsers({...pu});toast2(entry.name+" approved! ✅","ok");const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"🎉 "+entry.name+" has joined! Welcome!",ts:Date.now(),sys:true}]);setChat(nc);await DB.set("ch",nc);}
+  async function approveUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];const u2=await DB.get("u")||{};u2[entry.email]={...entry,approved:true};await DB.set("u",u2);await DB.set("pending",pu);setUsers({...users,[entry.email]:{...entry,approved:true}});setPendingUsers({...pu});toast2(entry.name+" approved! ✅","ok");const latest=await DB.get("ch")||[];const nc=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:"🎉 "+entry.name+" has joined! Welcome!",ts:Date.now(),sys:true}]);setChat(nc);await DB.set("ch",nc);}
   async function rejectUser(emk){const pu=await DB.get("pending")||{};const entry=pu[emk];if(!entry)return;delete pu[emk];await DB.set("pending",pu);await DB.set("pw_"+emk,null);setPendingUsers({...pu});toast2(entry.name+" rejected","error");}
   async function updateObStep(step,sp,t4){setObStep(step);if(email)await DB.set("ob_"+myEk,{step,sp,t4});}
   async function doneOnboard(){
