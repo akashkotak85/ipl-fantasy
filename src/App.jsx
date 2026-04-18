@@ -8,16 +8,86 @@ const TC={RCB:{bg:"#C8102E",dk:"#FFD700"},SRH:{bg:"#FF822A",dk:"#1B1B1B"},MI:{bg
 const TF={RCB:"Royal Challengers Bengaluru",SRH:"Sunrisers Hyderabad",MI:"Mumbai Indians",KKR:"Kolkata Knight Riders",CSK:"Chennai Super Kings",RR:"Rajasthan Royals",PBKS:"Punjab Kings",GT:"Gujarat Titans",LSG:"Lucknow Super Giants",DC:"Delhi Capitals"};
 const TEAMS=Object.keys(TF);
 const SQ={
-  RCB:["Virat Kohli","Rajat Patidar","Phil Salt","Devdutt Padikkal","Jitesh Sharma","Tim David","Krunal Pandya","Swapnil Singh","Jacob Bethell","Romario Shepherd","Nuwan Thushara","Josh Hazlewood","Bhuvneshwar Kumar","Yash Dayal","Rasikh Dar","Suyash Sharma","Abhinandan Singh","Liam Livingstone","Jacob Duffy","Mohit Rathee","Lungi Ngidi"],
-  SRH:["Travis Head","Abhishek Sharma","Ishan Kishan","Heinrich Klaasen","Nitish Kumar Reddy","Pat Cummins","Harshal Patel","Brydon Carse","Liam Livingstone","Jaydev Unadkat","Shivam Mavi","Kamindu Mendis","Aniket Verma","Harsh Dubey","Eshan Malinga","Salil Arora","Smaran Ravichandran","Amit Kumar","Jack Edwards","Zeeshan Ansari","Praful Hinge","Onkar Tarmale","Sakib Hussain","Shivang Kumar","Krains Fuletra"],
-  MI:["Rohit Sharma","Suryakumar Yadav","Hardik Pandya","Jasprit Bumrah","Tilak Varma","Ryan Rickelton","Naman Dhir","Robin Minz","Will Jacks","Mitchell Santner","Raj Angad Bawa","Trent Boult","Deepak Chahar","Shardul Thakur","AM Ghazanfar","Corbin Bosch","Ashwani Kumar","Raghu Sharma","Sherfane Rutherford","Mayank Markande","Bevon Jacobs"],
-  KKR:["Ajinkya Rahane","Angkrish Raghuvanshi","Rinku Singh","Venkatesh Iyer","Cameron Green","Sunil Narine","Varun Chakaravarthy","Harshit Rana","Vaibhav Arora","Matheesha Pathirana","Blessing Muzarabani","Ramandeep Singh","Anukul Roy","Tim Seifert","Finn Allen","Rachin Ravindra","Rahul Tripathi","Kartik Tyagi","Saurabh Dubey","Manish Pandey","Luvnith Sisodia"],
-  CSK:["Ruturaj Gaikwad","Sanju Samson","Ayush Mhatre","Shivam Dube","Dewald Brevis","MS Dhoni","Urvil Patel","Noor Ahmad","Nathan Ellis","Khaleel Ahmed","Anshul Kamboj","Gurjapneet Singh","Mukesh Choudhary","Jamie Overton","Ramakrishna Ghosh","Shreyas Gopal","Prashant Veer","Kartik Sharma","Akeal Hosein","Matt Henry","Matthew Short","Sarfaraz Khan","Zak Foulkes","Rahul Chahar","Aman Khan"],
-  RR:["Yashasvi Jaiswal","Vaibhav Suryavanshi","Riyan Parag","Shimron Hetmyer","Dhruv Jurel","Ravindra Jadeja","Sam Curran","Donovan Ferreira","Jofra Archer","Nandre Burger","Sandeep Sharma","Tushar Deshpande","Ravi Bishnoi","Shubham Dubey","Yudhvir Singh Charak","Kwena Maphaka","Lhuan-dre Pretorius","Adam Milne","Ravi Singh","Sushant Mishra","Kuldeep Sen","Vignesh Puthur","Yash Raj Punja","Aman Rao","Brijesh Sharma"],
-  PBKS:["Shreyas Iyer","Prabhsimran Singh","Priyansh Arya","Shashank Singh","Nehal Wadhera","Marcus Stoinis","Azmatullah Omarzai","Marco Jansen","Arshdeep Singh","Yuzvendra Chahal","Lockie Ferguson","Xavier Bartlett","Musheer Khan","Harpreet Brar","Cooper Connolly","Ben Dwarshuis","Pravin Dubey","Vishal Nishad","Harnoor Pannu","Pyla Avinash","Suryansh Shedge"],
-  GT:["Shubman Gill","Jos Buttler","Sai Sudharsan","Shahrukh Khan","Washington Sundar","Rahul Tewatia","Rashid Khan","Kagiso Rabada","Mohammed Siraj","Prasidh Krishna","Gerald Coetzee","Jayant Yadav","Nishant Sindhu","Manav Suthar","Kulwant Khejroliya","Gurnoor Brar","Sai Kishore","Anuj Rawat","Arshad Khan","Matthew Wade","Karim Janat"],
-  LSG:["Rishabh Pant","Mitchell Marsh","Nicholas Pooran","Aiden Markram","Abdul Samad","Ayush Badoni","Himmat Singh","Shahbaz Ahmed","Digvesh Rathi","Mohammed Shami","Avesh Khan","Mayank Yadav","Anrich Nortje","Wanindu Hasaranga","Akash Singh","Matthew Breetzke","Arshin Kulkarni","Manimaran Siddharth","Josh Inglis","Mukul Choudhary","Akshat Raghuwanshi","Naman Tiwari","Mohsin Khan","Prince Yadav","Arjun Tendulkar"],
-  DC:["KL Rahul","Axar Patel","Abishek Porel","Ashutosh Sharma","Karun Nair","Kuldeep Yadav","Mitchell Starc","T. Natarajan","Dushmantha Chameera","Jake Fraser-McGurk","Tristan Stubbs","Sameer Rizvi","Ajay Mandal","Madhav Tiwari","Vipraj Nigam","Nitish Rana","Faf du Plessis","Mukesh Kumar","Tripurana Vijay","Darshan Nalkande","Donovan Ferreira"]
+  RCB:[
+    "Virat Kohli","Rajat Patidar","Phil Salt","Jitesh Sharma","Devdutt Padikkal",
+    "Krunal Pandya","Tim David","Jacob Bethell","Romario Shepherd","Nuwan Thushara",
+    "Josh Hazlewood","Bhuvneshwar Kumar","Yash Dayal","Rasikh Dar","Suyash Sharma",
+    "Swapnil Singh","Abhinandan Singh","Venkatesh Iyer","Jacob Duffy",
+    "Satvik Deswal","Vicky Ostwal","Jordan Cox","Mangesh Yadav",
+    "Kanishk Chouhan","Vihaan Malhotra",
+  ],
+  SRH:[
+    "Travis Head","Abhishek Sharma","Ishan Kishan","Heinrich Klaasen",
+    "Nitish Kumar Reddy","Pat Cummins","Harshal Patel","Brydon Carse",
+    "Jaydev Unadkat","Kamindu Mendis","Aniket Verma","Harsh Dubey",
+    "Eshan Malinga","Smaran Ravichandran","Zeeshan Ansari","Liam Livingstone",
+    "Jack Edwards","Salil Arora","Shivam Mavi","Praful Hinge",
+    "Amit Kumar","Onkar Tarmale","Sakib Hussain","Shivang Kumar","Krains Fuletra",
+  ],
+  MI:[
+    "Rohit Sharma","Suryakumar Yadav","Hardik Pandya","Jasprit Bumrah",
+    "Tilak Varma","Ryan Rickelton","Naman Dhir","Robin Minz","Will Jacks",
+    "Mitchell Santner","Raj Angad Bawa","Trent Boult","Deepak Chahar",
+    "Shardul Thakur","AM Ghazanfar","Corbin Bosch","Ashwani Kumar",
+    "Raghu Sharma","Sherfane Rutherford","Mayank Markande",
+    "Quinton de Kock","Atharva Ankolekar","Mohammad Izhar","Danish Malewar","Mayank Rawat",
+  ],
+  KKR:[
+    "Ajinkya Rahane","Angkrish Raghuvanshi","Rinku Singh","Sunil Narine",
+    "Varun Chakaravarthy","Harshit Rana","Vaibhav Arora","Anukul Roy",
+    "Rovman Powell","Umran Malik","Ramandeep Singh","Manish Pandey",
+    "Cameron Green","Matheesha Pathirana","Finn Allen","Rachin Ravindra",
+    "Tim Seifert","Tejasvi Singh","Luvnith Sisodia","Kartik Tyagi",
+    "Saurabh Dubey","Blessing Muzarabani","Rahul Tripathi","Venkatesh Iyer","Akash Deep",
+  ],
+  CSK:[
+    "Ruturaj Gaikwad","Sanju Samson","Ayush Mhatre","Shivam Dube",
+    "Dewald Brevis","MS Dhoni","Urvil Patel","Noor Ahmad","Nathan Ellis",
+    "Khaleel Ahmed","Anshul Kamboj","Gurjapneet Singh","Mukesh Choudhary",
+    "Jamie Overton","Ramakrishna Ghosh","Shreyas Gopal",
+    "Prashant Veer","Kartik Sharma","Akeal Hosein","Matt Henry",
+    "Matthew Short","Sarfaraz Khan","Zak Foulkes","Rahul Chahar","Aman Khan",
+  ],
+  RR:[
+    "Yashasvi Jaiswal","Vaibhav Suryavanshi","Riyan Parag","Shimron Hetmyer",
+    "Dhruv Jurel","Ravindra Jadeja","Sam Curran","Donovan Ferreira",
+    "Jofra Archer","Nandre Burger","Sandeep Sharma","Tushar Deshpande",
+    "Kwena Maphaka","Lhuan-dre Pretorius","Shubham Dubey","Yudhvir Singh Charak",
+    "Ravi Bishnoi","Adam Milne","Kuldeep Sen","Sushant Mishra",
+    "Yash Raj Punja","Vignesh Puthur","Ravi Singh","Aman Rao","Brijesh Sharma",
+  ],
+  PBKS:[
+    "Shreyas Iyer","Prabhsimran Singh","Priyansh Arya","Shashank Singh",
+    "Nehal Wadhera","Marcus Stoinis","Azmatullah Omarzai","Marco Jansen",
+    "Arshdeep Singh","Yuzvendra Chahal","Lockie Ferguson","Xavier Bartlett",
+    "Musheer Khan","Harpreet Brar","Mitchell Owen","Vyshak Vijaykumar",
+    "Yash Thakur","Vishnu Vinod","Pyla Avinash","Harnoor Pannu","Suryansh Shedge",
+    "Ben Dwarshuis","Cooper Connolly","Vishal Nishad","Pravin Dubey",
+  ],
+  GT:[
+    "Shubman Gill","Jos Buttler","Sai Sudharsan","Shahrukh Khan",
+    "Washington Sundar","Rahul Tewatia","Rashid Khan","Kagiso Rabada",
+    "Mohammed Siraj","Prasidh Krishna","Sai Kishore","Gurnoor Brar",
+    "Jayant Yadav","Nishant Sindhu","Manav Suthar","Arshad Khan",
+    "Anuj Rawat","Kumar Kushagra","Glenn Phillips","Ishant Sharma",
+    "Jason Holder","Tom Banton","Ashok Sharma","Luke Wood","Prithvi Raj",
+  ],
+  LSG:[
+    "Rishabh Pant","Mitchell Marsh","Nicholas Pooran","Aiden Markram",
+    "Abdul Samad","Ayush Badoni","Himmat Singh","Shahbaz Ahmed",
+    "Digvesh Rathi","Mohammed Shami","Avesh Khan","Mayank Yadav",
+    "Akash Singh","Matthew Breetzke","Arshin Kulkarni","Manimaran Siddharth",
+    "Mohsin Khan","Prince Yadav","Arjun Tendulkar","Josh Inglis",
+    "Mukul Choudhary","Akshat Raghuwanshi","Wanindu Hasaranga","Anrich Nortje","Naman Tiwari",
+  ],
+  DC:[
+    "KL Rahul","Axar Patel","Abhishek Porel","Ashutosh Sharma","Karun Nair",
+    "Kuldeep Yadav","Mitchell Starc","T. Natarajan","Dushmantha Chameera",
+    "Tristan Stubbs","Sameer Rizvi","Ajay Mandal","Madhav Tiwari",
+    "Vipraj Nigam","Nitish Rana","Tripurana Vijay","Mukesh Kumar",
+    "David Miller","Ben Duckett","Auqib Nabi","Pathum Nissanka",
+    "Lungi Ngidi","Sahil Parakh","Prithvi Shaw","Kyle Jamieson",
+  ],
 };
 
 const BASE_MATCHES=[
@@ -1386,6 +1456,7 @@ export default function App(){
   const[showPw,setShowPw]=useState(false);const[showPw2,setShowPw2]=useState(false);
   const[forgotStep,setForgotStep]=useState(1);const[forgotNewPw,setForgotNewPw]=useState("");const[forgotNewPw2,setForgotNewPw2]=useState("");
   const[showForgotPw,setShowForgotPw]=useState(false);const[showForgotPw2,setShowForgotPw2]=useState(false);
+const[rememberMe,setRememberMe]=useState(true);
   const regAttempts=useRef([]);
   const[sc,setSc]=useState("splash");
   const[email,setEmail]=useState("");const[user,setUser]=useState(null);const[isAdmin,setIsAdmin]=useState(false);
@@ -1523,10 +1594,12 @@ export default function App(){
     let cancelled=false;
     const go=async()=>{
       try{
-        const saved=await DB.get("session");
+        let localSaved=null;try{const ls=localStorage.getItem("ipl26_session");if(ls)localSaved=JSON.parse(ls);}catch(e){}
+const saved=localSaved||(await DB.get("session"));
         if(!saved?.email||!saved?.token){if(!cancelled)setSc("login");return;}
         const storedToken=await DB.get("token_"+ek(saved.email));
-        if(!storedToken||storedToken!==saved.token){await DB.set("session",null);if(!cancelled)setSc("login");return;}
+        if(!storedToken||storedToken!==saved.token){await DB.set("session",null);
+try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("login");return;}
         const u2=await DB.get("u")||{};const ex=u2[saved.email]||null;
         if(!ex||ex.approved===false){await DB.set("session",null);if(!cancelled)setSc("login");return;}
         // FIX: repair DB on every auto-login REMOVED — too dangerous (caused data loss).
@@ -1543,7 +1616,7 @@ export default function App(){
         else setSc("home");
       }catch(e){console.error("auto-login",e);if(!cancelled)setSc("login");}
     };
-    const t=setTimeout(()=>{if(!cancelled)setSc("login");},7000);
+    const t=setTimeout(()=>{if(!cancelled)setSc("login");},15000);
     go().finally(()=>clearTimeout(t));
     return()=>{cancelled=true;clearTimeout(t);};
   // eslint-disable-next-line
@@ -1597,7 +1670,7 @@ export default function App(){
   useEffect(()=>{if(sc!=="chat")setChatU(chat.filter(m=>m.ts>chatSeenTs).length);},[chat,sc,chatSeenTs]);
   useEffect(()=>{chatRef.current?.scrollIntoView({behavior:"smooth"});},[chat,sc]);
 
-  async function persistSession(em){const token=Math.random().toString(36).slice(2)+Date.now().toString(36);await DB.set("token_"+ek(em),token);await DB.set("session",{email:em,token});setSessionEmail(em);}
+  async function persistSession(em,remember=true){const token=Math.random().toString(36).slice(2)+Date.now().toString(36);await DB.set("token_"+ek(em),token);await DB.set("session",{email:em,token});setSessionEmail(em);if(remember){try{localStorage.setItem("ipl26_session",JSON.stringify({email:em,token}));}catch(e){}}}
 
   /* COMPUTED */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
@@ -1664,7 +1737,7 @@ export default function App(){
   async function doSignIn(em,ex,isNew=false){
     setMyPicks({});setMySp("");setMyT4([]);setObSp("");setObT4([]);setObStep(0);setAm(null);
     setUser(ex);setEmail(em);setIsAdmin(em===SUPER_ADMIN);
-    await persistSession(em);
+    await persistSession(em,rememberMe);
     const{freshAP,hasOnboarded,hasPropBets,userPropBets}=await reloadShared(em);
     setMyPicks(freshAP[ek(em)]||{});
     setBcSeenTs(Date.now());setChatSeenTs(Date.now());
@@ -1979,7 +2052,12 @@ export default function App(){
 
   if(sc==="pending_approval")return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}><span style={{fontSize:52,marginBottom:16}}>⏳</span><p className="C" style={{color:"#1D428A",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>PENDING APPROVAL</p><p style={{color:"#64748b",fontSize:14,marginTop:12,lineHeight:1.6}}>Your registration is awaiting admin approval.</p><button onClick={()=>setSc("login")} style={{marginTop:28,padding:"12px 28px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>← Back to Sign In</button></div></div>;
 
-  if(sc==="login")return<div className="app"><style>{CSS}</style><div style={{background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",padding:"32px 24px 28px",textAlign:"center"}}><img src={LOGOS.IPL} alt="IPL" style={{width:60,marginBottom:10}} onError={e=>{e.target.style.display="none";}}/><p className="C" style={{fontSize:24,fontWeight:800,letterSpacing:2,color:"#fff",margin:0}}>FANTASY PREDICTOR</p><p style={{color:"#FFE57F",fontSize:10,letterSpacing:3,marginTop:4,textTransform:"uppercase"}}>TATA IPL 2026</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>{TEAMS.map(t=><TLogo key={t} t={t} sz={22}/>)}</div><div style={{display:"flex",gap:0,marginTop:16,background:"rgba(255,255,255,.1)",borderRadius:12,padding:3}}>{[["login","Sign In"],["register","Register"],["forgot","Reset PW"]].map(([m,l])=><button key={m} onClick={()=>{setAuthMode(m);clearAuthForm();}} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}</div></div><div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:14}}>{authMode==="login"&&<><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p></>}{authMode==="register"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval.</div><div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p></>}{authMode==="forgot"&&<>{forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}{forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}<button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button></>}</div>{toast&&<Tst t={toast}/>}</div>;
+  if(sc==="login")return<div className="app"><style>{CSS}</style><div style={{background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",padding:"32px 24px 28px",textAlign:"center"}}><img src={LOGOS.IPL} alt="IPL" style={{width:60,marginBottom:10}} onError={e=>{e.target.style.display="none";}}/><p className="C" style={{fontSize:24,fontWeight:800,letterSpacing:2,color:"#fff",margin:0}}>FANTASY PREDICTOR</p><p style={{color:"#FFE57F",fontSize:10,letterSpacing:3,marginTop:4,textTransform:"uppercase"}}>TATA IPL 2026</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>{TEAMS.map(t=><TLogo key={t} t={t} sz={22}/>)}</div><div style={{display:"flex",gap:0,marginTop:16,background:"rgba(255,255,255,.1)",borderRadius:12,padding:3}}>{[["login","Sign In"],["register","Register"],["forgot","Reset PW"]].map(([m,l])=><button key={m} onClick={()=>{setAuthMode(m);clearAuthForm();}} style={{flex:1,padding:"8px 4px",borderRadius:9,background:authMode===m?"#fff":"transparent",color:authMode===m?"#1D428A":"rgba(255,255,255,.7)",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:10,border:"none",cursor:"pointer",textTransform:"uppercase",letterSpacing:.5}}>{l}</button>)}</div></div><div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:14}}>{authMode==="login"&&<><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&doLogin()} style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div style={{display:"flex",alignItems:"center",gap:8,padding:"2px 0"}}>
+  <input type="checkbox" id="remMe" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)}
+    style={{width:16,height:16,accentColor:"#1D428A",cursor:"pointer",flexShrink:0}}/>
+  <label htmlFor="remMe" style={{fontSize:13,color:"#475569",cursor:"pointer",userSelect:"none"}}>Keep me signed in</label>
+</div>
+<button className="pbtn" disabled={authLoading} onClick={doLogin}>{authLoading?"Signing in…":"Sign In"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>No account? <button onClick={()=>{setAuthMode("register");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Create one →</button></p></>}{authMode==="register"&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>🔒 New accounts require admin approval.</div><div><input className={"inp"+(authErrors.name?" err":"")} value={authName} onChange={e=>{setAuthName(e.target.value);setAuthErrors(p=>({...p,name:""}));}} placeholder="Full name"/>{authErrors.name&&<p className="ferr">{authErrors.name}</p>}</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off" autoCorrect="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showPw?"text":"password"} value={authPw} onChange={e=>{setAuthPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="Password" style={{paddingRight:48}}/><button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw?"🙈":"👁"}</button></div><p style={{color:"#94a3b8",fontSize:10,marginTop:4}}>Min 8 chars · uppercase · number · special char</p>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showPw2?"text":"password"} value={authPw2} onChange={e=>{setAuthPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doRegister()}/><button onClick={()=>setShowPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doRegister}>{authLoading?"Submitting…":"Submit for Approval"}</button><p style={{color:"#94a3b8",fontSize:11,textAlign:"center"}}>Already registered? <button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:11,cursor:"pointer",fontWeight:600}}>Sign in →</button></p></>}{authMode==="forgot"&&<>{forgotStep===1&&<><div style={{background:"#EBF0FA",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1e40af"}}>Enter your registered email to reset your password.</div><div><input className={"inp"+(authErrors.email?" err":"")} value={authEmail} onChange={e=>{setAuthEmail(e.target.value);setAuthErrors(p=>({...p,email:""}));}} placeholder="Email address" autoCapitalize="off"/>{authErrors.email&&<p className="ferr">{authErrors.email}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep1}>{authLoading?"Checking…":"Verify Email"}</button></>}{forgotStep===2&&<><div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ Verified: <b>{authEmail}</b></div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw?" err":"")} type={showForgotPw?"text":"password"} value={forgotNewPw} onChange={e=>{setForgotNewPw(e.target.value);setAuthErrors(p=>({...p,pw:""}));}} placeholder="New password" style={{paddingRight:48}}/><button onClick={()=>setShowForgotPw(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw?"🙈":"👁"}</button></div>{authErrors.pw&&<p className="ferr">{authErrors.pw}</p>}</div><div><div style={{position:"relative"}}><input className={"inp"+(authErrors.pw2?" err":"")} type={showForgotPw2?"text":"password"} value={forgotNewPw2} onChange={e=>{setForgotNewPw2(e.target.value);setAuthErrors(p=>({...p,pw2:""}));}} placeholder="Confirm new password" style={{paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&doForgotStep2()}/><button onClick={()=>setShowForgotPw2(p=>!p)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",fontSize:18}}>{showForgotPw2?"🙈":"👁"}</button></div>{authErrors.pw2&&<p className="ferr">{authErrors.pw2}</p>}</div><button className="pbtn" disabled={authLoading} onClick={doForgotStep2}>{authLoading?"Saving…":"Set New Password"}</button><button onClick={()=>{setForgotStep(1);setForgotNewPw("");setForgotNewPw2("");setAuthErrors({});}} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>← Back</button></>}<button onClick={()=>{setAuthMode("login");clearAuthForm();}} style={{background:"none",border:"none",color:"#1D428A",fontSize:13,cursor:"pointer",fontWeight:600,marginTop:4}}>← Back to Sign In</button></>}</div>{toast&&<Tst t={toast}/>}</div>;
 
   if(sc==="onboard")return<div className="app" style={{minHeight:"100vh"}}><style>{CSS}</style>
     <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"24px 20px 20px"}}>
