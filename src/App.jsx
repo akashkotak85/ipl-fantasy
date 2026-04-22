@@ -1972,7 +1972,6 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,
     onBonusPick:submitBonusPick,
-    {revealMatchId&&(()=>{const rm2=ms.find(m=>Number(m.id)===Number(revealMatchId));return rm2?<RevealTheatre m={rm2} allPicks={allPicks} users={users} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} scoreBandAnswers={scoreBandAnswers} onClose={()=>setRevealMatchId(null)}/>:null;})()}
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
       setAm(m);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setSc("picks");
