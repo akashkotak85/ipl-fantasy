@@ -280,6 +280,10 @@ const TRASH_TALK=[
   (perfs,zeros,lone,mn)=>`📋 ${mn} DONE!\n${perfs.length?`🏆 Perfect picks: ${perfs.join(", ")}. Someone's been doing their homework.`:"Not a single perfect pick. Humbling stuff."}\n${zeros.length?`🪦 Pour one out for ${zeros.join(", ")} (0/3). The cricket gods were not kind.`:""}\n${lone?`🐉 ${lone} backed the underdog winner alone. Absolute scenes.`:""}`,
   (perfs,zeros,lone,mn)=>`⚡ ${mn} RESULT IN!\n${perfs.length?`🎯 PERFECTS: ${perfs.join(", ")} — bought a ticket on the right bus!`:"Nobody called it perfectly. The IPL remains unpredictable."}\n${zeros.length?`💀 Complete whitewash for ${zeros.join(", ")}. Didn't get a single one.`:""}\n${lone?`🐉 Contrarian king: ${lone} went against the group on the winner. And WON.`:""}`,
   (perfs,zeros,lone,mn)=>`🏏 ${mn} WRAPPED!\n${perfs.length?`🎯 ${perfs.join(" and ")} with the perfect prediction. Bow down.`:"The match gave everyone nothing. Ouch."}\n${zeros.length?`😬 ${zeros.join(", ")} finished with a big fat 0. Let's not talk about it.`:""}\n${lone?`🤯 Only ${lone} called the winner right. Chaos theory at work.`:""}`,
+  (perfs,zeros,lone,mn)=>`🔔 ${mn} FULL TIME!\n${perfs.length?`🌟 ${perfs.join(", ")} — all 3 correct. Scouts take note.`:"Zero perfects. The IPL continues to humble us all."}\n${zeros.length?`💔 Rough night for ${zeros.join(", ")}. 0 from 3 — happens to the best of us.`:""}\n${lone?`🎖 ${lone} stood alone on the winner. Brave. Unhinged. Correct.`:""}`,
+  (perfs,zeros,lone,mn)=>`📣 ${mn} IN THE BOOKS!\n${perfs.length?`🏅 Hall of fame alert: ${perfs.join(", ")} got all 3 right!`:"Not a single person called it perfectly. Beautiful chaos."}\n${zeros.length?`🚮 ${zeros.join(", ")} — three wrong. That's impressively bad.`:""}\n${lone?`👑 ${lone} was the lone ranger on the winner. Deserves a round of applause.`:""}`,
+  (perfs,zeros,lone,mn)=>`🧨 ${mn} DONE AND DUSTED!\n${perfs.length?`🎯 ${perfs.join(" & ")} read the game perfectly. Respect.`:"Nobody got all 3. This group really keeps admin humble."}\n${zeros.length?`🪣 ${zeros.join(", ")} with the goose egg. 0/3 is actually a skill.`:""}\n${lone?`🐉 ${lone} went rogue on the winner and won. What a legend.`:""}`,
+  (perfs,zeros,lone,mn)=>`🏟 ${mn} OVER!\n${perfs.length?`✅ ${perfs.join(", ")} called it perfectly. Flawless prediction.`:"Zero perfects this match. The IPL is genuinely unpredictable."}\n${zeros.length?`💀 ${zeros.join(", ")} scored a combined 0. We move.`:""}\n${lone?`🔮 Only ${lone} predicted the winner. Fortune favours the bold.`:""}`,
 ];
 
 
@@ -591,6 +595,73 @@ function FormDots({form,align="left"}){
   );
 }
 
+/* ─── INLINE REVEAL STRIP — auto shown below locked match cards ─── */
+function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,users,onExpand}){
+  const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
+  const bonusAns=bonusAnswers?.[String(m.id)]??bonusAnswers?.[Number(m.id)];
+  const picks=approved.map(u=>{
+    const emk=ek(u.email);
+    const p=getP(allPicks[emk]||{},m.id);
+    const bq=(allBonusPicks?.[emk]||{})[String(m.id)];
+    const sbAns=scoreBandAnswers?.[String(m.id)];
+    const tossOk=m.result&&!isNR(m.result.toss)&&p?.toss===m.result.toss;
+    const winOk=m.result&&!isNR(m.result.win)&&p?.win===m.result.win;
+    const motmOk=m.result&&!isNR(m.result.motm)&&motmMatch(p?.motm,m.result.motm);
+    const sbOk=!!(sbAns&&p?.sb&&p.sb===sbAns);
+    const bqOk=bonusAns!=null&&bq!=null&&bq===bonusAns;
+    const perfect=tossOk&&winOk&&motmOk;
+    return{u,p,tossOk,winOk,motmOk,sbOk,bqOk,perfect};
+  });
+  const hasPicks=picks.some(d=>d.p);
+  if(!hasPicks)return null;
+
+  return(
+    <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <span style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5}}>🎭 Group Picks</span>
+        <button onClick={onExpand} style={{background:"linear-gradient(135deg,#1a2540,#1D428A)",color:"#FFE57F",border:"none",borderRadius:8,padding:"3px 10px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>FULL REVEAL →</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {picks.filter(d=>d.p).map(({u,p,tossOk,winOk,motmOk,sbOk,bqOk,perfect})=>{
+          const hasResult=!!m.result;
+          const cardBg=hasResult?(perfect?"#f0fdf4":winOk?"#EBF0FA":"#fef2f2"):"#f8faff";
+          const borderCol=hasResult?(perfect?"#bbf7d0":winOk?"#bfdbfe":"#fecaca"):"#e2e8f0";
+          const sbAns=scoreBandAnswers?.[String(m.id)];
+          const bandShort=p.sb?SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb:null;
+          return(
+            <div key={u.email} style={{background:cardBg,border:"1px solid "+borderCol,borderRadius:10,padding:"8px 10px",display:"flex",alignItems:"center",gap:8}}>
+              <Av name={u.name} sz={24}/>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#1a2540",margin:0}}>{u.name}{perfect&&" 🎯"}</p>
+                <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                  {[
+                    ["T",p.toss,tossOk,!isNR(m.result?.toss)],
+                    ["W",p.win,winOk,!isNR(m.result?.win)],
+                    ["P",p.motm?.split(" ").slice(-1)[0],motmOk,!isNR(m.result?.motm)],
+                  ].map(([lbl,val,ok,avail])=>(
+                    <span key={lbl} style={{fontSize:9,padding:"1px 5px",borderRadius:4,fontWeight:700,
+                      background:!hasResult?"#e2e8f0":!avail?"#f1f5f9":ok?"#dcfce7":"#fee2e2",
+                      color:!hasResult?"#475569":!avail?"#94a3b8":ok?"#15803d":"#dc2626"}}>
+                      {lbl}: {val||"—"}{hasResult&&avail?(ok?" ✓":" ✗"):""}
+                    </span>
+                  ))}
+                  {bandShort&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:4,fontWeight:700,
+                    background:!sbAns?"#f1f5f9":sbOk?"#dcfce7":"#fee2e2",
+                    color:!sbAns?"#94a3b8":sbOk?"#15803d":"#dc2626"}}>
+                    📊{bandShort}{sbAns?(sbOk?" ✓":" ✗"):""}
+                  </span>}
+                  {(()=>{const bq=(allBonusPicks?.[ek(u.email)]||{})[String(m.id)];if(bq==null)return null;return<span style={{fontSize:9,padding:"1px 5px",borderRadius:4,fontWeight:700,background:bonusAns!=null?(bqOk?"#dcfce7":"#fee2e2"):"#f1f5f9",color:bonusAns!=null?(bqOk?"#15803d":"#dc2626"):"#94a3b8"}}>❓{bq?"Y":"N"}{bonusAns!=null?(bqOk?" ✓":" ✗"):""}
+                  </span>;})()}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── MATCH CARD ─── */
 function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact,bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,onBonusPick,onReveal}){
   const[lk,setLk]=useState(()=>isMatchLocked(m,lockedMatches));
@@ -722,24 +793,34 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         <div style={{background:"linear-gradient(135deg,#FFF9E6,#FEF3C7)",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
             <span style={{fontSize:13}}>📊</span>
-            <span style={{color:"#92400E",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.8}}>Partial Results In</span>
+            <span style={{color:"#92400E",fontWeight:700,fontSize:10,textTransform:"uppercase",letterSpacing:.8}}>Live Partial Results</span>
             <span style={{marginLeft:"auto",background:"#FDE68A",color:"#92400E",fontSize:9,padding:"2px 7px",borderRadius:10,fontWeight:700}}>LIVE</span>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:8}}>
-            {m._partial.toss&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>🎰 Toss</p>
-              <p style={{fontSize:13,fontWeight:700,color:"#1a2540",margin:0}}>{m._partial.toss}</p>
-            </div>}
-            {m._partial.win&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>🏆 Winner</p>
-              <p style={{fontSize:13,fontWeight:700,color:"#15803d",margin:0}}>{m._partial.win}</p>
-            </div>}
-            {m._partial.motm&&<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-              <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 4px"}}>⭐ POTM</p>
-              <p style={{fontSize:13,fontWeight:700,color:"#B8860B",margin:0}}>{m._partial.motm?.split(" ").slice(-1)[0]}</p>
-            </div>}
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {[
+              ["🎰","Toss",m._partial.toss,mp?.toss],
+              ["🏆","Winner",m._partial.win,mp?.win],
+              ["⭐","POTM",m._partial.motm?.split(" ").slice(-1)[0],mp?.motm?.split(" ").slice(-1)[0]],
+            ].filter(([,,rv])=>rv).map(([ic,lbl,rv,myv])=>{
+              const isRight=myv&&rv&&(lbl==="POTM"?motmMatch(myv,rv):myv===rv);
+              const isWrong=myv&&rv&&!isRight;
+              return(
+                <div key={lbl} style={{background:"rgba(255,255,255,.8)",borderRadius:8,padding:"8px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 2px"}}>{ic} {lbl}</p>
+                    <p style={{fontSize:13,fontWeight:700,color:"#1a2540",margin:0}}>{rv}</p>
+                  </div>
+                  {myv&&<div style={{textAlign:"right"}}>
+                    <p style={{fontSize:9,color:"#92400E",fontWeight:600,margin:"0 0 2px"}}>Your pick</p>
+                    <p style={{fontSize:12,fontWeight:700,margin:0,color:isRight?"#15803d":isWrong?"#dc2626":"#1a2540"}}>
+                      {myv} {isRight?"✅":isWrong?"❌":""}
+                    </p>
+                  </div>}
+                </div>
+              );
+            })}
           </div>
-          <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",textAlign:"center"}}>Result being finalised by admin…</p>
+          <p style={{fontSize:10,color:"#B45309",margin:"8px 0 0",textAlign:"center"}}>More results coming… being finalised by admin</p>
         </div>
       )}
 
@@ -851,8 +932,8 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         </div>;
       })()}
 
-      {/* ── REVEAL BUTTON ── */}
-      {lk&&!isTBD(m)&&onReveal&&<button onClick={()=>onReveal(m)} style={{width:"100%",padding:"9px",borderRadius:10,background:"linear-gradient(135deg,#1a2540,#1D428A)",color:"#FFE57F",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:14,letterSpacing:1,marginBottom:8}}>🎭 REVEAL PICKS</button>}
+      {/* ── AUTO INLINE REVEAL — shows below card when locked ── */}
+      {lk&&!isTBD(m)&&onReveal&&<InlineReveal m={m} allPicks={allPicks} allBonusPicks={allBonusPicks} bonusAnswers={bonusAnswers} scoreBandAnswers={scoreBandAnswers} users={users} onExpand={()=>onReveal(m)}/>}
 
       {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
       {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
@@ -949,13 +1030,13 @@ function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,scoreBandAns
             {loneWolf===u.name&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:8}}>🐉 LONE WOLF</span>}
           </div>
           {d.p&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {[["Toss",d.p.toss,d.tossOk,!isNR(m.result?.toss)],["Winner",d.p.win,d.winOk,!isNR(m.result?.win)],["POTM",d.p.motm?.split(" ").slice(-1)[0],d.motmOk,!isNR(m.result?.motm)]].map(([l,v,ok,avail])=>(
-              <div key={l} style={{flex:1,minWidth:50,background:!m.result?"rgba(255,255,255,.08)":!avail?"rgba(255,255,255,.05)":ok?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(m.result&&avail?(ok?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
+            {(()=>{const res=m.result||m._partial||{};return[["Toss",d.p.toss,d.tossOk,!isNR(res.toss)],["Winner",d.p.win,d.winOk,!isNR(res.win)],["POTM",d.p.motm?.split(" ").slice(-1)[0],d.motmOk,!isNR(res.motm)]].map(([l,v,ok,avail])=>(
+              <div key={l} style={{flex:1,minWidth:50,background:!avail?"rgba(255,255,255,.08)":ok?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(avail?(ok?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
                 <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>{l}</p>
-                <p style={{fontSize:11,fontWeight:700,color:m.result&&avail?(ok?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v||"—"}</p>
-                {m.result&&avail&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{ok?"✓":"✗"}</p>}
+                <p style={{fontSize:11,fontWeight:700,color:avail?(ok?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v||"—"}</p>
+                {avail&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{ok?"✓":"✗"}</p>}
               </div>
-            ))}
+            ));})()}
             {d.p.sb&&(()=>{
               const sbAns=scoreBandAnswers?.[String(m.id)];
               const sbOk=!!(sbAns&&d.p.sb===sbAns);
@@ -1858,8 +1939,10 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     const trashMsg=generateTrashTalk(result,matchObj,freshAP);
     const bonusAnsSet=bonusAnswers[String(numMid)]??bonusAnswers[numMid];
     const bonusQ=BONUS_QUESTIONS[Number(numMid)];
-    const bonusLine=bonusQ&&bonusAnsSet!=null?`\n❓ Bonus Q: "${bonusQ.slice(0,60)}..."\n✅ Answer: ${bonusAnsSet?"YES":"NO"} (+${PTS.bonus}pts for correct)`:"";
-    const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:trashMsg+bonusLine,ts:Date.now(),sys:true}]);
+    const sbAnsSet=scoreBandAnswers[String(numMid)];
+    const sbLine=sbAnsSet?`\n📊 Score Band: ${SCORE_BANDS.find(b=>b.id===sbAnsSet)?.label||sbAnsSet} (+${PTS.scoreBand}pts for correct)`:"";
+    const bonusLine=bonusQ&&bonusAnsSet!=null?`\n❓ Bonus: ${bonusAnsSet?"YES":"NO"} (+${PTS.bonus}pts for correct)`:"";
+    const newCh=capChat([...latest,{id:Date.now(),email:"__sys__",name:"IPL Bot",text:trashMsg+sbLine+bonusLine,ts:Date.now(),sys:true}]);
     setChat(newCh);await DB.set("ch",newCh);
     toast2("Result saved! ✅","ok");
     await reloadShared(email);
@@ -2272,7 +2355,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
     {bc.length>0&&sc==="home"&&!pinnedBc&&(()=>{const lt=bc[bc.length-1];return<div style={{background:"#FFF9E6",borderBottom:"1px solid #FDE68A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setBcSeenTs(Date.now())}><span style={{color:"#B8860B",fontSize:14}}>📢</span><p style={{color:"#92400E",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lt.msg}</p>{unbc>0&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:12}}>{unbc} new</span>}</div>;})()}
     <div style={{background:"#fff",padding:"8px 16px",display:"flex",borderBottom:"1px solid #e2e8f0"}}>
-      {[["🎯","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<3?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:12,margin:0}}>{p}<span style={{fontSize:9,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:9,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
+      {[["🎯","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak],["📊","Band",PTS.scoreBand],["❓","Bonus",PTS.bonus]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<5?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:11,margin:0}}>{p}<span style={{fontSize:8,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:8,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
     </div>
 
     {sc==="home"&&<>
