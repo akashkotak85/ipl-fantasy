@@ -596,7 +596,7 @@ function FormDots({form,align="left"}){
 }
 
 /* ─── INLINE REVEAL STRIP — auto shown below locked match cards ─── */
-function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,users,onExpand}){
+function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,users}){
   const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
   const bonusAns=bonusAnswers?.[String(m.id)]??bonusAnswers?.[Number(m.id)];
   const picks=approved.map(u=>{
@@ -617,9 +617,8 @@ function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,us
 
   return(
     <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+      <div style={{marginBottom:8}}>
         <span style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5}}>🎭 Group Picks</span>
-        <button onClick={onExpand} style={{background:"linear-gradient(135deg,#1a2540,#1D428A)",color:"#FFE57F",border:"none",borderRadius:8,padding:"3px 10px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>FULL REVEAL →</button>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
         {picks.filter(d=>d.p).map(({u,p,tossOk,winOk,motmOk,sbOk,bqOk,perfect})=>{
@@ -663,7 +662,7 @@ function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,us
 }
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact,bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,onBonusPick,onReveal}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact,bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,onBonusPick}){
   const[lk,setLk]=useState(()=>isMatchLocked(m,lockedMatches));
   useEffect(()=>{
     if(m.result){setLk(true);return;}
@@ -933,7 +932,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       })()}
 
       {/* ── AUTO INLINE REVEAL — shows below card when locked ── */}
-      {lk&&!isTBD(m)&&onReveal&&<InlineReveal m={m} allPicks={allPicks} allBonusPicks={allBonusPicks} bonusAnswers={bonusAnswers} scoreBandAnswers={scoreBandAnswers} users={users} onExpand={()=>onReveal(m)}/>}
+      {lk&&!isTBD(m)&&<InlineReveal m={m} allPicks={allPicks} allBonusPicks={allBonusPicks} bonusAnswers={bonusAnswers} scoreBandAnswers={scoreBandAnswers} users={users}/>}
 
       {pred&&!lk&&!mp&&<button className="pbtn" style={{marginTop:10}} onClick={()=>onPredict(m)}>Make Prediction</button>}
       {pred&&lk&&!mp&&!m.result&&<div style={{textAlign:"center",padding:"8px",fontSize:12,color:"#991b1b",marginTop:4}}>🔒 Prediction window closed</div>}
@@ -941,136 +940,6 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
   );
 }
 
-/* ════════════════════════════════════════════════════════════════
-   REVEAL THEATRE — sequential animated pick reveal after lock
-   ════════════════════════════════════════════════════════════════ */
-function RevealTheatre({m,allPicks,users,bonusAnswers,allBonusPicks,scoreBandAnswers,onClose}){
-  const[revealed,setRevealed]=useState(0);
-  const[phase,setPhase]=useState("intro"); // intro | revealing | done
-  const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
-  const hc=TC[m.home]||{bg:"#1D428A"};
-  const ac=TC[m.away]||{bg:"#475569"};
-  const bonusQ=BONUS_QUESTIONS[m.id];
-  const bonusAns=bonusAnswers[String(m.id)]??bonusAnswers[Number(m.id)];
-
-  function startReveal(){
-    setPhase("revealing");
-    let i=0;
-    const iv=setInterval(()=>{
-      i++;setRevealed(i);
-      if(i>=approved.length){clearInterval(iv);setPhase("done");}
-    },480);
-  }
-
-  // Analysis
-  const pickData=approved.map(u=>{
-    const emk=ek(u.email);
-    const p=getP(allPicks[emk]||{},m.id);
-    const bq=(allBonusPicks[emk]||{})[String(m.id)];
-    const tossOk=m.result&&!isNR(m.result.toss)&&p?.toss===m.result.toss;
-    const winOk=m.result&&!isNR(m.result.win)&&p?.win===m.result.win;
-    const motmOk=m.result&&!isNR(m.result.motm)&&motmMatch(p?.motm,m.result.motm);
-    const bqOk=bonusAns!=null&&bq!=null&&bq===bonusAns;
-    const perfect=tossOk&&winOk&&motmOk;
-    return{u,p,bq,tossOk,winOk,motmOk,perfect,bqOk};
-  });
-  const perfects=pickData.filter(d=>d.perfect).map(d=>d.u.name);
-  const zeros=m.result?pickData.filter(d=>d.p&&!d.tossOk&&!d.winOk&&!d.motmOk).map(d=>d.u.name):[];
-  const winPickers=pickData.filter(d=>d.winOk);
-  const loneWolf=m.result&&winPickers.length===1?winPickers[0].u.name:null;
-
-  return<div className="reveal-overlay">
-    {/* Header */}
-    <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"16px 16px 14px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-      <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",fontSize:18,cursor:"pointer",borderRadius:8,padding:"4px 10px"}}>✕</button>
-      <div style={{flex:1}}>
-        <p style={{color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,margin:0,letterSpacing:1}}>🎭 PICK REVEAL</p>
-        <p style={{color:"#bfdbfe",fontSize:11,margin:0}}>{m.mn}: {m.home} vs {m.away} · {m.date}</p>
-      </div>
-      <div style={{display:"flex",gap:6}}>
-        <div style={{width:24,height:24,borderRadius:6,background:hc.bg}}/>
-        <div style={{width:24,height:24,borderRadius:6,background:ac.bg}}/>
-      </div>
-    </div>
-
-    {/* Result ribbon if available */}
-    {m.result&&<div style={{background:"rgba(255,255,255,.07)",padding:"10px 16px",display:"flex",gap:14,borderBottom:"1px solid rgba(255,255,255,.1)",flexShrink:0}}>
-      {[["Toss",m.result.toss],["Winner",m.result.win],["POTM",m.result.motm?.split(" ").slice(-1)[0]]].map(([l,v])=>(
-        <div key={l} style={{textAlign:"center"}}>
-          <p style={{color:"rgba(255,255,255,.5)",fontSize:9,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 2px"}}>{l}</p>
-          <p style={{color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,margin:0}}>{isNR(v)?"NR":v||"?"}</p>
-        </div>
-      ))}
-    </div>}
-
-    {/* Intro CTA */}
-    {phase==="intro"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,gap:20}}>
-      <p style={{fontSize:48}}>🎭</p>
-      <p style={{color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,letterSpacing:2,textAlign:"center"}}>READY TO SEE EVERYONE'S PICKS?</p>
-      <p style={{color:"rgba(255,255,255,.5)",fontSize:13,textAlign:"center",lineHeight:1.6}}>{approved.length} players · {approved.filter(u=>{const p=getP(allPicks[ek(u.email)]||{},m.id);return!!p;}).length} predicted</p>
-      <button onClick={startReveal} style={{background:"linear-gradient(135deg,#FFE57F,#F0C060)",color:"#1a2540",border:"none",borderRadius:12,padding:"14px 36px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:18,cursor:"pointer",letterSpacing:1}}>REVEAL ALL PICKS →</button>
-    </div>}
-
-    {/* Cards revealed one by one */}
-    {phase!=="intro"&&<div style={{padding:"14px 14px 0",display:"flex",flexDirection:"column",gap:10}}>
-      {approved.slice(0,revealed).map((u,i)=>{
-        const d=pickData[i];
-        const cardBg=d.p?(d.perfect?"linear-gradient(135deg,#1a4a2a,#1a3a1a)":d.winOk?"linear-gradient(135deg,#1a2a4a,#12233a)":"linear-gradient(135deg,#3a1a1a,#2a1212)"):"rgba(255,255,255,.06)";
-        const borderCol=d.p?(d.perfect?"#22c55e":d.winOk?"#3b82f6":"#ef4444"):"rgba(255,255,255,.1)";
-        return<div key={u.email} className="reveal-card" style={{background:cardBg,border:"1px solid "+borderCol,borderRadius:12,padding:"12px 14px",animationDelay:(i*0.05)+"s"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:d.p?10:0}}>
-            <Av name={u.name} sz={34}/>
-            <div style={{flex:1}}>
-              <p style={{color:"#fff",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,margin:0}}>{u.name}</p>
-              {!d.p&&<p style={{color:"rgba(255,255,255,.4)",fontSize:11,margin:0}}>No prediction made</p>}
-            </div>
-            {d.perfect&&<span style={{background:"#22c55e",color:"#fff",fontSize:10,fontWeight:800,padding:"3px 8px",borderRadius:8}}>🎯 PERFECT</span>}
-            {!d.perfect&&d.winOk&&<span style={{background:"#3b82f6",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:8}}>✓ Winner right</span>}
-            {d.p&&!d.tossOk&&!d.winOk&&!d.motmOk&&m.result&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:8}}>💀 0/3</span>}
-            {loneWolf===u.name&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:8}}>🐉 LONE WOLF</span>}
-          </div>
-          {d.p&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {(()=>{const res=m.result||m._partial||{};return[["Toss",d.p.toss,d.tossOk,!isNR(res.toss)],["Winner",d.p.win,d.winOk,!isNR(res.win)],["POTM",d.p.motm?.split(" ").slice(-1)[0],d.motmOk,!isNR(res.motm)]].map(([l,v,ok,avail])=>(
-              <div key={l} style={{flex:1,minWidth:50,background:!avail?"rgba(255,255,255,.08)":ok?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(avail?(ok?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
-                <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>{l}</p>
-                <p style={{fontSize:11,fontWeight:700,color:avail?(ok?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v||"—"}</p>
-                {avail&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{ok?"✓":"✗"}</p>}
-              </div>
-            ));})()}
-            {d.p.sb&&(()=>{
-              const sbAns=scoreBandAnswers?.[String(m.id)];
-              const sbOk=!!(sbAns&&d.p.sb===sbAns);
-              const bandShort=SCORE_BANDS.find(b=>b.id===d.p.sb)?.short||d.p.sb;
-              const bandEmoji=SCORE_BANDS.find(b=>b.id===d.p.sb)?.emoji||"📊";
-              return<div style={{flex:1,minWidth:50,background:!sbAns?"rgba(255,255,255,.08)":sbOk?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(sbAns?(sbOk?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
-                <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>1st Inn</p>
-                <p style={{fontSize:11,fontWeight:700,color:sbAns?(sbOk?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0"}}>{bandEmoji} {bandShort}</p>
-                {sbAns&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{sbOk?"✓":"✗"}</p>}
-              </div>;
-            })()}
-            {bonusQ&&<div style={{flex:1,minWidth:50,background:!bonusAns?"rgba(255,255,255,.08)":d.bqOk?"rgba(34,197,94,.2)":"rgba(239,68,68,.15)",borderRadius:8,padding:"6px 6px",textAlign:"center",border:"1px solid "+(bonusAns!=null?(d.bqOk?"rgba(34,197,94,.4)":"rgba(239,68,68,.3)"):"rgba(255,255,255,.08)")}}>
-              <p style={{fontSize:9,color:"rgba(255,255,255,.5)",margin:0,textTransform:"uppercase",letterSpacing:.3}}>Bonus</p>
-              <p style={{fontSize:11,fontWeight:700,color:bonusAns!=null?(d.bqOk?"#86efac":"#fca5a5"):"#fff",margin:"2px 0 0"}}>{d.bq==null?"—":d.bq?"Yes":"No"}</p>
-              {bonusAns!=null&&<p style={{fontSize:9,color:"rgba(255,255,255,.4)",margin:"1px 0 0"}}>{d.bqOk?"✓":"✗"}</p>}
-            </div>}
-          </div>}
-        </div>;
-      })}
-
-      {/* Loading indicator while revealing */}
-      {phase==="revealing"&&<div style={{textAlign:"center",padding:"16px 0",color:"rgba(255,255,255,.5)",fontSize:12}}>Revealing… {revealed}/{approved.length}</div>}
-
-      {/* Summary after all revealed */}
-      {phase==="done"&&<div style={{background:"rgba(255,215,0,.1)",border:"1px solid rgba(255,215,0,.3)",borderRadius:12,padding:"14px",margin:"8px 0 80px"}}>
-        <p style={{color:"#FFE57F",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,margin:"0 0 10px",letterSpacing:1}}>🏆 MATCH SUMMARY</p>
-        {perfects.length>0&&<p style={{color:"#86efac",fontSize:12,margin:"0 0 5px"}}>🎯 Perfect picks: <b>{perfects.join(", ")}</b></p>}
-        {zeros.length>0&&<p style={{color:"#fca5a5",fontSize:12,margin:"0 0 5px"}}>💀 0/3: <b>{zeros.join(", ")}</b></p>}
-        {loneWolf&&<p style={{color:"#F0C060",fontSize:12,margin:"0 0 5px"}}>🐉 Lone wolf winner: <b>{loneWolf}</b></p>}
-        {!perfects.length&&!zeros.length&&!loneWolf&&<p style={{color:"rgba(255,255,255,.5)",fontSize:12,margin:0}}>A tight spread — everyone somewhere in the middle.</p>}
-      </div>}
-    </div>}
-  </div>;
-}
 
 /* ════════════════════════════════════════════════════════════════
    ADMIN PICK STATUS PANEL
@@ -1586,9 +1455,7 @@ const[rememberMe,setRememberMe]=useState(true);
   const[myPropBets,setMyPropBets]=useState({});
   const[allPropBets,setAllPropBets]=useState({});
   const[obProps,setObProps]=useState({q0:"",q1:"",q2:"",q3:"",q4:""});
-  // Reveal theatre
-  const[revealMatchId,setRevealMatchId]=useState(null);
-
+  
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);const remTimers=useRef({});
   const lastPendingCount=useRef(0);
   const toast2=useCallback((msg,type="info")=>{setToast({msg,type});clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(null),3500);},[]);
@@ -2105,7 +1972,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,
     onBonusPick:submitBonusPick,
-    onReveal:(m)=>setRevealMatchId(m.id),
+    {revealMatchId&&(()=>{const rm2=ms.find(m=>Number(m.id)===Number(revealMatchId));return rm2?<RevealTheatre m={rm2} allPicks={allPicks} users={users} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} scoreBandAnswers={scoreBandAnswers} onClose={()=>setRevealMatchId(null)}/>:null;})()}
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
       setAm(m);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setSc("picks");
