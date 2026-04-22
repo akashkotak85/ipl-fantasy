@@ -662,7 +662,7 @@ function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,scoreBandAnswers,us
 }
 
 /* ─── MATCH CARD ─── */
-function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact,bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,onBonusPick}){
+function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs,onPredict,onReact,bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,onBonusPick,users}){
   const[lk,setLk]=useState(()=>isMatchLocked(m,lockedMatches));
   useEffect(()=>{
     if(m.result){setLk(true);return;}
@@ -1971,7 +1971,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
 
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,
-    onBonusPick:submitBonusPick,
+    onBonusPick:submitBonusPick,users,
     onPredict:(m)=>{
       if(getP(myPicks,m.id)){toast2("Prediction already locked — no edits allowed","error");return;}
       setAm(m);setDraft({toss:"",win:"",motm:"",sb:"",bqAns:null});setSc("picks");
@@ -2856,6 +2856,6 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
 
     <AppNav sc={sc} setSc={setSc} navItems={navItems} chatU={chatU} pendingCount={pendingCount} setAm={setAm} setChatU={setChatU} setChatSeenTs={setChatSeenTs} setBcSeenTs={setBcSeenTs}/>
     {toast&&<Tst t={toast}/>}
-    {revealMatchId&&(()=>{const rm2=ms.find(m=>Number(m.id)===Number(revealMatchId));return rm2?<RevealTheatre m={rm2} allPicks={allPicks} users={users} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} scoreBandAnswers={scoreBandAnswers} onClose={()=>setRevealMatchId(null)}/>:null;})()}
+    
   </div>;
 }
