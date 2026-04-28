@@ -34,7 +34,7 @@ const LOSS_DELTA     = -10;
 const PRICE_FLOOR    = 50;
 const PRICE_CEIL     = 300;
 const TOTAL_MATCHES  = 74;
-const PAYOUT_PTS     = [500, 300, 150, 75, 75];
+const PAYOUT_PTS     = [200, 150, 100, 50, 50];
 const NR             = "NO_RESULT";
 
 const PFX = "ipl26_";
