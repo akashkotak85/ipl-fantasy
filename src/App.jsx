@@ -163,7 +163,7 @@ const BASE_MATCHES=[
   {id:70,mn:"M70",home:"KKR",away:"DC",date:"2026-05-24",time:"19:30",venue:"Eden Gardens, Kolkata"},
   {id:71,mn:"Q1",home:"RCB",away:"GT",date:"2026-05-26",time:"19:30",venue:"HPCA Stadium, Dharamshala"},
   {id:72,mn:"EL1",home:"SRH",away:"RR",date:"2026-05-27",time:"19:30",venue:"Maharaja Yadavindra Singh Intl. Stadium, New Chandigarh"},
-  {id:73,mn:"Q2",home:"TBD",away:"TBD",date:"2026-05-29",time:"19:30",venue:"Maharaja Yadavindra Singh Intl. Stadium, New Chandigarh"},
+  {id:73,mn:"Q2",home:"GT",away:"RR",date:"2026-05-29",time:"19:30",venue:"Maharaja Yadavindra Singh Intl. Stadium, New Chandigarh"},
   {id:74,mn:"Final",home:"TBD",away:"TBD",date:"2026-05-31",time:"19:30",venue:"Narendra Modi Stadium, Ahmedabad"},
 ];
 
