@@ -1646,7 +1646,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     if(!ans||myAns==null||myAns==="")return s;
     return s+(String(myAns)===String(ans)?PTS.prop:0);
   },0),[propAnswers,myPropBets]);
-  const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+(actualTop4.length>0?(myT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4:(sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email)+myBonusPts+myPropPts+mySbPts,[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email,myBonusPts,myPropPts,mySbPts]);
+  const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+(actualTop4.length>0?(myT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4:(sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email)+myBonusPts+myPropPts+mySbPts,[myS,spk,myEk,sw,myT4,actualTop4,getManualAdj,getMatchOverride,email,myBonusPts,myPropPts,mySbPts]);
   const lbScores=useMemo(()=>{
     const scores={};
     const doneMs=ms.filter(m=>m.result);
@@ -1675,7 +1675,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       scores[u.email]={pts:st.pts+sp2+t4p+getManualAdj(u.email)+getMatchOverride(u.email)+bonusPts+propPts+sbPts,acc:st.acc,hot:st.hot,bgs:calcBadges(up,ms,allPicks),userSp,userT4,bonusPts,propPts,sbPts,userProps:allPropBets[emk]||{}};
     });
     return scores;
-  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride,bonusAnswers,allBonusPicks,propAnswers,allPropBets,scoreBandAnswers]);
+  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,getManualAdj,getMatchOverride,bonusAnswers,allBonusPicks,propAnswers,allPropBets,scoreBandAnswers,actualTop4]);
   const getLb=useCallback(()=>Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>({...u,...(lbScores[u.email]||{pts:0,acc:0,hot:false,bgs:[],userSp:"",userT4:[],userProps:{}})})).sort((a,b)=>b.pts-a.pts),[users,lbScores]);
 
   /* AUTH */
