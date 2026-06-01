@@ -1444,6 +1444,7 @@ const[rememberMe,setRememberMe]=useState(true);
   const[reminders,setReminders]=useState({});
   const[bracket,setBracket]=useState(null);
   const[repairLoading,setRepairLoading]=useState(false);
+const[actualTop4,setActualTop4]=useState([]);
   // Bonus questions
   const[bonusAnswers,setBonusAnswers]=useState({});
   const[myBonusPicks,setMyBonusPicks]=useState({});
@@ -1486,12 +1487,12 @@ const[rememberMe,setRememberMe]=useState(true);
 
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
-    const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu,bonusAns,bqAll,pbAll,paAll,sba]=await Promise.all([
+    const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu,bonusAns,bqAll,pbAll,paAll,sba,at4]=await Promise.all([
       DB.get("ap"),DB.get("u"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("sw"),DB.get("t4"),DB.get("rx"),DB.get("rms"),
       DB.get("bracket"),DB.get("manmatches"),DB.get("maintenance"),DB.get("ptsadj"),DB.get("lockedm"),
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride"),
-      DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans")
+      DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans"),DB.get("actualtop4")
     ]);
     if(u){const nu={};Object.keys(u).forEach(k=>{const entry=u[k];if(entry?.email)nu[ek(entry.email)]=entry;});setUsers(nu);}
     if(pu)setPendingUsers(pu);else setPendingUsers({});
@@ -1533,6 +1534,7 @@ const[rememberMe,setRememberMe]=useState(true);
     const normBQ={};if(bqAll&&typeof bqAll==="object"){Object.keys(bqAll).forEach(k=>{normBQ[canonicalKey(k)]=bqAll[k];});}setAllBonusPicks(normBQ);if(em)setMyBonusPicks(normBQ[emk]||{});
     const normPB=normalizeKeyMap(pbAll);setAllPropBets(normPB);if(em)setMyPropBets(normPB[emk]||{});
     if(paAll)setPropAnswers(paAll);
+    if(at4&&Array.isArray(at4))setActualTop4(at4);
     const userPropBets=em?(normPB[emk]||{}):null;
     const hasPropBets=!!(em&&userPropBets&&PROP_QUESTIONS.every((q,i)=>userPropBets[`q${i}`]&&userPropBets[`q${i}`]!==""));
     return{freshAP,hasOnboarded:!!(nsp[emk]),hasPropBets,userPropBets:userPropBets||{}};
@@ -1644,7 +1646,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     if(!ans||myAns==null||myAns==="")return s;
     return s+(String(myAns)===String(ans)?PTS.prop:0);
   },0),[propAnswers,myPropBets]);
-  const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+((sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email)+myBonusPts+myPropPts+mySbPts,[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email,myBonusPts,myPropPts,mySbPts]);
+  const myPts=useMemo(()=>myS.pts+((spk[myEk]&&sw&&spk[myEk]===sw)?PTS.season:0)+(actualTop4.length>0?(myT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4:(sw&&myT4&&myT4.includes(sw))?PTS.top4:0)+getManualAdj(email)+getMatchOverride(email)+myBonusPts+myPropPts+mySbPts,[myS,spk,myEk,sw,myT4,getManualAdj,getMatchOverride,email,myBonusPts,myPropPts,mySbPts]);
   const lbScores=useMemo(()=>{
     const scores={};
     const doneMs=ms.filter(m=>m.result);
@@ -1654,7 +1656,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       const st=calcScore(up,ms,doubleMatch);
       const userSp=spk[emk]||"";const userT4=t4pk[emk]||[];
       const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
-      const t4p=(sw&&userT4.includes(sw))?PTS.top4:0;
+      const t4p=actualTop4.length>0?userT4.filter(t=>actualTop4.includes(t)).length*PTS.top4:(sw&&userT4.includes(sw))?PTS.top4:0;
       const bonusPts=doneMs.reduce((s,m)=>{
         const ans=bonusAnswers[String(m.id)]??bonusAnswers[Number(m.id)];if(ans==null)return s;
         const userAns=(allBonusPicks[emk]||{})[String(m.id)];if(userAns==null)return s;
@@ -2788,6 +2790,16 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
           {doubleMatch&&<div style={{marginTop:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
             ✅ Mystery match set — users will see 2× revealed at lock time for {ms.find(m=>Number(m.id)===Number(doubleMatch))?.mn||"selected match"}.
           </div>}
+        </div>
+        <div className="ac">
+          <p className="st">🏅 ACTUAL TOP 4 TEAMS</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Select the 4 teams that qualified for playoffs. Each correct user pick = +{PTS.top4}pts. Max +{PTS.top4*4}pts per user.</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+            {TEAMS.map(t=>{const sel=actualTop4.includes(t);return<button key={t} onClick={async()=>{let upd;if(sel)upd=actualTop4.filter(x=>x!==t);else if(actualTop4.length<4)upd=[...actualTop4,t];else{toast2("Max 4 teams","error");return;}setActualTop4(upd);await DB.set("actualtop4",upd);toast2(upd.length===4?"✅ Top 4 saved":"Top 4 updated");}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sel?"#1D428A":"#f8faff",border:"2px solid "+(sel?"#1D428A":"#e2e8f0"),cursor:"pointer"}}><TLogo t={t} sz={20}/><span style={{fontSize:11,fontWeight:700,color:sel?"#fff":"#475569"}}>{t}</span>{sel&&<span style={{fontSize:10,background:"rgba(255,255,255,.25)",color:"#fff",borderRadius:4,padding:"0 4px"}}>#{actualTop4.indexOf(t)+1}</span>}</button>;})}
+          </div>
+          {actualTop4.length===4&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>✅ Top 4 set: {actualTop4.join(", ")}</div>}
+          {actualTop4.length>0&&actualTop4.length<4&&<div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#92400E",marginBottom:8}}>⚠️ Select {4-actualTop4.length} more team{4-actualTop4.length!==1?"s":""}</div>}
+          {actualTop4.length>0&&<button className="dbtn" style={{marginBottom:14}} onClick={async()=>{setActualTop4([]);await DB.set("actualtop4",[]);toast2("Top 4 cleared");}}>✕ Clear Top 4</button>}
         </div>
         <div className="ac">
           <p className="st">SEASON WINNER (CHAMPION)</p>
