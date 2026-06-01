@@ -1628,8 +1628,8 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   const upMs=useMemo(()=>ms.filter(m=>!m.result&&!isToday(m)&&!isTBD(m)),[ms]);
   const unbc=bc.filter(b=>b.ts>bcSeenTs).length;
   const pendingCount=Object.keys(pendingUsers).length;
-  const getManualAdj=useCallback(em=>manualPtsAdj[ek(em)]||0,[manualPtsAdj]);
-  const getMatchOverride=useCallback(em=>Object.values(matchPtsOverride[ek(em)]||{}).reduce((a,b)=>a+b,0),[matchPtsOverride]);
+  const getManualAdj=useCallback(em=>{const key=ek(em);return manualPtsAdj[key]||manualPtsAdj[em]||0;},[manualPtsAdj]);
+  const getMatchOverride=useCallback(em=>{const key=ek(em);const entry=matchPtsOverride[key]||matchPtsOverride[em]||{};return Object.values(entry).reduce((a,b)=>a+b,0);},[matchPtsOverride]);
   const myS=useMemo(()=>calcScore(myPicks,ms,doubleMatch),[myPicks,ms,doubleMatch]);
   const myBonusPts=useMemo(()=>ms.filter(m=>m.result).reduce((s,m)=>{
     const ans=bonusAnswers[String(m.id)]??bonusAnswers[Number(m.id)];if(ans==null)return s;
