@@ -2297,28 +2297,35 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
           </div>
           <div style={{display:"flex",gap:8,borderTop:"1px solid #f1f5f9",paddingTop:8,flexWrap:"wrap"}}>
             <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>{u.userSp?<><TLogo t={u.userSp} sz={16}/><span className="C" style={{fontSize:12,fontWeight:700,color:sw&&u.userSp===sw?"#15803d":"#1D428A"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
-            <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>{(u.userT4||[]).length>0?(u.userT4||[]).map(t=><TLogo key={t} t={t} sz={16}/>):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}><span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>{(u.userT4||[]).length>0?(u.userT4||[]).map(t=>{const correct=actualTop4.length>0&&actualTop4.includes(t);const wrong=actualTop4.length>0&&!actualTop4.includes(t);return<div key={t} style={{display:"flex",alignItems:"center",gap:2,background:correct?"#f0fdf4":wrong?"#fef2f2":"#f1f5f9",borderRadius:6,padding:"1px 4px",border:"1px solid "+(correct?"#bbf7d0":wrong?"#fecaca":"#e2e8f0")}}><TLogo t={t} sz={14}/><span style={{fontSize:9,fontWeight:700,color:correct?"#15803d":wrong?"#dc2626":"#475569"}}>{t}</span><span style={{fontSize:9}}>{correct?"✅":wrong?"❌":""}</span></div>;}):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}{actualTop4.length>0&&(u.userT4||[]).length>0&&<span style={{fontSize:9,fontWeight:700,color:"#1D428A",marginLeft:4}}>{(u.userT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4}pts</span>}</div>
           </div>
           {/* Prop bets row */}
           {(()=>{
             const up2=u.userProps||{};
             const hasSomeProps=PROP_QUESTIONS.some((q,i)=>up2[`q${i}`]&&up2[`q${i}`]!=="");
             if(!hasSomeProps)return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}><span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>🔮 Prop bets not yet answered</span></div>;
-            const propLabels=["🏅 Orange","💜 Purple","📈 Hi-Total","⚡ Super Over","⬇️ Last"];
+            const propLabels=["🏅 Orange Cap","💜 Purple Cap","📈 Hi Total","⚡ Super Over","⬇️ Last Place"];
+            const propPtsEarned=PROP_QUESTIONS.reduce((s,q,i)=>{const ans=propAnswers?.[`q${i}`];const uAns=up2[`q${i}`];return s+(ans&&uAns&&String(uAns)===String(ans)?PTS.prop:0);},0);
+            const propAnsweredCount=PROP_QUESTIONS.filter((q,i)=>up2[`q${i}`]&&up2[`q${i}`]!=="").length;
             return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}>
-              <p style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 5px"}}>🔮 Season Prop Bets</p>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
+                <p style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:0}}>🔮 Season Prop Bets · {propAnsweredCount}/5 answered</p>
+                {propAnsweredCount>0&&<span style={{fontSize:10,fontWeight:800,color:propPtsEarned>0?"#15803d":"#94a3b8",fontFamily:"'Barlow Condensed',sans-serif"}}>{propPtsEarned>0?"+"+propPtsEarned+"pts":"0pts"}{Object.values(propAnswers||{}).some(v=>v)?"":" · TBD"}</span>}
+              </div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                 {PROP_QUESTIONS.map((q,i)=>{
                   const val=up2[`q${i}`]||"";
                   const correctAns=propAnswers?.[`q${i}`]||"";
                   const isCorrect=correctAns&&val&&String(val)===String(correctAns);
                   const isWrong=correctAns&&val&&String(val)!==String(correctAns);
+                  const isPending=!correctAns&&!!val;
                   const shortVal=q.type==="player"?val.split(" ").slice(-1)[0]:q.type==="yesno"?(val==="true"?"Yes":"No"):val;
-                  return<div key={q.id} style={{display:"flex",alignItems:"center",gap:3,background:isCorrect?"#f0fdf4":isWrong?"#fef2f2":"#f8faff",border:"1px solid "+(isCorrect?"#bbf7d0":isWrong?"#fecaca":"#e2e8f0"),borderRadius:6,padding:"2px 6px"}}>
+                  return<div key={q.id} style={{display:"flex",alignItems:"center",gap:3,background:isCorrect?"#f0fdf4":isWrong?"#fef2f2":isPending?"#FFFBEB":"#f8faff",border:"1px solid "+(isCorrect?"#bbf7d0":isWrong?"#fecaca":isPending?"#FDE68A":"#e2e8f0"),borderRadius:6,padding:"2px 6px"}}>
                     <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>{propLabels[i]}:</span>
-                    <span style={{fontSize:10,fontWeight:700,color:isCorrect?"#15803d":isWrong?"#dc2626":"#1a2540"}}>{shortVal||"—"}</span>
-                    {isCorrect&&<span style={{fontSize:9}}>✅</span>}
-                    {isWrong&&<span style={{fontSize:9}}>✗</span>}
+                    <span style={{fontSize:10,fontWeight:700,color:isCorrect?"#15803d":isWrong?"#dc2626":isPending?"#92400E":"#94a3b8"}}>{shortVal||"—"}</span>
+                    {isCorrect&&<span style={{fontSize:9,color:"#15803d",fontWeight:700}}> +{PTS.prop}pts</span>}
+                    {isWrong&&<span style={{fontSize:9,color:"#dc2626"}}>✗</span>}
+                    {isPending&&<span style={{fontSize:9,color:"#B45309"}}>⏳</span>}
                   </div>;
                 })}
               </div>
