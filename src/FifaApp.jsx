@@ -488,12 +488,49 @@ body{background:#F0F4F8;}
 `;
 
 /* ─── SUB-COMPONENTS ─────────────────────────────────────────── */
+/* ─── COUNTRY ABBREVIATIONS (replaces emoji flags — fixes ?? on Android) ── */
+const ABBR = {
+  Argentina:"ARG",France:"FRA",Brazil:"BRA",England:"ENG",Spain:"ESP",
+  Portugal:"POR",Germany:"GER",Netherlands:"NED",Belgium:"BEL",Croatia:"CRO",
+  Uruguay:"URU",Denmark:"DEN",Switzerland:"SUI",USA:"USA",Mexico:"MEX",
+  Canada:"CAN",Morocco:"MAR",Senegal:"SEN",Japan:"JPN","South Korea":"KOR",
+  Australia:"AUS",Serbia:"SRB",Poland:"POL",Ecuador:"ECU",Ghana:"GHA",
+  Cameroon:"CMR",Tunisia:"TUN","Saudi Arabia":"KSA",Iran:"IRN",Qatar:"QAT",
+  "Costa Rica":"CRC",Panama:"PAN",Honduras:"HON","El Salvador":"SLV",
+  Jamaica:"JAM",Guatemala:"GUA","New Zealand":"NZL",Indonesia:"IDN",
+  Uzbekistan:"UZB",Iraq:"IRQ",Oman:"OMA",Yemen:"YEM",Venezuela:"VEN",
+  Bolivia:"BOL",Chile:"CHI",Paraguay:"PAR",Peru:"PER",Egypt:"EGY",
+};
+
 function TeamFlag({team,sz=40}){
-  const flag = FLAGS[team]||"🏳";
   const tc = TEAM_COLORS[team]||{bg:"#94a3b8",dk:"#fff"};
+  const abbr = ABBR[team]||(team||"?").slice(0,3).toUpperCase();
   return(
-    <div style={{width:sz,height:sz,borderRadius:8,background:tc.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*.55,flexShrink:0,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>
-      {flag}
+    <div style={{
+      width:sz,height:sz,borderRadius:8,background:tc.bg,
+      display:"flex",alignItems:"center",justifyContent:"center",
+      flexShrink:0,boxShadow:"0 2px 6px rgba(0,0,0,.2)",
+      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+      fontSize:sz*.28,color:tc.dk||"#fff",letterSpacing:.5,
+      textAlign:"center",lineHeight:1,
+    }}>
+      {abbr}
+    </div>
+  );
+}
+
+function FlagBox({team,sz=20}){
+  const tc=TEAM_COLORS[team]||{bg:"#94a3b8",dk:"#fff"};
+  const abbr=ABBR[team]||(team||"?").slice(0,3).toUpperCase();
+  return(
+    <div style={{
+      width:sz,height:sz,borderRadius:4,background:tc.bg,
+      display:"inline-flex",alignItems:"center",justifyContent:"center",
+      flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",
+      fontWeight:900,fontSize:sz*.38,color:tc.dk||"#fff",
+      letterSpacing:.3,lineHeight:1,verticalAlign:"middle",
+    }}>
+      {abbr}
     </div>
   );
 }
@@ -1155,6 +1192,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   const tRef=useRef();const chatRef=useRef();const pollRef=useRef(null);
   const lastPendingCount=useRef(0);
+  const justOnboarded=useRef(false);
 
   const toast2=useCallback((msg,type="info")=>{setToast({msg,type});clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(null),3500);},[]);
   const myEk=useMemo(()=>ek(email),[email]);
@@ -1269,6 +1307,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const hasPropBets=PROP_QUESTIONS.every((q,i)=>myPropBets?.[`q${i}`]&&myPropBets[`q${i}`]!=="");
 
   useEffect(()=>{
+    if(justOnboarded.current){justOnboarded.current=false;return;}
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
     else if(hasOnboarded&&!hasPropBets&&sc==="home"&&email!==SUPER_ADMIN)setSc("propbets");
   },[hasOnboarded,hasPropBets,sc,email]);// eslint-disable-line
@@ -1410,6 +1449,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2)]);
     await DB.set("propbets/"+myEk,obProps);
     setMyPropBets(obProps);
+    justOnboarded.current=true;
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
   }
 
@@ -1585,7 +1625,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:24}}>
               {TEAMS.map(t=>(
                 <button key={t} className={"ot"+(obSp===t?" on":"")} onClick={()=>setObSp(t)} style={{width:"auto",padding:"8px 12px",flexDirection:"row",gap:8}}>
-                  <span style={{fontSize:20}}>{FLAGS[t]||"🏳"}</span>
+                  <FlagBox team={t} sz={20}/>
                   <span style={{fontSize:11,fontWeight:700,color:obSp===t?"#004B87":"#475569"}}>{t}</span>
                 </button>
               ))}
@@ -1601,7 +1641,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 const sel=obT4.includes(t);
                 return(
                   <button key={t} className={"ot"+(sel?" on":"")} onClick={()=>{if(sel)setObT4(p=>p.filter(x=>x!==t));else if(obT4.length<4)setObT4(p=>[...p,t]);else toast2("Max 4 teams","error");}} style={{width:"auto",padding:"8px 12px",flexDirection:"row",gap:8}}>
-                    <span style={{fontSize:18}}>{FLAGS[t]||"🏳"}</span>
+                    <FlagBox team={t} sz={18}/>
                     <span style={{fontSize:11,fontWeight:700,color:sel?"#004B87":"#475569"}}>{t}</span>
                     {sel&&<span style={{fontSize:9,background:"#004B87",color:"#fff",borderRadius:8,padding:"0 5px"}}>#{obT4.indexOf(t)+1}</span>}
                   </button>
@@ -1623,7 +1663,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {TEAMS.map(t=>(
                   <button key={t} onClick={()=>setObWs(t)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:8,background:obWs===t?"#004B87":"#fff",border:"1.5px solid "+(obWs===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
-                    <span style={{fontSize:14}}>{FLAGS[t]||"🏳"}</span>
+                    <FlagBox team={t} sz={14}/>
                     <span style={{fontSize:11,fontWeight:700,color:obWs===t?"#fff":"#475569"}}>{t}</span>
                   </button>
                 ))}
@@ -1717,12 +1757,12 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       <div className="fifa-app" style={{paddingBottom:32}}><style>{CSS}</style>
         <div style={{background:"linear-gradient(135deg,#003d70,#004B87,#006BB6)",padding:"16px",display:"flex",alignItems:"center",gap:14}}>
           <button onClick={()=>{setAm(null);setSc("home");}} style={{background:"none",border:"none",color:"#fff",fontSize:22,cursor:"pointer",padding:0}}>←</button>
-          <span style={{fontSize:24}}>{FLAGS[am.home]||"🏳"}</span>
+          <FlagBox team={am.home} sz={24}/>
           <div style={{flex:1}}>
             <p className="C" style={{color:"#fff",fontSize:16,margin:0}}>{am.home} vs {am.away}</p>
             <p style={{color:"#bfdbfe",fontSize:11,margin:"2px 0 0"}}>{am.date} · {am.time} ET · {am.mn}</p>
           </div>
-          <span style={{fontSize:24}}>{FLAGS[am.away]||"🏳"}</span>
+          <FlagBox team={am.away} sz={24}/>
         </div>
         <div style={{background:"#FFF9E6",padding:"8px 16px",borderBottom:"1px solid #FDE68A"}}>
           <span style={{color:"#92400E",fontSize:12}}>⚠️ Once submitted, predictions are final.</span>
@@ -1735,7 +1775,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",gap:8}}>
               {[am.home,"Draw",am.away].map(t=>(
                 <button key={t} className={"tmbtn"+(draft.win===t?" on":"")} onClick={()=>setDraft(d=>({...d,win:t}))}>
-                  {t!=="Draw"?<span style={{fontSize:28}}>{FLAGS[t]||"🏳"}</span>:<span style={{fontSize:24}}>🤝</span>}
+                  {t!=="Draw"?<FlagBox team={t} sz={28}/>:<span style={{fontSize:24}}>🤝</span>}
                   <p className="C" style={{color:draft.win===t?"#004B87":"#64748b",fontSize:t==="Draw"?14:13,margin:0}}>{t}</p>
                   {draft.win===t&&<span style={{background:"#004B87",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:12}}>SELECTED</span>}
                 </button>
@@ -1848,12 +1888,12 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                   </div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
-                      <span style={{fontSize:24}}>{FLAGS[m.home]||"🏳"}</span>
+                      <FlagBox team={m.home} sz={24}/>
                       <p className="C" style={{color:"#475569",fontSize:13,margin:0}}>{m.home}</p>
                     </div>
                     <p className="C" style={{color:"#e2e8f0",fontSize:16,padding:"0 8px",margin:0}}>VS</p>
                     <div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}>
-                      <span style={{fontSize:24}}>{FLAGS[m.away]||"🏳"}</span>
+                      <FlagBox team={m.away} sz={24}/>
                       <p className="C" style={{color:"#475569",fontSize:13,margin:0}}>{m.away}</p>
                     </div>
                   </div>
@@ -1869,7 +1909,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
               <p className="st">🏆 WORLD CUP CHAMPION (+{PTS.season}pts)</p>
               <div style={{display:"flex",alignItems:"center",gap:14}}>
-                {mySp?<span style={{fontSize:36}}>{FLAGS[mySp]||"🏳"}</span>:<div style={{width:50,height:50,borderRadius:10,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>?</div>}
+                {mySp?<FlagBox team={mySp} sz={36}/>:<div style={{width:50,height:50,borderRadius:10,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>?</div>}
                 <div>
                   <p className="C" style={{color:"#0a1628",fontSize:18,margin:0}}>{mySp||"Not set"}</p>
                   {sw&&mySp&&<p style={{color:mySp===sw?"#15803d":"#dc2626",fontSize:13,fontWeight:700,marginTop:6}}>{mySp===sw?"✅ Correct! +200pts":"❌ Better luck next time"}</p>}
@@ -1878,12 +1918,12 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             </div>
             <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
               <p className="st">🏅 TOP 4 TEAMS (+{PTS.top4}pts each)</p>
-              {myT4&&myT4.length>0?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:12}}>#{i+1}</span><span style={{fontSize:20}}>{FLAGS[t]||"🏳"}</span><span className="C" style={{color:"#004B87",fontSize:13}}>{t}</span>{actualTop4.length>0&&<span style={{fontSize:13}}>{actualTop4.includes(t)?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
+              {myT4&&myT4.length>0?<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{myT4.map((t,i)=><div key={t} style={{display:"flex",alignItems:"center",gap:6,background:"#f8faff",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}><span className="C" style={{color:"#94a3b8",fontSize:12}}>#{i+1}</span><FlagBox team={t} sz={20}/><span className="C" style={{color:"#004B87",fontSize:13}}>{t}</span>{actualTop4.length>0&&<span style={{fontSize:13}}>{actualTop4.includes(t)?"✅":"❌"}</span>}</div>)}</div>:<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
             </div>
             <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
               <p className="st">🪵 WOODEN SPOON (+{PTS.woodenSpoon}pts)</p>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                {myWs?<span style={{fontSize:28}}>{FLAGS[myWs]||"🏳"}</span>:null}
+                {myWs?<FlagBox team={myWs} sz={28}/>:null}
                 <p className="C" style={{color:"#0a1628",fontSize:16,margin:0}}>{myWs||"Not set"}</p>
                 {actualWs&&myWs&&<span style={{fontSize:13}}>{myWs===actualWs?"✅ Correct! +50pts":"❌"}</span>}
               </div>
@@ -1925,7 +1965,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 <p className="C" style={{color:"#004B87",fontSize:16,letterSpacing:2,margin:"0 0 8px"}}>Group {grp}</p>
                 {teams.map(t=>(
                   <div key={t} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
-                    <span style={{fontSize:20}}>{FLAGS[t]||"🏳"}</span>
+                    <FlagBox team={t} sz={20}/>
                     <span style={{fontSize:13,fontWeight:600,color:"#0a1628",flex:1}}>{t}</span>
                     <FormDots form={getTeamForm(t,ms,5)}/>
                   </div>
@@ -1958,14 +1998,14 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",gap:8,borderTop:"1px solid #f1f5f9",paddingTop:7,flexWrap:"wrap"}}>
               <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>
-                {u.userSp?<><span style={{fontSize:16}}>{FLAGS[u.userSp]||"🏳"}</span><span className="C" style={{fontSize:12,color:sw&&u.userSp===sw?"#15803d":"#004B87"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
+                {u.userSp?<><FlagBox team={u.userSp} sz={16}/><span className="C" style={{fontSize:12,color:sw&&u.userSp===sw?"#15803d":"#004B87"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>
                 {(u.userT4||[]).length>0?(u.userT4||[]).map(t=>{
                   const correct=actualTop4.length>0&&actualTop4.includes(t);
                   const wrong=actualTop4.length>0&&!actualTop4.includes(t);
-                  return<div key={t} style={{display:"inline-flex",alignItems:"center",gap:2,background:correct?"#EAF3DE":wrong?"#FCEBEB":"#f1f5f9",borderRadius:6,padding:"1px 4px",border:"0.5px solid "+(correct?"#97C459":wrong?"#F09595":"#e2e8f0")}}><span style={{fontSize:12}}>{FLAGS[t]||"🏳"}</span><span style={{fontSize:9,fontWeight:700,color:correct?"#27500A":wrong?"#791F1F":"#475569"}}>{t}</span>{correct&&<span style={{fontSize:9}}>✅</span>}{wrong&&<span style={{fontSize:9}}>✗</span>}</div>;
+                  return<div key={t} style={{display:"inline-flex",alignItems:"center",gap:2,background:correct?"#EAF3DE":wrong?"#FCEBEB":"#f1f5f9",borderRadius:6,padding:"1px 4px",border:"0.5px solid "+(correct?"#97C459":wrong?"#F09595":"#e2e8f0")}}><FlagBox team={t} sz={12}/><span style={{fontSize:9,fontWeight:700,color:correct?"#27500A":wrong?"#791F1F":"#475569"}}>{t}</span>{correct&&<span style={{fontSize:9}}>✅</span>}{wrong&&<span style={{fontSize:9}}>✗</span>}</div>;
                 }):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
                 {actualTop4.length>0&&(u.userT4||[]).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:4}}>+{(u.userT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4}pts</span>}
               </div>
@@ -1974,7 +2014,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
               <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>🪵</span>
-                {u.userWs?<><span style={{fontSize:14}}>{FLAGS[u.userWs]||"🏳"}</span><span className="C" style={{fontSize:11,color:actualWs&&u.userWs===actualWs?"#15803d":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span></>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
+                {u.userWs?<><FlagBox team={u.userWs} sz={14}/><span className="C" style={{fontSize:11,color:actualWs&&u.userWs===actualWs?"#15803d":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span></>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>👟</span>
@@ -2035,9 +2075,9 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                       <span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Locked</span>
                     </div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <span style={{fontSize:24}}>{FLAGS[m.home]||"🏳"}</span>
+                      <FlagBox team={m.home} sz={24}/>
                       <span className="C" style={{color:"#94a3b8",fontSize:14}}>VS</span>
-                      <span style={{fontSize:24}}>{FLAGS[m.away]||"🏳"}</span>
+                      <FlagBox team={m.away} sz={24}/>
                     </div>
                     <div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                       {[["🏆 Winner",p?.win==="Draw"?"Draw":p?.win],["⭐ MOTM",p?.motm],["⚽ Goals",p?.gb?GOAL_BANDS.find(b=>b.id===p.gb)?.label:"—"]].map(([l,v])=>(
@@ -2109,11 +2149,11 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                       {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>✅</span>:lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>🔒</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>Pending</span>}
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:20}}>{FLAGS[m.home]||"🏳"}</span>
+                      <FlagBox team={m.home} sz={20}/>
                       <span className="C" style={{color:"#475569",fontSize:12}}>{m.home}</span>
                       <span className="C" style={{color:"#e2e8f0",fontSize:12,margin:"0 6px"}}>VS</span>
                       <span className="C" style={{color:"#475569",fontSize:12}}>{m.away}</span>
-                      <span style={{fontSize:20}}>{FLAGS[m.away]||"🏳"}</span>
+                      <FlagBox team={m.away} sz={20}/>
                     </div>
                     {!hasPick&&!lk&&<button className="pbtn" style={{marginTop:10,fontSize:12,padding:"8px"}} onClick={()=>{setAm(m);setDraft({win:"",motm:"",gb:"",bqAns:null});setSc("picks");}}>Predict →</button>}
                   </div>
@@ -2254,7 +2294,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         {admTab==="results"&&<div>
           {ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id)).map(m=>(
             <div key={m.id} className="ac">
-              <p style={{fontWeight:700,fontSize:13,color:"#0a1628",margin:"0 0 6px"}}>{m.mn}: {FLAGS[m.home]||""} {m.home} vs {m.away} {FLAGS[m.away]||""}</p>
+              <p style={{fontWeight:700,fontSize:13,color:"#0a1628",margin:"0 0 6px"}}>{m.mn}: {m.home} vs {m.away}</p>
               <p style={{color:"#94a3b8",fontSize:11,margin:"0 0 10px"}}>{m.date} · {m.time} ET</p>
               {m.result
                 ?<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d",marginBottom:8}}>
@@ -2268,7 +2308,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                     {[m.home,"Draw",m.away].map(v=>(
                       <button key={v} onClick={()=>savePartialResult(m.id,"win",v)}
                         style={{flex:1,padding:"6px 4px",borderRadius:8,background:admResultForm[m.id]?.win===v?"#004B87":"#f1f5f9",color:admResultForm[m.id]?.win===v?"#fff":"#475569",border:"1px solid "+(admResultForm[m.id]?.win===v?"#004B87":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        {v!=="Draw"&&<span style={{fontSize:16}}>{FLAGS[v]||""}</span>}
+                        {v!=="Draw"&&<FlagBox team={v} sz={16}/>}
                         <span>{v==="Draw"?"🤝 Draw":v}</span>
                       </button>
                     ))}
@@ -2382,7 +2422,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
               {TEAMS.map(t=>(
                 <button key={t} onClick={async()=>{setSw(t);await DB.set("sw",t);toast2("Champion: "+t+" 🏆","ok");}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sw===t?"#004B87":"#f8faff",border:"2px solid "+(sw===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
-                  <span style={{fontSize:16}}>{FLAGS[t]||"🏳"}</span>
+                  <FlagBox team={t} sz={16}/>
                   <span style={{fontSize:11,fontWeight:700,color:sw===t?"#fff":"#475569"}}>{t}</span>
                 </button>
               ))}
@@ -2395,7 +2435,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 const sel=actualTop4.includes(t);
                 return(
                   <button key={t} onClick={async()=>{let upd;if(sel)upd=actualTop4.filter(x=>x!==t);else if(actualTop4.length<4)upd=[...actualTop4,t];else{toast2("Max 4","error");return;}setActualTop4(upd);await DB.set("actualtop4",upd);toast2("Top 4 updated");}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:sel?"#004B87":"#f8faff",border:"2px solid "+(sel?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
-                    <span style={{fontSize:16}}>{FLAGS[t]||"🏳"}</span>
+                    <FlagBox team={t} sz={16}/>
                     <span style={{fontSize:11,fontWeight:700,color:sel?"#fff":"#475569"}}>{t}</span>
                   </button>
                 );
@@ -2408,7 +2448,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
               {TEAMS.map(t=>(
                 <button key={t} onClick={async()=>{setActualWs(t);await DB.set("actualws",t);toast2("Wooden Spoon: "+t);}} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 9px",borderRadius:8,background:actualWs===t?"#004B87":"#f8faff",border:"1.5px solid "+(actualWs===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
-                  <span style={{fontSize:14}}>{FLAGS[t]||"🏳"}</span>
+                  <FlagBox team={t} sz={14}/>
                   <span style={{fontSize:10,fontWeight:700,color:actualWs===t?"#fff":"#475569"}}>{t}</span>
                 </button>
               ))}
