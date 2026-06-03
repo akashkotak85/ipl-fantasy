@@ -234,56 +234,98 @@ const GOAL_BANDS = [
 
 /* ─── PROP QUESTIONS ─────────────────────────────────────────── */
 const PROP_QUESTIONS = [
-  {id:"q0",label:"Who will win the FIFA World Cup 2026?",type:"team"},
-  {id:"q1",label:"Golden Boot — who will be the top scorer?",type:"player"},
-  {id:"q2",label:"Which team will finish in 2nd place (runners-up)?",type:"team"},
-  {id:"q3",label:"Which team will finish in 3rd place?",type:"team"},
-  {id:"q4",label:"Which team will finish in 4th place?",type:"team"},
-  {id:"q5",label:"Wooden Spoon — which team finishes last / group stage exit with worst record?",type:"team"},
+  {id:"q0",label:"Which team will score the most goals in the tournament?",type:"team"},
+  {id:"q1",label:"Will there be a penalty shootout in the Final?",type:"yesno"},
+  {id:"q2",label:"Which team will have the most red cards in the tournament?",type:"team"},
+  {id:"q3",label:"Will defending champion Argentina reach the Semi Finals?",type:"yesno"},
+  {id:"q4",label:"Which country's player will win the Best Young Player award (born after Jan 1 2003)?",type:"team"},
+  {id:"q5",label:"Will the tournament produce more than 150 total goals?",type:"yesno"},
 ];
 
 /* ─── PLAYER POOL (top players per nation) ───────────────────── */
 const PLAYERS = [
   // Argentina
-  "Lionel Messi","Julian Alvarez","Lautaro Martinez","Angel Di Maria","Emiliano Martinez",
+  "Lionel Messi","Julian Alvarez","Lautaro Martinez","Angel Di Maria","Emiliano Martinez","Rodrigo De Paul","Enzo Fernandez","Alejandro Garnacho",
   // France
-  "Kylian Mbappe","Antoine Griezmann","Ousmane Dembele","Marcus Thuram","Mike Maignan",
+  "Kylian Mbappe","Antoine Griezmann","Ousmane Dembele","Marcus Thuram","Mike Maignan","Aurelien Tchouameni","Eduardo Camavinga","Randal Kolo Muani",
   // Brazil
-  "Vinicius Junior","Rodrygo","Raphinha","Bruno Guimaraes","Alisson",
+  "Vinicius Junior","Rodrygo","Raphinha","Bruno Guimaraes","Alisson","Endrick","Lucas Paqueta","Gabriel Martinelli",
   // England
-  "Jude Bellingham","Harry Kane","Phil Foden","Bukayo Saka","Jordan Pickford",
+  "Jude Bellingham","Harry Kane","Phil Foden","Bukayo Saka","Jordan Pickford","Cole Palmer","Declan Rice","Marcus Rashford",
   // Spain
-  "Pedri","Lamine Yamal","Alvaro Morata","Rodri","Unai Simon",
+  "Pedri","Lamine Yamal","Alvaro Morata","Rodri","Unai Simon","Dani Olmo","Nico Williams","Mikel Merino",
   // Portugal
-  "Cristiano Ronaldo","Bruno Fernandes","Bernardo Silva","Ruben Dias","Diogo Costa",
+  "Cristiano Ronaldo","Bruno Fernandes","Bernardo Silva","Ruben Dias","Diogo Costa","Rafael Leao","Vitinha","Goncalo Ramos",
   // Germany
-  "Florian Wirtz","Jamal Musiala","Thomas Muller","Kai Havertz","Manuel Neuer",
+  "Florian Wirtz","Jamal Musiala","Thomas Muller","Kai Havertz","Manuel Neuer","Leroy Sane","Toni Kroos","Niclas Fullkrug",
   // Netherlands
-  "Virgil van Dijk","Cody Gakpo","Memphis Depay","Frenkie de Jong","Bart Verbruggen",
+  "Virgil van Dijk","Cody Gakpo","Memphis Depay","Frenkie de Jong","Bart Verbruggen","Xavi Simons","Tijjani Reijnders","Wout Weghorst",
   // Belgium
-  "Kevin De Bruyne","Romelu Lukaku","Yannick Carrasco","Axel Witsel","Thibaut Courtois",
+  "Kevin De Bruyne","Romelu Lukaku","Yannick Carrasco","Axel Witsel","Thibaut Courtois","Dodi Lukebakio","Leandro Trossard","Arthur Theate",
   // Croatia
-  "Luka Modric","Ivan Perisic","Mateo Kovacic","Andrej Kramaric","Dominik Livakovic",
+  "Luka Modric","Ivan Perisic","Mateo Kovacic","Andrej Kramaric","Dominik Livakovic","Bruno Petkovic","Lovro Majer","Josip Sutalo",
   // Uruguay
-  "Darwin Nunez","Federico Valverde","Luis Suarez","Ronald Araujo","Sergio Rochet",
+  "Darwin Nunez","Federico Valverde","Luis Suarez","Ronald Araujo","Sergio Rochet","Facundo Pellistri","Manuel Ugarte","Maxi Gomez",
   // Denmark
-  "Christian Eriksen","Rasmus Hojlund","Pierre-Emile Hojbjerg","Simon Kjaer","Kasper Schmeichel",
+  "Christian Eriksen","Rasmus Hojlund","Pierre-Emile Hojbjerg","Simon Kjaer","Kasper Schmeichel","Alexander Bah","Joakim Maehle","Morten Hjulmand",
   // USA
-  "Christian Pulisic","Tyler Adams","Weston McKennie","Gio Reyna","Matt Turner",
+  "Christian Pulisic","Tyler Adams","Weston McKennie","Gio Reyna","Matt Turner","Ricardo Pepi","Folarin Balogun","Yunus Musah",
   // Morocco
-  "Hakim Ziyech","Achraf Hakimi","Youssef En-Nesyri","Sofyan Amrabat","Yassine Bounou",
+  "Hakim Ziyech","Achraf Hakimi","Youssef En-Nesyri","Sofyan Amrabat","Yassine Bounou","Azzedine Ounahi","Selim Amallah","Abde Ezzalzouli",
   // Japan
-  "Takumi Minamino","Wataru Endo","Daichi Kamada","Ritsu Doan","Shuichi Gonda",
+  "Takumi Minamino","Wataru Endo","Daichi Kamada","Ritsu Doan","Shuichi Gonda","Kaoru Mitoma","Junya Ito","Ayase Ueda",
   // South Korea
-  "Son Heung-min","Lee Kang-in","Kim Min-jae","Hwang Hee-chan","Jo Hyeon-woo",
+  "Son Heung-min","Lee Kang-in","Kim Min-jae","Hwang Hee-chan","Jo Hyeon-woo","Cho Gue-sung","Oh Hyeon-gyu","Paik Seung-ho",
   // Mexico
-  "Hirving Lozano","Edson Alvarez","Raul Jimenez","Andres Guardado","Guillermo Ochoa",
+  "Hirving Lozano","Edson Alvarez","Raul Jimenez","Andres Guardado","Guillermo Ochoa","Santiago Gimenez","Alexis Vega","Roberto Alvarado",
   // Canada
-  "Alphonso Davies","Jonathan David","Cyle Larin","Atiba Hutchinson","Milan Borjan",
+  "Alphonso Davies","Jonathan David","Cyle Larin","Atiba Hutchinson","Milan Borjan","Tajon Buchanan","Alistair Johnston","Liam Millar",
   // Senegal
-  "Sadio Mane","Kalidou Koulibaly","Ismaila Sarr","Idrissa Gueye","Edouard Mendy",
+  "Sadio Mane","Kalidou Koulibaly","Ismaila Sarr","Idrissa Gueye","Edouard Mendy","Boulaye Dia","Pape Matar Sarr","Iliman Ndiaye",
   // Australia
-  "Mathew Leckie","Aaron Mooy","Mitchell Duke","Mat Ryan","Harry Souttar",
+  "Mathew Leckie","Aaron Mooy","Mitchell Duke","Mat Ryan","Harry Souttar","Craig Goodwin","Cameron Devlin","Keanu Baccus",
+  // Serbia
+  "Aleksandar Mitrovic","Dusan Vlahovic","Sergej Milinkovic-Savic","Nemanja Matic","Predrag Rajkovic","Filip Kostic","Lazar Samardzic","Andrija Zivkovic",
+  // Poland
+  "Robert Lewandowski","Piotr Zielinski","Arkadiusz Milik","Grzegorz Krychowiak","Wojciech Szczesny","Kamil Grosicki","Sebastian Szymanski","Nicola Zalewski",
+  // Ecuador
+  "Enner Valencia","Moises Caicedo","Jeremy Sarmiento","Piero Hincapie","Hernan Galindez","Angelo Preciado","Pervis Estupinan","Gonzalo Plata",
+  // Ghana
+  "Andre Ayew","Jordan Ayew","Mohammed Kudus","Thomas Partey","Lawrence Ati-Zigi","Tariq Lamptey","Kamaldeen Sulemana","Antoine Semenyo",
+  // Switzerland
+  "Granit Xhaka","Xherdan Shaqiri","Breel Embolo","Yann Sommer","Nico Elvedi","Remo Freuler","Ruben Vargas","Fabian Rieder",
+  // Qatar
+  "Akram Afif","Hassan Al-Haydos","Almoez Ali","Meshaal Barsham","Pedro Miguel","Mohammed Muntari","Bassam Al-Rawi","Ismail Mohamad",
+].sort();
+
+/* ─── GOALKEEPERS (for Golden Glove award) ───────────────────── */
+const GOALKEEPERS = [
+  "Emiliano Martinez (Argentina)",
+  "Alisson (Brazil)",
+  "Jordan Pickford (England)",
+  "Unai Simon (Spain)",
+  "Diogo Costa (Portugal)",
+  "Manuel Neuer (Germany)",
+  "Bart Verbruggen (Netherlands)",
+  "Thibaut Courtois (Belgium)",
+  "Dominik Livakovic (Croatia)",
+  "Sergio Rochet (Uruguay)",
+  "Kasper Schmeichel (Denmark)",
+  "Yann Sommer (Switzerland)",
+  "Matt Turner (USA)",
+  "Yassine Bounou (Morocco)",
+  "Shuichi Gonda (Japan)",
+  "Jo Hyeon-woo (South Korea)",
+  "Guillermo Ochoa (Mexico)",
+  "Milan Borjan (Canada)",
+  "Edouard Mendy (Senegal)",
+  "Mat Ryan (Australia)",
+  "Predrag Rajkovic (Serbia)",
+  "Wojciech Szczesny (Poland)",
+  "Hernan Galindez (Ecuador)",
+  "Lawrence Ati-Zigi (Ghana)",
+  "Mike Maignan (France)",
+  "Meshaal Barsham (Qatar)",
 ].sort();
 
 const PFX = "fifa26_";
@@ -295,7 +337,7 @@ const NR = "NO_RESULT";
 
 const PTS = {
   win: 20, motm: 30, goals: 10, streak: 15,
-  bonus: 15, season: 200, top4: 50, woodenSpoon: 50, goldenBoot: 100,
+  bonus: 15, season: 200, top4: 50, woodenSpoon: 50, goldenBoot: 100, goldenGlove: 75,
 };
 
 const TRASH_TALK = [
@@ -1036,6 +1078,31 @@ function PickStatusPanel({ms,users,allPicks,lockedMatches,adminEmail,goalBandAns
   );
 }
 
+/* ─── GOLDEN BOOT SEARCH COMPONENT ──────────────────────────── */
+function GbSearch({selected,onToggle}){
+  const[q,setQ]=useState("");
+  const filtered=q.trim()?PLAYERS.filter(p=>p.toLowerCase().includes(q.toLowerCase())):PLAYERS;
+  return(
+    <div>
+      <input className="inp" placeholder="Search players…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:8}}/>
+      <div style={{maxHeight:180,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:5,padding:2}}>
+        {filtered.map(p=>{
+          const sel=selected.includes(p);
+          return(
+            <button key={p} onClick={()=>onToggle(p)}
+              style={{display:"inline-flex",alignItems:"center",gap:4,padding:"4px 9px",borderRadius:8,
+                background:sel?"#004B87":"#fff",border:"1.5px solid "+(sel?"#004B87":"#e2e8f0"),
+                cursor:"pointer",fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":"#475569",transition:"all .15s"}}>
+              {sel&&<span style={{fontSize:9}}>✓</span>}
+              {p}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════
    MAIN FIFA APP
    ════════════════════════════════════════════════════════════════ */
@@ -1052,12 +1119,13 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[spk,setSpk]=useState({});const[mySp,setMySp]=useState("");
   const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
   const[myWs,setMyWs]=useState("");const[wspk,setWspk]=useState({});
-  const[myGb,setMyGb]=useState("");const[gbpk,setGbpk]=useState({});
+  const[myGb,setMyGb]=useState([]);const[gbpk,setGbpk]=useState({});
+  const[myGg,setMyGg]=useState([]);const[ggpk,setGgpk]=useState({});
   const[propAnswers,setPropAnswers]=useState({});
   const[myPropBets,setMyPropBets]=useState({});
   const[allPropBets,setAllPropBets]=useState({});
   const[sw,setSw]=useState(null);const[actualTop4,setActualTop4]=useState([]);
-  const[actualWs,setActualWs]=useState("");const[actualGb,setActualGb]=useState("");
+  const[actualWs,setActualWs]=useState("");const[actualGb,setActualGb]=useState("");const[actualGg,setActualGg]=useState([]);
   const[lockedMatches,setLockedMatches]=useState({});
   const[doubleMatch,setDoubleMatch]=useState(null);
   const[rxns,setRxns]=useState({});
@@ -1076,7 +1144,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[draft,setDraft]=useState({});
   const[obStep,setObStep]=useState(0);
   const[obSp,setObSp]=useState("");const[obT4,setObT4]=useState([]);
-  const[obWs,setObWs]=useState("");const[obGb,setObGb]=useState("");
+  const[obWs,setObWs]=useState("");const[obGb,setObGb]=useState([]);const[obGg,setObGg]=useState([]);
   const[obProps,setObProps]=useState({q0:"",q1:"",q2:"",q3:"",q4:"",q5:""});
   const[chatMuted,setChatMuted]=useState(false);
   const[mutedUsers,setMutedUsers]=useState({});
@@ -1093,14 +1161,14 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Load shared data ─────────────────────────────────────── */
   const reloadShared=useCallback(async()=>{
-    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,pa,pb,at4,aws,agb,pu,pbc]=await Promise.all([
+    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,pa,pb,at4,aws,agb,agg,pu,pbc]=await Promise.all([
       DB.get("u"),DB.get("ap"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
-      DB.get("sp"),DB.get("t4"),DB.get("ws"),DB.get("gb"),DB.get("sw"),
+      DB.get("sp"),DB.get("t4"),DB.get("ws"),DB.get("gb"),DB.get("gg"),DB.get("sw"),
       DB.get("lockedm"),DB.get("rx"),DB.get("maintenance"),DB.get("ptsadj"),
       DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),
       DB.get("bq"),DB.get("bonusans"),DB.get("goalbanans"),
       DB.get("propanswers"),DB.get("propbets"),DB.get("actualtop4"),
-      DB.get("actualws"),DB.get("actualgb"),DB.get("pending"),DB.get("pinnedbc"),
+      DB.get("actualws"),DB.get("actualgb"),DB.get("actualgg"),DB.get("pending"),DB.get("pinnedbc"),
     ]);
 
     if(u){const nu={};Object.keys(u).forEach(k=>{const e=u[k];if(e?.email)nu[ek(e.email)]=e;});setUsers(nu);}
@@ -1138,7 +1206,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     const nsp={};if(sp2)Object.keys(sp2).forEach(k=>{nsp[ek(k)]=sp2[k];});setSpk(nsp);setMySp(nsp[myEk]||"");
     const nt4={};if(t4)Object.keys(t4).forEach(k=>{nt4[ek(k)]=t4[k];});setT4pk(nt4);setMyT4(nt4[myEk]||[]);
     const nws={};if(ws)Object.keys(ws).forEach(k=>{nws[ek(k)]=ws[k];});setWspk(nws);setMyWs(nws[myEk]||"");
-    const ngb={};if(gb)Object.keys(gb).forEach(k=>{ngb[ek(k)]=gb[k];});setGbpk(ngb);setMyGb(ngb[myEk]||"");
+    const ngb={};if(gb)Object.keys(gb).forEach(k=>{ngb[ek(k)]=gb[k];});setGbpk(ngb);setMyGb(ngb[myEk]||[]);
+    const ngg={};if(gg)Object.keys(gg).forEach(k=>{ngg[ek(k)]=gg[k];});setGgpk(ngg);setMyGg(ngg[myEk]||[]);
     if(sw2!=null)setSw(sw2);
     if(lk)setLockedMatches(lk);
     if(rx)setRxns(rx);
@@ -1155,6 +1224,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(at4&&Array.isArray(at4))setActualTop4(at4);
     if(aws)setActualWs(aws);
     if(agb)setActualGb(agb);
+    if(agg&&Array.isArray(agg))setActualGg(agg);
     setPinnedBc(pbc||null);
   },[myEk]);
 
@@ -1216,7 +1286,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     const seasonPts=(mySp&&sw&&mySp===sw)?PTS.season:0;
     const t4pts=actualTop4.length>0?(myT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4:0;
     const wsPts=(myWs&&actualWs&&myWs===actualWs)?PTS.woodenSpoon:0;
-    const gbPts=(myGb&&actualGb&&myGb===actualGb)?PTS.goldenBoot:0;
+    const gbPts=actualGb&&(myGb||[]).includes(actualGb)?PTS.goldenBoot:0;
+    const ggPts=actualGg.length>0?(myGg||[]).filter(g=>actualGg.includes(g)).length>0?PTS.goldenGlove:0:0;
     const bonusPts=done.reduce((s,m)=>{
       const ans=bonusAnswers[String(m.id)];if(ans==null)return s;
       const myAns=myBonusPicks[String(m.id)];if(myAns==null)return s;
@@ -1232,8 +1303,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       if(!ans||!myAns||myAns==="")return s;
       return s+(String(myAns)===String(ans)?PTS.prop:0);
     },0);
-    return pts+seasonPts+t4pts+wsPts+gbPts+bonusPts+goalPts+propPts+getManualAdj(email);
-  },[myPicks,ms,doubleMatch,mySp,sw,myT4,actualTop4,myWs,actualWs,myGb,actualGb,bonusAnswers,myBonusPicks,goalBandAnswers,done,propAnswers,myPropBets,getManualAdj,email]);
+    return pts+seasonPts+t4pts+wsPts+gbPts+ggPts+bonusPts+goalPts+propPts+getManualAdj(email);
+  },[myPicks,ms,doubleMatch,mySp,sw,myT4,actualTop4,myWs,actualWs,myGb,actualGb,myGg,actualGg,bonusAnswers,myBonusPicks,goalBandAnswers,done,propAnswers,myPropBets,getManualAdj,email]);
 
   const myPts=useMemo(calcMyPts,[calcMyPts]);
 
@@ -1245,11 +1316,13 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       const userSp=spk[emk]||"";
       const userT4=t4pk[emk]||[];
       const userWs=wspk[emk]||"";
-      const userGb=gbpk[emk]||"";
+      const userGb=gbpk[emk]||[];
+      const userGg=ggpk[emk]||[];
       const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
       const t4p=actualTop4.length>0?userT4.filter(t=>actualTop4.includes(t)).length*PTS.top4:0;
       const wsp=(userWs&&actualWs&&userWs===actualWs)?PTS.woodenSpoon:0;
-      const gbp=(userGb&&actualGb&&userGb===actualGb)?PTS.goldenBoot:0;
+      const gbp=actualGb&&userGb.includes(actualGb)?PTS.goldenBoot:0;
+      const ggp=actualGg.length>0&&userGg.filter(g=>actualGg.includes(g)).length>0?PTS.goldenGlove:0;
       const bonusPts=done.reduce((s,m)=>{
         const ans=bonusAnswers[String(m.id)];if(ans==null)return s;
         const uAns=(allBonusPicks[emk]||{})[String(m.id)];if(uAns==null)return s;
@@ -1265,10 +1338,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         if(!ans||!uAns||uAns==="")return s;
         return s+(String(uAns)===String(ans)?PTS.prop:0);
       },0);
-      const total=mPts+sp2+t4p+wsp+gbp+bonusPts+goalPts+propPts+getManualAdj(u.email);
-      return{...u,pts:total,userSp,userT4,userWs,userGb};
+      const total=mPts+sp2+t4p+wsp+gbp+ggp+bonusPts+goalPts+propPts+getManualAdj(u.email);
+      return{...u,pts:total,userSp,userT4,userWs,userGb,userGg};
     }).sort((a,b)=>b.pts-a.pts);
-  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,wspk,gbpk,actualTop4,actualWs,actualGb,bonusAnswers,allBonusPicks,goalBandAnswers,done,propAnswers,allPropBets,getManualAdj]);
+  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,wspk,gbpk,ggpk,actualTop4,actualWs,actualGb,actualGg,bonusAnswers,allBonusPicks,goalBandAnswers,done,propAnswers,allPropBets,getManualAdj]);
 
   /* ─── Actions ──────────────────────────────────────────────── */
   async function submitPick(){
@@ -1327,13 +1400,14 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(!obSp){toast2("Pick a champion first","error");return;}
     if(obT4.length!==4){toast2("Select exactly 4 teams for Top 4","error");return;}
     if(!obWs){toast2("Pick Wooden Spoon team","error");return;}
-    if(!obGb){toast2("Pick Golden Boot player","error");return;}
+    if(!obGb||obGb.length!==5){toast2("Pick exactly 5 Golden Boot candidates","error");return;}
+    if(obGg.length!==3){toast2("Pick exactly 3 Golden Glove goalkeepers","error");return;}
     const unanswered=PROP_QUESTIONS.filter((q,i)=>!obProps[`q${i}`]||obProps[`q${i}`]==="");
     if(unanswered.length>0){toast2("Answer all prop bet questions","error");return;}
     const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};
-    const ws2={...wspk,[myEk]:obWs};const gb2={...gbpk,[myEk]:obGb};
-    setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);setWspk(ws2);setMyWs(obWs);setGbpk(gb2);setMyGb(obGb);
-    await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2)]);
+    const ws2={...wspk,[myEk]:obWs};const gb2={...gbpk,[myEk]:obGb};const gg2={...ggpk,[myEk]:obGg};
+    setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);setWspk(ws2);setMyWs(obWs);setGbpk(gb2);setMyGb(obGb);setGgpk(gg2);setMyGg(obGg);
+    await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2)]);
     await DB.set("propbets/"+myEk,obProps);
     setMyPropBets(obProps);
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
@@ -1498,7 +1572,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         <div style={{background:"linear-gradient(135deg,#003d70,#004B87,#006BB6)",padding:"24px 20px 20px"}}>
           <p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Welcome, {user?.name}! One-time World Cup setup</p>
           <p className="C" style={{color:"#C5A028",fontSize:24,letterSpacing:2,margin:"4px 0 0"}}>
-            {obStep===0?"PICK YOUR CHAMPION":obStep===1?"TOP 4 TEAMS":obStep===2?"WOODEN SPOON & GOLDEN BOOT":"SEASON PROP BETS"}
+            {obStep===0?"PICK YOUR CHAMPION":obStep===1?"TOP 4 TEAMS":obStep===2?"AWARDS & WOODEN SPOON":"SEASON PROP BETS"}
           </p>
           <div style={{display:"flex",gap:6,marginTop:12}}>
             {[0,1,2,3].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:obStep>=i?"#C5A028":"rgba(255,255,255,.2)"}}/>)}
@@ -1539,22 +1613,68 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           </>}
 
           {obStep===2&&<>
-            <p style={{color:"#0a1628",fontSize:15,fontWeight:600,margin:"0 0 4px"}}>Wooden Spoon &amp; Golden Boot</p>
-            <p style={{color:"#94a3b8",fontSize:12,margin:"0 0 16px"}}>Worth +{PTS.woodenSpoon}pts and +{PTS.goldenBoot}pts respectively</p>
-            <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>🪵 Wooden Spoon — worst team in tournament</p>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-              {TEAMS.map(t=>(
-                <button key={t} onClick={()=>setObWs(t)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:obWs===t?"#004B87":"#f8faff",border:"2px solid "+(obWs===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
-                  <span style={{fontSize:16}}>{FLAGS[t]||"🏳"}</span>
-                  <span style={{fontSize:11,fontWeight:700,color:obWs===t?"#fff":"#475569"}}>{t}</span>
-                </button>
-              ))}
+            <p style={{color:"#0a1628",fontSize:15,fontWeight:600,margin:"0 0 4px"}}>Awards &amp; Wooden Spoon</p>
+            <p style={{color:"#94a3b8",fontSize:12,margin:"0 0 14px"}}>Pick your tournament award candidates</p>
+
+            {/* Wooden Spoon */}
+            <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:.5}}>🪵 Wooden Spoon · +{PTS.woodenSpoon}pts</p>
+              <p style={{fontSize:11,color:"#94a3b8",margin:"0 0 10px"}}>Which team will finish last — earliest group stage exit with the worst record?</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {TEAMS.map(t=>(
+                  <button key={t} onClick={()=>setObWs(t)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:8,background:obWs===t?"#004B87":"#fff",border:"1.5px solid "+(obWs===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
+                    <span style={{fontSize:14}}>{FLAGS[t]||"🏳"}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:obWs===t?"#fff":"#475569"}}>{t}</span>
+                  </button>
+                ))}
+              </div>
+              {obWs&&<p style={{fontSize:11,color:"#15803d",fontWeight:700,marginTop:8}}>✓ {obWs} selected</p>}
             </div>
-            <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>👟 Golden Boot — top scorer of the tournament</p>
-            <MotmDropdown team1="" team2="" value={obGb} onChange={setObGb}/>
-            <div style={{display:"flex",gap:8,marginTop:16}}>
+
+            {/* Golden Boot — pick 5 */}
+            <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:.5}}>👟 Golden Boot · +{PTS.goldenBoot}pts · {obGb.length}/5</p>
+              <p style={{fontSize:11,color:"#94a3b8",margin:"0 0 10px"}}>Pick 5 players who could be top scorer. If any one of them wins it, you get the points.</p>
+              <GbSearch selected={obGb} onToggle={(p)=>{
+                if(obGb.includes(p))setObGb(prev=>prev.filter(x=>x!==p));
+                else if(obGb.length<5)setObGb(prev=>[...prev,p]);
+                else toast2("Max 5 players","error");
+              }}/>
+              {obGb.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
+                {obGb.map(p=><span key={p} style={{background:"#004B87",color:"#fff",fontSize:10,padding:"3px 10px",borderRadius:10,fontWeight:600,display:"inline-flex",alignItems:"center",gap:5}}>
+                  {p}<button onClick={()=>setObGb(prev=>prev.filter(x=>x!==p))} style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",cursor:"pointer",fontSize:12,padding:0,lineHeight:1}}>✕</button>
+                </span>)}
+              </div>}
+            </div>
+
+            {/* Golden Glove — pick 3 */}
+            <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:.5}}>🧤 Golden Glove · +{PTS.goldenGlove}pts · {obGg.length}/3</p>
+              <p style={{fontSize:11,color:"#94a3b8",margin:"0 0 10px"}}>Pick 3 goalkeepers who could win best goalkeeper. If any of them wins, you get the points.</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {GOALKEEPERS.map(gk=>{
+                  const sel=obGg.includes(gk);
+                  return(
+                    <button key={gk} onClick={()=>{
+                      if(sel)setObGg(prev=>prev.filter(x=>x!==gk));
+                      else if(obGg.length<3)setObGg(prev=>[...prev,gk]);
+                      else toast2("Max 3 goalkeepers","error");
+                    }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:8,
+                      background:sel?"#006BB6":"#fff",border:"1.5px solid "+(sel?"#006BB6":"#e2e8f0"),
+                      cursor:"pointer",fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":"#475569"}}>
+                      🧤 {gk}
+                    </button>
+                  );
+                })}
+              </div>
+              {obGg.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
+                {obGg.map(g=><span key={g} style={{background:"#006BB6",color:"#fff",fontSize:10,padding:"3px 10px",borderRadius:10,fontWeight:600}}>✓ {g}</span>)}
+              </div>}
+            </div>
+
+            <div style={{display:"flex",gap:8,marginTop:4}}>
               <button style={{flex:1,padding:"12px",borderRadius:10,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:2}} onClick={()=>setObStep(1)}>← Back</button>
-              <button className="lbtn" disabled={!obWs||!obGb} onClick={()=>setObStep(3)} style={{flex:2,opacity:obWs&&obGb?1:.4}}>Next → Prop Bets</button>
+              <button className="lbtn" disabled={!obWs||obGb.length!==5||obGg.length!==3} onClick={()=>setObStep(3)} style={{flex:2,opacity:obWs&&obGb.length===5&&obGg.length===3?1:.4}}>Next → Prop Bets</button>
             </div>
           </>}
 
@@ -1573,6 +1693,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                   <p style={{fontSize:13,color:"#0a1628",fontWeight:600,margin:"0 0 8px",lineHeight:1.4}}>{q.label}</p>
                   {q.type==="team"&&<select className="sel" value={val} onChange={e=>setObProps(p=>({...p,[q.id]:e.target.value}))} style={{borderColor:filled?"#bbf7d0":"#e2e8f0"}}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]} {t}</option>)}</select>}
                   {q.type==="player"&&<MotmDropdown team1="" team2="" value={val} onChange={v=>setObProps(p=>({...p,[q.id]:v}))}/>}
+                  {q.type==="yesno"&&<div style={{display:"flex",gap:8}}><button className={"bq-btn yes"+(val==="true"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"true"}))}>✅ Yes</button><button className={"bq-btn no"+(val==="false"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"false"}))}>❌ No</button></div>}
                 </div>
               );
             })}
@@ -1768,9 +1889,34 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
               </div>
             </div>
             <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
-              <p className="st">👟 GOLDEN BOOT (+{PTS.goldenBoot}pts)</p>
-              <p className="C" style={{color:"#0a1628",fontSize:16,margin:0}}>{myGb||"Not set"}</p>
-              {actualGb&&myGb&&<span style={{fontSize:13,marginTop:4,display:"block"}}>{myGb===actualGb?"✅ Correct! +100pts":"❌"}</span>}
+              <p className="st">👟 GOLDEN BOOT CANDIDATES (+{PTS.goldenBoot}pts)</p>
+              <p style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Points if any of your 5 picks wins the top scorer award</p>
+              {myGb&&myGb.length>0
+                ?<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{myGb.map(p=>{
+                    const correct=actualGb&&p===actualGb;const wrong=actualGb&&p!==actualGb;
+                    return<div key={p} style={{display:"flex",alignItems:"center",gap:5,background:correct?"#f0fdf4":wrong?"#fef2f2":"#f8faff",border:"1px solid "+(correct?"#bbf7d0":wrong?"#fecaca":"#e2e8f0"),borderRadius:8,padding:"5px 9px"}}>
+                      <span style={{fontSize:11,fontWeight:600,color:correct?"#15803d":wrong?"#dc2626":"#475569"}}>{p}</span>
+                      {correct&&<span>✅</span>}{wrong&&<span>✗</span>}
+                    </div>;
+                  })}</div>
+                :<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
+              {actualGb&&myGb&&myGb.includes(actualGb)&&<p style={{color:"#15803d",fontSize:12,fontWeight:700,marginTop:8}}>✅ {actualGb} won! +{PTS.goldenBoot}pts</p>}
+              {actualGb&&myGb&&!myGb.includes(actualGb)&&<p style={{color:"#dc2626",fontSize:12,fontWeight:700,marginTop:8}}>❌ {actualGb} won — not in your picks</p>}
+            </div>
+            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+              <p className="st">🧤 GOLDEN GLOVE CANDIDATES (+{PTS.goldenGlove}pts)</p>
+              <p style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Points if any of your 3 keeper picks wins the Golden Glove</p>
+              {myGg&&myGg.length>0
+                ?<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{myGg.map(g=>{
+                    const correct=actualGg.length>0&&actualGg.includes(g);const wrong=actualGg.length>0&&!actualGg.includes(g);
+                    return<div key={g} style={{display:"flex",alignItems:"center",gap:5,background:correct?"#f0fdf4":wrong?"#fef2f2":"#f8faff",border:"1px solid "+(correct?"#bbf7d0":wrong?"#fecaca":"#e2e8f0"),borderRadius:8,padding:"5px 9px"}}>
+                      <span style={{fontSize:11}}>🧤</span>
+                      <span style={{fontSize:11,fontWeight:600,color:correct?"#15803d":wrong?"#dc2626":"#475569"}}>{g}</span>
+                      {correct&&<span>✅</span>}
+                    </div>;
+                  })}</div>
+                :<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
+              {actualGg.length>0&&myGg&&myGg.filter(g=>actualGg.includes(g)).length>0&&<p style={{color:"#15803d",fontSize:12,fontWeight:700,marginTop:8}}>✅ Correct! +{PTS.goldenGlove}pts</p>}
             </div>
           </div>}
           {htab==="groups"&&<div>
@@ -1824,15 +1970,23 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 {actualTop4.length>0&&(u.userT4||[]).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:4}}>+{(u.userT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4}pts</span>}
               </div>
             </div>
-            {/* WS + GB row */}
-            <div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
+            {/* WS + GB + GG row */}
+            <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
               <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>🪵</span>
                 {u.userWs?<><span style={{fontSize:14}}>{FLAGS[u.userWs]||"🏳"}</span><span className="C" style={{fontSize:11,color:actualWs&&u.userWs===actualWs?"#15803d":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span></>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
+              <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>👟</span>
-                <span className="C" style={{fontSize:11,color:actualGb&&u.userGb===actualGb?"#15803d":"#004B87"}}>{u.userGb||"—"}{actualGb&&u.userGb&&(u.userGb===actualGb?" ✅":" ✗")}</span>
+                {(u.userGb||[]).length>0
+                  ?<span style={{fontSize:10,color:actualGb&&u.userGb&&u.userGb.includes(actualGb)?"#15803d":"#475569",fontWeight:600}}>{(u.userGb||[]).length} picks{actualGb&&u.userGb&&u.userGb.includes(actualGb)?" ✅":actualGb?" ✗":""}</span>
+                  :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
+                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>🧤</span>
+                {(u.userGg||[]).length>0
+                  ?<span style={{fontSize:10,color:actualGg.length>0&&u.userGg&&u.userGg.filter(g=>actualGg.includes(g)).length>0?"#15803d":"#475569",fontWeight:600}}>{(u.userGg||[]).length} picks{actualGg.length>0&&u.userGg&&u.userGg.filter(g=>actualGg.includes(g)).length>0?" ✅":actualGg.length>0?" ✗":""}</span>
+                  :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
               </div>
             </div>
           </div>
@@ -2046,7 +2200,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         {[
           ["⚽ Points","Match Winner: +"+PTS.win+"pts | Man of the Match: +"+PTS.motm+"pts | Both Correct (streak): +"+PTS.streak+"pts extra | Total Goals Band: +"+PTS.goals+"pts | Bonus Question: +"+PTS.bonus+"pts"],
           ["⚡ Double Match","One match per day earns 2× all points. Watch for the ⚡ badge."],
-          ["🏆 Season Picks","Champion: +"+PTS.season+"pts | Top 4 (SF teams): +"+PTS.top4+"pts each | Wooden Spoon: +"+PTS.woodenSpoon+"pts | Golden Boot: +"+PTS.goldenBoot+"pts"],
+          ["🏆 Season Picks","Champion: +"+PTS.season+"pts | Top 4 (SF teams): +"+PTS.top4+"pts each | Wooden Spoon (last team): +"+PTS.woodenSpoon+"pts | Golden Boot (pick 5 candidates): +"+PTS.goldenBoot+"pts | Golden Glove (pick 3 keepers): +"+PTS.goldenGlove+"pts"],
           ["⚽ Goals Band","Predict total goals in the match: 0 / 1 / 2 / 3 / 4+. Correct = +"+PTS.goals+"pts."],
           ["🔒 Lock Times","Predictions lock 35 minutes before kickoff (ET). No changes after lock."],
           ["💡 Group Leans","After lock, see how the group split on Winner (home/draw/away)."],
@@ -2060,7 +2214,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"14px"}}>
           <p style={{fontWeight:700,fontSize:13,color:"#92400E",margin:"0 0 8px"}}>📊 Full Points Summary</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-            {[["🏆 Winner correct","+"+PTS.win+"pts"],["⭐ MOTM correct","+"+PTS.motm+"pts"],["🔥 Both correct bonus","+"+PTS.streak+"pts"],["⚽ Goals band correct","+"+PTS.goals+"pts"],["❓ Bonus Q correct","+"+PTS.bonus+"pts"],["⚡ Double match","×2 all above"],["🥇 Champion","+"+PTS.season+"pts"],["🏅 Top 4 team","+"+PTS.top4+"pts each"],["🪵 Wooden Spoon","+"+PTS.woodenSpoon+"pts"],["👟 Golden Boot","+"+PTS.goldenBoot+"pts"]].map(([l,v])=>(
+            {[["🏆 Winner correct","+"+PTS.win+"pts"],["⭐ MOTM correct","+"+PTS.motm+"pts"],["🔥 Both correct bonus","+"+PTS.streak+"pts"],["⚽ Goals band correct","+"+PTS.goals+"pts"],["❓ Bonus Q correct","+"+PTS.bonus+"pts"],["⚡ Double match","×2 all above"],["🥇 Champion","+"+PTS.season+"pts"],["🏅 Top 4 team","+"+PTS.top4+"pts each"],["🪵 Wooden Spoon","+"+PTS.woodenSpoon+"pts"],["👟 Golden Boot (pick 5)","+"+PTS.goldenBoot+"pts"],["🧤 Golden Glove (pick 3)","+"+PTS.goldenGlove+"pts"]].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,.6)",borderRadius:8,padding:"6px 8px"}}>
                 <span style={{fontSize:11,color:"#92400E"}}>{l}</span>
                 <span className="C" style={{fontSize:13,color:"#004B87"}}>{v}</span>
@@ -2250,7 +2404,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           </div>
           <div className="ac">
             <p className="st">🪵 WOODEN SPOON &amp; 👟 GOLDEN BOOT</p>
-            <p style={{fontSize:11,color:"#64748b",marginBottom:8}}>Wooden Spoon (worst team):</p>
+            <p style={{fontSize:11,color:"#64748b",marginBottom:8}}>🪵 Wooden Spoon — team finishing last (worst record / earliest group exit):</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
               {TEAMS.map(t=>(
                 <button key={t} onClick={async()=>{setActualWs(t);await DB.set("actualws",t);toast2("Wooden Spoon: "+t);}} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 9px",borderRadius:8,background:actualWs===t?"#004B87":"#f8faff",border:"1.5px solid "+(actualWs===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}>
@@ -2259,8 +2413,24 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 </button>
               ))}
             </div>
-            <p style={{fontSize:11,color:"#64748b",marginBottom:8}}>Golden Boot (top scorer):</p>
+            <p style={{fontSize:11,color:"#64748b",marginBottom:8}}>👟 Golden Boot — actual top scorer (used to award pts to those who picked them):</p>
             <MotmDropdown team1="" team2="" value={actualGb} onChange={async v=>{setActualGb(v);await DB.set("actualgb",v);toast2("Golden Boot: "+v,"ok");}}/>
+
+            <p style={{fontSize:11,color:"#64748b",margin:"14px 0 8px",fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🧤 Golden Glove — actual winning goalkeeper</p>
+            <p style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Select the keeper who won the award — players who picked them get +{PTS.goldenGlove}pts.</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+              {GOALKEEPERS.map(gk=>{
+                const sel=actualGg.includes(gk);
+                return<button key={gk} onClick={async()=>{
+                  const upd=sel?actualGg.filter(x=>x!==gk):[gk];
+                  setActualGg(upd);await DB.set("actualgg",upd);toast2(sel?"Cleared":"Golden Glove: "+gk,"ok");
+                }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:8,
+                  background:sel?"#006BB6":"#f8faff",border:"1.5px solid "+(sel?"#006BB6":"#e2e8f0"),
+                  cursor:"pointer",fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":"#475569"}}>
+                  🧤 {gk}{sel&&" ✅"}
+                </button>;
+              })}
+            </div>
           </div>
           <div className="ac">
             <p className="st">🔮 PROP BET ANSWERS</p>
@@ -2271,6 +2441,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                   <p style={{fontSize:11,fontWeight:700,color:"#004B87",margin:"0 0 4px"}}>Q{i+1} · {q.label}</p>
                   {q.type==="team"&&<select className="sel" value={cur} onChange={async e=>{const upd={...propAnswers,[q.id]:e.target.value};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]} {t}</option>)}</select>}
                   {q.type==="player"&&<MotmDropdown team1="" team2="" value={cur} onChange={async v=>{const upd={...propAnswers,[q.id]:v};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}}/>}
+                  {q.type==="yesno"&&<div style={{display:"flex",gap:8}}>{[["true","✅ Yes"],["false","❌ No"]].map(([v,lbl])=><button key={v} onClick={async()=>{const upd={...propAnswers,[q.id]:v};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}} style={{flex:1,padding:"8px",borderRadius:8,background:cur===v?(v==="true"?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:cur===v?(v==="true"?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(cur===v?(v==="true"?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:13,fontWeight:700}}>{lbl}</button>)}</div>}
                 </div>
               );
             })}
