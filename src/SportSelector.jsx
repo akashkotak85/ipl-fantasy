@@ -1,6 +1,6 @@
 /*
   SportSelector.jsx
-  Shown after login — user picks IPL 2026 or FIFA World Cup 2026.
+  Shown after login — user picks Cricket or Football.
   Admin can toggle sport visibility via ipl26_sports in Firebase.
 */
 import * as React from "react";
@@ -17,9 +17,12 @@ const CSS = `
 .ss-wrap{min-height:100vh;background:linear-gradient(160deg,#0a0f1e,#0f1f45,#0a2060);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:'Barlow',sans-serif;position:relative;overflow:hidden;}
 .ss-wrap::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(29,66,138,.3) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(0,100,200,.2) 0%,transparent 50%);pointer-events:none;}
 .ss-stars{position:absolute;inset:0;pointer-events:none;}
-.ss-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px;letter-spacing:6px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:8px;text-align:center;}
-.ss-subtitle{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:2px;color:#fff;text-transform:uppercase;margin-bottom:4px;text-align:center;}
-.ss-user{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:40px;text-align:center;}
+.ss-trophy{font-size:52px;margin-bottom:8px;text-align:center;filter:drop-shadow(0 4px 16px rgba(255,215,0,.3));}
+.ss-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px;letter-spacing:6px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:4px;text-align:center;}
+.ss-subtitle{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:2px;color:#fff;text-transform:uppercase;margin-bottom:2px;text-align:center;}
+.ss-subtitle2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;letter-spacing:2px;color:#fff;text-transform:uppercase;margin-bottom:4px;text-align:center;}
+.ss-tagline{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:4px;text-transform:uppercase;margin-bottom:6px;text-align:center;}
+.ss-user{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:36px;text-align:center;}
 .ss-cards{display:flex;flex-direction:column;gap:16px;width:100%;max-width:360px;}
 .ss-card{position:relative;border-radius:20px;padding:24px;cursor:pointer;overflow:hidden;transition:transform .2s,box-shadow .2s;border:1px solid rgba(255,255,255,.1);}
 .ss-card:hover{transform:translateY(-3px);}
@@ -32,15 +35,14 @@ const CSS = `
 .ss-card-disabled:hover{transform:none;}
 .ss-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.08) 0%,transparent 60%);pointer-events:none;}
 .ss-card-inner{display:flex;align-items:center;gap:16px;}
+.ss-card-logo-wrap{width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;}
 .ss-card-logo{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(0,0,0,.3));flex-shrink:0;}
-.ss-card-logo-err{width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;}
 .ss-card-text{flex:1;}
 .ss-card-sport{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:1px;color:#fff;text-transform:uppercase;margin:0 0 2px;}
 .ss-card-name{font-size:12px;color:rgba(255,255,255,.7);font-weight:600;margin:0 0 8px;}
 .ss-card-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.5px;}
 .ss-card-badge.live{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.4);color:#86efac;}
 .ss-card-badge.soon{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.4);color:#fde68a;}
-.ss-card-badge.off{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.4);}
 .ss-card-arrow{font-size:20px;color:rgba(255,255,255,.4);flex-shrink:0;}
 .ss-logout{margin-top:32px;background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);font-size:12px;font-family:'Barlow',sans-serif;font-weight:600;padding:8px 20px;border-radius:20px;cursor:pointer;letter-spacing:.5px;transition:all .2s;}
 .ss-logout:hover{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);}
@@ -84,7 +86,7 @@ function SportCard({ sport, config, onClick, disabled }) {
       {!config?.enabled && <span className="ss-coming">Coming Soon</span>}
       <div className="ss-card-inner">
         {logoErr ? (
-          <div className="ss-card-logo-err">{isIPL ? "🏏" : "⚽"}</div>
+          <div className="ss-card-logo-wrap">{isIPL ? "🏏" : "⚽"}</div>
         ) : (
           <img
             src={logo}
@@ -96,12 +98,12 @@ function SportCard({ sport, config, onClick, disabled }) {
         )}
         <div className="ss-card-text">
           <p className="ss-card-sport">{isIPL ? "Cricket" : "Football"}</p>
-          <p className="ss-card-name">{isIPL ? "TATA IPL 2026" : "FIFA World Cup 2026"}</p>
-          <span className={`ss-card-badge ${config?.enabled ? (isIPL ? "off" : "live") : "soon"}`}>
+          <p className="ss-card-name">{isIPL ? "IPL 2026 & More" : "FIFA World Cup 2026 & More"}</p>
+          <span className={`ss-card-badge ${config?.enabled ? "live" : "soon"}`}>
             {config?.enabled
               ? isIPL
-                ? "✅ Season Complete"
-                : "🟢 Live Now"
+                ? "🏏 Cricket"
+                : "⚽ Football"
               : "⏳ Coming Soon"}
           </span>
         </div>
@@ -112,16 +114,19 @@ function SportCard({ sport, config, onClick, disabled }) {
 }
 
 export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, onLogout, onToggleSport }) {
-  const ipl = sportsConfig?.ipl !== false; // default true
-  const fifa = sportsConfig?.fifa === true; // default false until admin enables
+  const ipl = sportsConfig?.ipl !== false;
+  const fifa = sportsConfig?.fifa === true;
 
   return (
     <div className="ss-wrap">
       <style>{CSS}</style>
       <StarField />
 
-      <p className="ss-title">Fantasy Predictor</p>
-      <p className="ss-subtitle">Choose Your Game</p>
+      <div className="ss-trophy">🏆</div>
+      <p className="ss-title">Fantasy Sports Predictor</p>
+      <p className="ss-subtitle">Choose Your</p>
+      <p className="ss-subtitle2">Sport</p>
+      <p className="ss-tagline">Cricket · Football · More</p>
       <p className="ss-user">Welcome back, {user?.name || "Player"} 👋</p>
 
       <div className="ss-cards">
@@ -140,20 +145,89 @@ export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, o
       </div>
 
       {isAdmin && (
-        <div className="ss-admin-row">
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)", alignSelf: "center" }}>Admin:</span>
-          <button
-            className={`ss-admin-btn ${ipl ? "on" : "off"}`}
-            onClick={() => onToggleSport("ipl", !ipl)}
-          >
-            🏏 IPL {ipl ? "ON" : "OFF"}
-          </button>
-          <button
-            className={`ss-admin-btn ${fifa ? "on" : "off"}`}
-            onClick={() => onToggleSport("fifa", !fifa)}
-          >
-            ⚽ FIFA {fifa ? "ON" : "OFF"}
-          </button>
+        <div style={{
+          marginTop: 24,
+          width: "100%",
+          maxWidth: 360,
+          background: "rgba(255,255,255,.05)",
+          border: "1px solid rgba(255,255,255,.1)",
+          borderRadius: 16,
+          padding: "14px 16px",
+        }}>
+          <p style={{
+            fontSize: 9,
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontWeight: 700,
+            letterSpacing: 3,
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,.3)",
+            marginBottom: 12,
+            textAlign: "center",
+          }}>
+            Admin · Sport Visibility
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { key: "ipl", label: "Cricket", sub: "IPL 2026 & More", icon: "🏏", enabled: ipl },
+              { key: "fifa", label: "Football", sub: "FIFA World Cup 2026 & More", icon: "⚽", enabled: fifa },
+            ].map(({ key, label, sub, icon, enabled }) => (
+              <div key={key} style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "rgba(255,255,255,.05)",
+                borderRadius: 12,
+                padding: "10px 14px",
+                border: "1px solid rgba(255,255,255,.08)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>{icon}</span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>{label}</p>
+                    <p style={{ fontSize: 10, color: "rgba(255,255,255,.4)", margin: 0 }}>{sub}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onToggleSport(key, !enabled)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontFamily: "'Barlow',sans-serif",
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    background: enabled ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.2)",
+                    color: enabled ? "#86efac" : "#fca5a5",
+                    transition: "all .2s",
+                  }}
+                >
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: enabled ? "#22c55e" : "#ef4444",
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}/>
+                  {enabled ? "ON" : "OFF"}
+                </button>
+              </div>
+            ))}
+          </div>
+          <p style={{
+            fontSize: 10,
+            color: "rgba(255,255,255,.25)",
+            textAlign: "center",
+            marginTop: 10,
+            fontStyle: "italic",
+          }}>
+            Both sports can be ON at the same time
+          </p>
         </div>
       )}
 
