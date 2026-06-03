@@ -314,6 +314,85 @@ function FspLogo({size=80,style={}}){
   return<img src={FSP_LOGO_LG} alt="FSP" style={{width:size,height:size,objectFit:"contain",...style}}/>;
 }
 
+/* ─── CONSTANTS ─────────────────────────────────────────────── */
+const PFX = "fifa26_";
+const SHARED_PFX = "ipl26_";
+const SUPER_ADMIN = "akashkotak@gmail.com";
+const CHAT_MAX = 400;
+const CHAT_CAP = 500;
+const NR = "NO_RESULT";
+
+const PTS = {
+  win:20, motm:30, goals:10, streak:15,
+  bonus:15, season:200, top4:50,
+  woodenSpoon:50, goldenBoot:100,
+  goldenGlove:75, prop:15,
+};
+
+const TRASH_TALK = [
+  (perfs,zeros,lone,mn)=>`⚽ ${mn} FULL TIME!\n${perfs.length?`🎯 ${perfs.join(" & ")} nailed all 3! Class.`:"Nobody got a perfect. The beautiful game humbled us all. 💀"}\n${zeros.length?`😅 Moment of silence for ${zeros.join(", ")} — 0 from 3.`:""}\n${lone?`🐉 Lone wolf: ${lone} was the only one who called it. Respect.`:""}`,
+  (perfs,zeros,lone,mn)=>`🏟 ${mn} DONE!\n${perfs.length?`🏆 Perfect picks: ${perfs.join(", ")}. Someone's been watching the group stage properly.`:"Not a single perfect pick. Football remains delightfully unpredictable."}\n${zeros.length?`🪦 Pour one out for ${zeros.join(", ")} (0/3). The ref wasn't the only one having a bad day.`:""}\n${lone?`🐉 ${lone} backed the winner alone. Absolute scenes.`:""}`,
+  (perfs,zeros,lone,mn)=>`⚡ ${mn} FINAL WHISTLE!\n${perfs.length?`🎯 PERFECTS: ${perfs.join(", ")} — read the game perfectly!`:"Nobody called it perfectly. VAR couldn't save your predictions either."}\n${zeros.length?`💀 Complete whitewash for ${zeros.join(", ")}. Didn't get a single one.`:""}\n${lone?`🔮 Only ${lone} predicted the winner. Fortune favours the bold.`:""}`,
+];
+
+/* ─── UTILS ──────────────────────────────────────────────────── */
+const encodeEmail = e => (e||"").trim().toLowerCase().replace(/\./g,"_dot_").replace(/@/g,"_at_");
+const ek = encodeEmail;
+const normalizeEmail = e => (e||"").trim().toLowerCase();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isNR = v => !v || v === NR;
+const isTBD = m => (m.home||"").startsWith("TBD") || (m.away||"").startsWith("TBD");
+
+function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
+function validatePassword(p,mode="login"){if(!p)return"Password is required";if(mode==="register"){if(p.length<8)return"Min 8 characters";if(!/[A-Z]/.test(p))return"Add an uppercase letter";if(!/[0-9]/.test(p))return"Add a number";if(!/[^A-Za-z0-9]/.test(p))return"Add a special character";}return"";}
+function validateName(n){if(!n||n.trim().length<2)return"Name must be at least 2 characters";return"";}
+async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+const capChat = arr => arr.length>CHAT_CAP?arr.slice(arr.length-CHAT_CAP):arr;
+
+function parseMatchDate(date,time){try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00-05:00");return isNaN(d.getTime())?null:d;}catch{return null;}}
+const cutoff = m => {const d=parseMatchDate(m.date,m.time);return d?new Date(d-35*60*1000):new Date(0);};
+const isMatchLocked = (m,lm={}) => {if(m.result)return true;const st=lm[m.id]??lm[String(m.id)];if(st==="unlocked")return false;if(st==="locked")return true;return new Date()>=cutoff(m);};
+const isToday = m => m.date===new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
+
+const motmMatch = (a,b) => {
+  if(!a||!b||isNR(a)||isNR(b)) return false;
+  const na=a.trim().toLowerCase(),nb=b.trim().toLowerCase();
+  return na===nb||na.endsWith(" "+nb)||nb.endsWith(" "+na)||na.includes(nb)||nb.includes(na);
+};
+
+/* ─── FIREBASE ───────────────────────────────────────────────── */
+const firebaseConfig = {
+  apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",
+  authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",
+  databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",
+  projectId:"ipl2026-fantasy-20c9b",
+  storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",
+  messagingSenderId:"973930153403",
+  appId:"1:973930153403:web:872ce26072b07e1adf309e"
+};
+
+const firebaseReady = (async()=>{
+  const [app,db] = await Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"),
+  ]);
+  const _app = app.getApps().length ? app.getApp() : app.initializeApp(firebaseConfig);
+  return {db:db.getDatabase(_app),dbMod:db};
+})();
+
+const DB = {
+  get: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,PFX+k));return s.exists()?s.val():null;}catch(e){console.error("DB.get",k,e);return null;}},
+  set: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,PFX+k));else await dbMod.set(dbMod.ref(db,PFX+k),v);}catch(e){console.error("DB.set",k,e);}},
+  getPw: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"pw_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
+  setPw: async(k,v) => {try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,SHARED_PFX+"pw_"+k),v);}catch(e){console.error("DB.setPw",e);}},
+  getToken: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"token_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
+  setToken: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,SHARED_PFX+"token_"+k));else await dbMod.set(dbMod.ref(db,SHARED_PFX+"token_"+k),v);}catch(e){console.error("DB.setToken",e);}},
+  setUserPick: async(userKey,matchId,pick) => {
+    try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,PFX+"ap/"+userKey+"/"+String(matchId)),pick);return true;}catch(e){console.error("DB.setUserPick",e);return false;}
+  },
+  getIpl: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+k));return s.exists()?s.val():null;}catch(e){return null;}},
+};
+
 /* ─── SCORING ────────────────────────────────────────────────── */
 function calcScore(uPicks,ms,dbl=null){
   let pts=0,ok=0,tot=0;
