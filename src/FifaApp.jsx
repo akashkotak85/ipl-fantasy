@@ -1357,7 +1357,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       const userWs=wspk[emk]||"";
       const userGb=gbpk[emk]||[];
       const userGg=ggpk[emk]||[];
-      const sp2=(userSp&&sw&&userSp===sw)?PTS.season:0;
+      const sp2=(userSp&&userSp!=="__skip__"&&sw&&userSp===sw)?PTS.season:0;
       const t4p=actualTop4.length>0?userT4.filter(t=>actualTop4.includes(t)).length*PTS.top4:0;
       const wsp=(userWs&&actualWs&&userWs===actualWs)?PTS.woodenSpoon:0;
       const gbp=actualGb&&userGb.includes(actualGb)?PTS.goldenBoot:0;
@@ -1569,13 +1569,13 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   };
 
   const navItems=isAdmin
-    ?[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"],["adm","⚙️","Admin"]]
-    :[["home","🏠","Home"],["lb","🏆","Board"],["picks","📋","My Game"],["chat","💬","Chat"],["wof","🌟","Fame"],["rules","📖","Rules"]];
+    ?[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"],["adm","AD","Admin"]]
+    :[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"]];
 
   const hdr=useMemo(()=>(
     <div style={{background:"linear-gradient(135deg,#003d70,#004B87,#006BB6)",padding:"13px 16px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <span style={{fontSize:28}}>⚽</span>
+        <div style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="#C5A028"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg></div>
         <div>
           <p className="C" style={{color:"#C5A028",fontSize:14,letterSpacing:2,margin:0}}>FIFA FANTASY</p>
           <p style={{color:"#bfdbfe",fontSize:10,margin:0}}>World Cup 2026{maintenance?" · 🔒":""}</p>
@@ -1609,9 +1609,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   if(sc==="onboard"){
     return(
       <div className="fifa-app" style={{minHeight:"100vh"}}><style>{CSS}</style>
-        <div style={{background:"linear-gradient(135deg,#003d70,#004B87,#006BB6)",padding:"24px 20px 20px"}}>
-          <p style={{color:"#bfdbfe",fontSize:12,margin:0}}>Welcome, {user?.name}! One-time World Cup setup</p>
-          <p className="C" style={{color:"#C5A028",fontSize:24,letterSpacing:2,margin:"4px 0 0"}}>
+        <div style={{background:"linear-gradient(135deg,#003d70,#004B87,#006BB6)",padding:"24px 20px 20px",textAlign:"center"}}>
+          <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#C5A028,#FFD966)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",boxShadow:"0 6px 20px rgba(197,160,40,.35)"}}><svg width="34" height="34" viewBox="0 0 24 24" fill="#003d70"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg></div>
+          <p style={{color:"#bfdbfe",fontSize:12,margin:"0 0 4px"}}>Welcome, {user?.name}!</p>
+          <p className="C" style={{color:"#C5A028",fontSize:22,letterSpacing:2,margin:0}}>
             {obStep===0?"PICK YOUR CHAMPION":obStep===1?"TOP 4 TEAMS":obStep===2?"AWARDS & WOODEN SPOON":"SEASON PROP BETS"}
           </p>
           <div style={{display:"flex",gap:6,marginTop:12}}>
@@ -1631,6 +1632,17 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
               ))}
             </div>
             <button className="lbtn" disabled={!obSp} onClick={()=>setObStep(1)} style={{opacity:obSp?1:.4}}>Next → Top 4</button>
+            <button onClick={async()=>{
+              // Skip onboarding — mark as done with placeholder so user can browse
+              const placeholder="__skip__";
+              const sp2={...spk,[myEk]:placeholder};
+              setSpk(sp2);setMySp(placeholder);
+              await DB.set("sp",sp2);
+              justOnboarded.current=true;
+              setSc("home");toast2("You can set your picks anytime from My Game → Season","info");
+            }} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:10,background:"transparent",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif"}}>
+              Skip for now — I'll pick later
+            </button>
           </>}
 
           {obStep===1&&<>
@@ -1998,7 +2010,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{display:"flex",gap:8,borderTop:"1px solid #f1f5f9",paddingTop:7,flexWrap:"wrap"}}>
               <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>
-                {u.userSp?<><FlagBox team={u.userSp} sz={16}/><span className="C" style={{fontSize:12,color:sw&&u.userSp===sw?"#15803d":"#004B87"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
+                {u.userSp&&u.userSp!=="__skip__"?<><FlagBox team={u.userSp} sz={16}/><span className="C" style={{fontSize:12,color:sw&&u.userSp===sw?"#15803d":"#004B87"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}>
                 <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>
@@ -2029,6 +2041,29 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                   :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
               </div>
             </div>
+            {/* Prop bets row */}
+            {(()=>{
+              const up2=allPropBets[ek(u.email)]||{};
+              const hasSome=PROP_QUESTIONS.some((q,i)=>up2[q.id]&&up2[q.id]!=="");
+              if(!hasSome)return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:5,marginTop:5}}><span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>Prop bets not answered</span></div>;
+              return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}>
+                <p style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 5px"}}>Season Prop Bets</p>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {PROP_QUESTIONS.map((q,i)=>{
+                    const val=up2[q.id]||"";
+                    const correctAns=propAnswers?.[q.id]||"";
+                    const isCorrect=correctAns&&val&&String(val)===String(correctAns);
+                    const isWrong=correctAns&&val&&String(val)!==String(correctAns);
+                    const shortVal=q.type==="player"?val.split(" ").slice(-1)[0]:q.type==="yesno"?(val==="true"?"Yes":"No"):val.split(" ")[0];
+                    return<div key={q.id} style={{display:"flex",alignItems:"center",gap:3,background:isCorrect?"#f0fdf4":isWrong?"#fef2f2":val?"#FFFBEB":"#f8faff",border:"1px solid "+(isCorrect?"#bbf7d0":isWrong?"#fecaca":val?"#FDE68A":"#e2e8f0"),borderRadius:6,padding:"2px 6px"}}>
+                      <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>Q{i+1}:</span>
+                      <span style={{fontSize:10,fontWeight:700,color:isCorrect?"#15803d":isWrong?"#dc2626":val?"#92400E":"#94a3b8"}}>{shortVal||"—"}</span>
+                      {isCorrect&&<span style={{fontSize:9,color:"#15803d",fontWeight:700}}>+{PTS.prop}</span>}
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })()}
           </div>
         ))}
         {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
@@ -2515,7 +2550,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         {navItems.map(([s,ic,lb])=>(
           <button key={s} className="ni" onClick={()=>{if(s!=="picks")setAm(null);setSc(s);if(s==="chat"){setChatU(0);setChatSeenTs(Date.now());}}}>
             <div style={{position:"relative",display:"inline-block"}}>
-              <span style={{fontSize:15,opacity:sc===s?1:.4}}>{ic}</span>
+              <div style={{width:28,height:22,borderRadius:6,background:sc===s?"#004B87":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>{ic==="HM"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>:ic==="LB"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>:ic==="MY"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>:ic==="CH"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>:ic==="WF"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>:ic==="RL"?<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 14H8v-2h8v2zm0-4H8v-2h8v2zm0-4H8V6h8v2z"/></svg>:<svg width="13" height="13" viewBox="0 0 24 24" fill={sc===s?"#fff":"#94a3b8"}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>}</div>
               {s==="chat"&&chatU>0&&<span className="bd"/>}
               {s==="adm"&&pendingCount>0&&<span className="bd"/>}
             </div>
