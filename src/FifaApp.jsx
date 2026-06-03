@@ -57,8 +57,6 @@ const FLAGS = {
   England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦",
 };
 
-const TEAM_COLORS
-
 const TEAM_COLORS = {
   Mexico:{bg:"#006847",dk:"#fff"},"South Africa":{bg:"#007A4D",dk:"#FFB81C"},
   "South Korea":{bg:"#CD2E3A",dk:"#fff"},Czechia:{bg:"#D7141A",dk:"#fff"},
