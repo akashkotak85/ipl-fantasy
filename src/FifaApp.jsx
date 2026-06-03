@@ -16,393 +16,297 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 /* ─── TEAMS ──────────────────────────────────────────────────── */
 const TEAMS = [
-  "Argentina","France","Brazil","England","Spain","Portugal","Germany",
-  "Netherlands","Belgium","Croatia","Uruguay","Denmark","Switzerland",
-  "USA","Mexico","Canada","Morocco","Senegal","Japan","South Korea",
-  "Australia","Serbia","Poland","Ecuador","Ghana","Cameroon","Tunisia",
-  "Saudi Arabia","Iran","Qatar","Costa Rica","Panama","Honduras",
-  "El Salvador","Jamaica","Guatemala","New Zealand","Indonesia",
-  "Uzbekistan","Iraq","Oman","Yemen","Venezuela","Bolivia","Chile",
-  "Paraguay","Peru","Egypt",
+  // Group A
+  "Mexico","South Africa","South Korea","Czechia",
+  // Group B
+  "Canada","Bosnia and Herzegovina","Qatar","Switzerland",
+  // Group C
+  "Brazil","Morocco","Haiti","Scotland",
+  // Group D
+  "USA","Paraguay","Australia","Turkiye",
+  // Group E
+  "Germany","Curacao","Ivory Coast","Ecuador",
+  // Group F
+  "Netherlands","Japan","Sweden","Tunisia",
+  // Group G
+  "Belgium","Egypt","Iran","New Zealand",
+  // Group H
+  "Spain","Cape Verde","Saudi Arabia","Uruguay",
+  // Group I
+  "France","Senegal","Iraq","Norway",
+  // Group J
+  "Argentina","Algeria","Austria","Jordan",
+  // Group K
+  "Portugal","DR Congo","Uzbekistan","Colombia",
+  // Group L
+  "England","Croatia","Ghana","Panama",
 ];
 
 const FLAGS = {
-  Argentina:"🇦🇷",France:"🇫🇷",Brazil:"🇧🇷",England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Spain:"🇪🇸",
-  Portugal:"🇵🇹",Germany:"🇩🇪",Netherlands:"🇳🇱",Belgium:"🇧🇪",Croatia:"🇭🇷",
-  Uruguay:"🇺🇾",Denmark:"🇩🇰",Switzerland:"🇨🇭",USA:"🇺🇸",Mexico:"🇲🇽",
-  Canada:"🇨🇦",Morocco:"🇲🇦",Senegal:"🇸🇳",Japan:"🇯🇵","South Korea":"🇰🇷",
-  Australia:"🇦🇺",Serbia:"🇷🇸",Poland:"🇵🇱",Ecuador:"🇪🇨",Ghana:"🇬🇭",
-  Cameroon:"🇨🇲",Tunisia:"🇹🇳","Saudi Arabia":"🇸🇦",Iran:"🇮🇷",Qatar:"🇶🇦",
-  "Costa Rica":"🇨🇷",Panama:"🇵🇦",Honduras:"🇭🇳","El Salvador":"🇸🇻",
-  Jamaica:"🇯🇲",Guatemala:"🇬🇹","New Zealand":"🇳🇿",Indonesia:"🇮🇩",
-  Uzbekistan:"🇺🇿",Iraq:"🇮🇶",Oman:"🇴🇲",Yemen:"🇾🇪",Venezuela:"🇻🇪",
-  Bolivia:"🇧🇴",Chile:"🇨🇱",Paraguay:"🇵🇾",Peru:"🇵🇪",Egypt:"🇪🇬",
+  Mexico:"🇲🇽","South Africa":"🇿🇦","South Korea":"🇰🇷",Czechia:"🇨🇿",
+  Canada:"🇨🇦","Bosnia and Herzegovina":"🇧🇦",Qatar:"🇶🇦",Switzerland:"🇨🇭",
+  Brazil:"🇧🇷",Morocco:"🇲🇦",Haiti:"🇭🇹",Scotland:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  USA:"🇺🇸",Paraguay:"🇵🇾",Australia:"🇦🇺",Turkiye:"🇹🇷",
+  Germany:"🇩🇪",Curacao:"🇨🇼","Ivory Coast":"🇨🇮",Ecuador:"🇪🇨",
+  Netherlands:"🇳🇱",Japan:"🇯🇵",Sweden:"🇸🇪",Tunisia:"🇹🇳",
+  Belgium:"🇧🇪",Egypt:"🇪🇬",Iran:"🇮🇷","New Zealand":"🇳🇿",
+  Spain:"🇪🇸","Cape Verde":"🇨🇻","Saudi Arabia":"🇸🇦",Uruguay:"🇺🇾",
+  France:"🇫🇷",Senegal:"🇸🇳",Iraq:"🇮🇶",Norway:"🇳🇴",
+  Argentina:"🇦🇷",Algeria:"🇩🇿",Austria:"🇦🇹",Jordan:"🇯🇴",
+  Portugal:"🇵🇹","DR Congo":"🇨🇩",Uzbekistan:"🇺🇿",Colombia:"🇨🇴",
+  England:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",Croatia:"🇭🇷",Ghana:"🇬🇭",Panama:"🇵🇦",
 };
 
+const TEAM_COLORS
+
 const TEAM_COLORS = {
-  Argentina:{bg:"#74ACDF",dk:"#fff"},France:{bg:"#002395",dk:"#fff"},
-  Brazil:{bg:"#009c3b",dk:"#FFDF00"},England:{bg:"#CF081F",dk:"#fff"},
-  Spain:{bg:"#AA151B",dk:"#F1BF00"},Portugal:{bg:"#006600",dk:"#FF0000"},
-  Germany:{bg:"#000000",dk:"#DD0000"},Netherlands:{bg:"#FF6600",dk:"#fff"},
-  Belgium:{bg:"#000000",dk:"#FFD700"},Croatia:{bg:"#FF0000",dk:"#fff"},
-  Uruguay:{bg:"#5EB6E4",dk:"#fff"},Denmark:{bg:"#C60C30",dk:"#fff"},
-  Switzerland:{bg:"#FF0000",dk:"#fff"},USA:{bg:"#002868",dk:"#BF0A30"},
-  Mexico:{bg:"#006847",dk:"#fff"},Canada:{bg:"#FF0000",dk:"#fff"},
-  Morocco:{bg:"#C1272D",dk:"#006233"},Senegal:{bg:"#00853F",dk:"#FDEF42"},
-  Japan:{bg:"#BC002D",dk:"#fff"},"South Korea":{bg:"#CD2E3A",dk:"#fff"},
-  Australia:{bg:"#00843D",dk:"#FFB81C"},Serbia:{bg:"#C6363C",dk:"#fff"},
-  Poland:{bg:"#DC143C",dk:"#fff"},Ecuador:{bg:"#FFD100",dk:"#003893"},
-  Ghana:{bg:"#006B3F",dk:"#FCD116"},Cameroon:{bg:"#007A5E",dk:"#CE1126"},
-  Tunisia:{bg:"#E70013",dk:"#fff"},"Saudi Arabia":{bg:"#006C35",dk:"#fff"},
-  Iran:{bg:"#239F40",dk:"#fff"},Qatar:{bg:"#8D1B3D",dk:"#fff"},
-  "Costa Rica":{bg:"#002B7F",dk:"#fff"},Panama:{bg:"#DA121A",dk:"#fff"},
-  Honduras:{bg:"#0073CF",dk:"#fff"},"El Salvador":{bg:"#0F47AF",dk:"#fff"},
-  Jamaica:{bg:"#000000",dk:"#FED100"},Guatemala:{bg:"#4997D0",dk:"#fff"},
-  "New Zealand":{bg:"#00247D",dk:"#fff"},Indonesia:{bg:"#CE1126",dk:"#fff"},
-  Uzbekistan:{bg:"#1EB53A",dk:"#fff"},Iraq:{bg:"#007A3D",dk:"#fff"},
-  Oman:{bg:"#DB161B",dk:"#fff"},Yemen:{bg:"#CE1126",dk:"#fff"},
-  Venezuela:{bg:"#CF142B",dk:"#fff"},Bolivia:{bg:"#D52B1E",dk:"#007934"},
-  Chile:{bg:"#D52B1E",dk:"#fff"},Paraguay:{bg:"#D52B1E",dk:"#fff"},
-  Peru:{bg:"#D91023",dk:"#fff"},Egypt:{bg:"#CE1126",dk:"#fff"},
+  Mexico:{bg:"#006847",dk:"#fff"},"South Africa":{bg:"#007A4D",dk:"#FFB81C"},
+  "South Korea":{bg:"#CD2E3A",dk:"#fff"},Czechia:{bg:"#D7141A",dk:"#fff"},
+  Canada:{bg:"#FF0000",dk:"#fff"},"Bosnia and Herzegovina":{bg:"#002395",dk:"#FCDD09"},
+  Qatar:{bg:"#8D1B3D",dk:"#fff"},Switzerland:{bg:"#FF0000",dk:"#fff"},
+  Brazil:{bg:"#009c3b",dk:"#FFDF00"},Morocco:{bg:"#C1272D",dk:"#006233"},
+  Haiti:{bg:"#00209F",dk:"#D21034"},Scotland:{bg:"#003F87",dk:"#fff"},
+  USA:{bg:"#002868",dk:"#BF0A30"},Paraguay:{bg:"#D52B1E",dk:"#fff"},
+  Australia:{bg:"#00843D",dk:"#FFB81C"},Turkiye:{bg:"#E30A17",dk:"#fff"},
+  Germany:{bg:"#000000",dk:"#DD0000"},Curacao:{bg:"#003DA5",dk:"#F9E813"},
+  "Ivory Coast":{bg:"#F77F00",dk:"#fff"},Ecuador:{bg:"#FFD100",dk:"#003893"},
+  Netherlands:{bg:"#FF6600",dk:"#fff"},Japan:{bg:"#BC002D",dk:"#fff"},
+  Sweden:{bg:"#006AA7",dk:"#FECC02"},Tunisia:{bg:"#E70013",dk:"#fff"},
+  Belgium:{bg:"#000000",dk:"#FFD700"},Egypt:{bg:"#CE1126",dk:"#fff"},
+  Iran:{bg:"#239F40",dk:"#fff"},"New Zealand":{bg:"#00247D",dk:"#fff"},
+  Spain:{bg:"#AA151B",dk:"#F1BF00"},"Cape Verde":{bg:"#003893",dk:"#CF2027"},
+  "Saudi Arabia":{bg:"#006C35",dk:"#fff"},Uruguay:{bg:"#5EB6E4",dk:"#fff"},
+  France:{bg:"#002395",dk:"#fff"},Senegal:{bg:"#00853F",dk:"#FDEF42"},
+  Iraq:{bg:"#007A3D",dk:"#fff"},Norway:{bg:"#EF2B2D",dk:"#fff"},
+  Argentina:{bg:"#74ACDF",dk:"#fff"},Algeria:{bg:"#006233",dk:"#fff"},
+  Austria:{bg:"#ED2939",dk:"#fff"},Jordan:{bg:"#007A3D",dk:"#fff"},
+  Portugal:{bg:"#006600",dk:"#FF0000"},"DR Congo":{bg:"#007FFF",dk:"#FFCD00"},
+  Uzbekistan:{bg:"#1EB53A",dk:"#fff"},Colombia:{bg:"#FCD116",dk:"#003087"},
+  England:{bg:"#CF081F",dk:"#fff"},Croatia:{bg:"#FF0000",dk:"#fff"},
+  Ghana:{bg:"#006B3F",dk:"#FCD116"},Panama:{bg:"#DA121A",dk:"#fff"},
 };
 
 // Groups
+// Groups
 const GROUPS = {
-  A:["USA","Panama","Honduras","El Salvador"],
-  B:["Argentina","Chile","Peru","Canada"],
-  C:["Mexico","Jamaica","Venezuela","Ecuador"],
-  D:["France","Belgium","Uruguay","Paraguay"],
-  E:["Spain","Brazil","Bolivia","Guatemala"],
-  F:["England","Netherlands","Serbia","New Zealand"],
-  G:["Portugal","Germany","Senegal","Indonesia"],
-  H:["Morocco","Croatia","Denmark","Tunisia"],
-  I:["Japan","South Korea","Ghana","Australia"],
-  J:["Qatar","Uzbekistan","Iran","Iraq"],
-  K:["South Korea","Cameroon","Switzerland","Oman"],
-  L:["Costa Rica","Saudi Arabia","Egypt","Yemen"],
+  A:["Mexico","South Africa","South Korea","Czechia"],
+  B:["Canada","Bosnia and Herzegovina","Qatar","Switzerland"],
+  C:["Brazil","Morocco","Haiti","Scotland"],
+  D:["USA","Paraguay","Australia","Turkiye"],
+  E:["Germany","Curacao","Ivory Coast","Ecuador"],
+  F:["Netherlands","Japan","Sweden","Tunisia"],
+  G:["Belgium","Egypt","Iran","New Zealand"],
+  H:["Spain","Cape Verde","Saudi Arabia","Uruguay"],
+  I:["France","Senegal","Iraq","Norway"],
+  J:["Argentina","Algeria","Austria","Jordan"],
+  K:["Portugal","DR Congo","Uzbekistan","Colombia"],
+  L:["England","Croatia","Ghana","Panama"],
 };
 
-/* ─── MATCHES (Group Stage M1–M78, Knockouts M79–M104) ───────── */
+/* ─── MATCHES (Group Stage M1-M72, Knockouts M73-M104) ───────── */
 const BASE_MATCHES = [
-  // GROUP A
-  {id:1,mn:"M1",home:"USA",away:"Panama",date:"2026-06-11",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"A"},
-  {id:2,mn:"M2",home:"Honduras",away:"El Salvador",date:"2026-06-12",time:"18:00",venue:"AT&T Stadium, Dallas",group:"A"},
-  {id:3,mn:"M3",home:"USA",away:"Honduras",date:"2026-06-16",time:"21:00",venue:"MetLife Stadium, New York",group:"A"},
-  {id:4,mn:"M4",home:"El Salvador",away:"Panama",date:"2026-06-16",time:"18:00",venue:"NRG Stadium, Houston",group:"A"},
-  {id:5,mn:"M5",home:"Panama",away:"Honduras",date:"2026-06-20",time:"18:00",venue:"Levi's Stadium, San Francisco",group:"A"},
-  {id:6,mn:"M6",home:"El Salvador",away:"USA",date:"2026-06-20",time:"18:00",venue:"Gillette Stadium, Boston",group:"A"},
-  // GROUP B
-  {id:7,mn:"M7",home:"Argentina",away:"Chile",date:"2026-06-13",time:"21:00",venue:"MetLife Stadium, New York",group:"B"},
-  {id:8,mn:"M8",home:"Peru",away:"Canada",date:"2026-06-13",time:"18:00",venue:"BC Place, Vancouver",group:"B"},
-  {id:9,mn:"M9",home:"Argentina",away:"Peru",date:"2026-06-17",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"B"},
-  {id:10,mn:"M10",home:"Canada",away:"Chile",date:"2026-06-17",time:"18:00",venue:"BMO Field, Toronto",group:"B"},
-  {id:11,mn:"M11",home:"Chile",away:"Peru",date:"2026-06-21",time:"18:00",venue:"AT&T Stadium, Dallas",group:"B"},
-  {id:12,mn:"M12",home:"Canada",away:"Argentina",date:"2026-06-21",time:"18:00",venue:"BC Place, Vancouver",group:"B"},
-  // GROUP C
-  {id:13,mn:"M13",home:"Mexico",away:"Jamaica",date:"2026-06-12",time:"21:00",venue:"Estadio Azteca, Mexico City",group:"C"},
-  {id:14,mn:"M14",home:"Venezuela",away:"Ecuador",date:"2026-06-12",time:"18:00",venue:"SoFi Stadium, Los Angeles",group:"C"},
-  {id:15,mn:"M15",home:"Mexico",away:"Venezuela",date:"2026-06-16",time:"21:00",venue:"Estadio Azteca, Mexico City",group:"C"},
-  {id:16,mn:"M16",home:"Ecuador",away:"Jamaica",date:"2026-06-16",time:"18:00",venue:"NRG Stadium, Houston",group:"C"},
-  {id:17,mn:"M17",home:"Jamaica",away:"Venezuela",date:"2026-06-20",time:"21:00",venue:"MetLife Stadium, New York",group:"C"},
-  {id:18,mn:"M18",home:"Ecuador",away:"Mexico",date:"2026-06-20",time:"21:00",venue:"AT&T Stadium, Dallas",group:"C"},
-  // GROUP D
-  {id:19,mn:"M19",home:"France",away:"Belgium",date:"2026-06-14",time:"18:00",venue:"MetLife Stadium, New York",group:"D"},
-  {id:20,mn:"M20",home:"Uruguay",away:"Paraguay",date:"2026-06-14",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"D"},
-  {id:21,mn:"M21",home:"France",away:"Uruguay",date:"2026-06-18",time:"21:00",venue:"AT&T Stadium, Dallas",group:"D"},
-  {id:22,mn:"M22",home:"Paraguay",away:"Belgium",date:"2026-06-18",time:"18:00",venue:"NRG Stadium, Houston",group:"D"},
-  {id:23,mn:"M23",home:"Belgium",away:"Uruguay",date:"2026-06-22",time:"18:00",venue:"Gillette Stadium, Boston",group:"D"},
-  {id:24,mn:"M24",home:"Paraguay",away:"France",date:"2026-06-22",time:"18:00",venue:"Levi's Stadium, San Francisco",group:"D"},
-  // GROUP E
-  {id:25,mn:"M25",home:"Spain",away:"Brazil",date:"2026-06-14",time:"15:00",venue:"Levi's Stadium, San Francisco",group:"E"},
-  {id:26,mn:"M26",home:"Bolivia",away:"Guatemala",date:"2026-06-13",time:"15:00",venue:"Gillette Stadium, Boston",group:"E"},
-  {id:27,mn:"M27",home:"Spain",away:"Bolivia",date:"2026-06-18",time:"15:00",venue:"SoFi Stadium, Los Angeles",group:"E"},
-  {id:28,mn:"M28",home:"Guatemala",away:"Brazil",date:"2026-06-18",time:"18:00",venue:"MetLife Stadium, New York",group:"E"},
-  {id:29,mn:"M29",home:"Brazil",away:"Bolivia",date:"2026-06-22",time:"21:00",venue:"AT&T Stadium, Dallas",group:"E"},
-  {id:30,mn:"M30",home:"Guatemala",away:"Spain",date:"2026-06-22",time:"21:00",venue:"NRG Stadium, Houston",group:"E"},
-  // GROUP F
-  {id:31,mn:"M31",home:"England",away:"Netherlands",date:"2026-06-15",time:"21:00",venue:"AT&T Stadium, Dallas",group:"F"},
-  {id:32,mn:"M32",home:"Serbia",away:"New Zealand",date:"2026-06-15",time:"18:00",venue:"Gillette Stadium, Boston",group:"F"},
-  {id:33,mn:"M33",home:"England",away:"Serbia",date:"2026-06-19",time:"21:00",venue:"MetLife Stadium, New York",group:"F"},
-  {id:34,mn:"M34",home:"New Zealand",away:"Netherlands",date:"2026-06-19",time:"18:00",venue:"Levi's Stadium, San Francisco",group:"F"},
-  {id:35,mn:"M35",home:"Netherlands",away:"Serbia",date:"2026-06-23",time:"18:00",venue:"SoFi Stadium, Los Angeles",group:"F"},
-  {id:36,mn:"M36",home:"New Zealand",away:"England",date:"2026-06-23",time:"18:00",venue:"BC Place, Vancouver",group:"F"},
-  // GROUP G
-  {id:37,mn:"M37",home:"Portugal",away:"Germany",date:"2026-06-15",time:"15:00",venue:"NRG Stadium, Houston",group:"G"},
-  {id:38,mn:"M38",home:"Senegal",away:"Indonesia",date:"2026-06-15",time:"12:00",venue:"BMO Field, Toronto",group:"G"},
-  {id:39,mn:"M39",home:"Portugal",away:"Senegal",date:"2026-06-19",time:"15:00",venue:"AT&T Stadium, Dallas",group:"G"},
-  {id:40,mn:"M40",home:"Indonesia",away:"Germany",date:"2026-06-19",time:"12:00",venue:"Gillette Stadium, Boston",group:"G"},
-  {id:41,mn:"M41",home:"Germany",away:"Senegal",date:"2026-06-23",time:"21:00",venue:"MetLife Stadium, New York",group:"G"},
-  {id:42,mn:"M42",home:"Indonesia",away:"Portugal",date:"2026-06-23",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"G"},
-  // GROUP H
-  {id:43,mn:"M43",home:"Morocco",away:"Croatia",date:"2026-06-16",time:"15:00",venue:"AT&T Stadium, Dallas",group:"H"},
-  {id:44,mn:"M44",home:"Denmark",away:"Tunisia",date:"2026-06-16",time:"12:00",venue:"NRG Stadium, Houston",group:"H"},
-  {id:45,mn:"M45",home:"Morocco",away:"Denmark",date:"2026-06-20",time:"15:00",venue:"Gillette Stadium, Boston",group:"H"},
-  {id:46,mn:"M46",home:"Tunisia",away:"Croatia",date:"2026-06-20",time:"12:00",venue:"Levi's Stadium, San Francisco",group:"H"},
-  {id:47,mn:"M47",home:"Croatia",away:"Denmark",date:"2026-06-24",time:"18:00",venue:"BC Place, Vancouver",group:"H"},
-  {id:48,mn:"M48",home:"Tunisia",away:"Morocco",date:"2026-06-24",time:"18:00",venue:"BMO Field, Toronto",group:"H"},
-  // GROUP I
-  {id:49,mn:"M49",home:"Japan",away:"South Korea",date:"2026-06-17",time:"15:00",venue:"SoFi Stadium, Los Angeles",group:"I"},
-  {id:50,mn:"M50",home:"Ghana",away:"Australia",date:"2026-06-17",time:"12:00",venue:"AT&T Stadium, Dallas",group:"I"},
-  {id:51,mn:"M51",home:"Japan",away:"Ghana",date:"2026-06-21",time:"15:00",venue:"MetLife Stadium, New York",group:"I"},
-  {id:52,mn:"M52",home:"Australia",away:"South Korea",date:"2026-06-21",time:"12:00",venue:"NRG Stadium, Houston",group:"I"},
-  {id:53,mn:"M53",home:"South Korea",away:"Ghana",date:"2026-06-25",time:"18:00",venue:"Gillette Stadium, Boston",group:"I"},
-  {id:54,mn:"M54",home:"Australia",away:"Japan",date:"2026-06-25",time:"18:00",venue:"Levi's Stadium, San Francisco",group:"I"},
-  // GROUP J
-  {id:55,mn:"M55",home:"Qatar",away:"Uzbekistan",date:"2026-06-17",time:"09:00",venue:"Estadio Azteca, Mexico City",group:"J"},
-  {id:56,mn:"M56",home:"Iran",away:"Iraq",date:"2026-06-17",time:"12:00",venue:"BC Place, Vancouver",group:"J"},
-  {id:57,mn:"M57",home:"Qatar",away:"Iran",date:"2026-06-21",time:"09:00",venue:"Estadio Azteca, Mexico City",group:"J"},
-  {id:58,mn:"M58",home:"Iraq",away:"Uzbekistan",date:"2026-06-21",time:"09:00",venue:"BMO Field, Toronto",group:"J"},
-  {id:59,mn:"M59",home:"Uzbekistan",away:"Iran",date:"2026-06-25",time:"21:00",venue:"AT&T Stadium, Dallas",group:"J"},
-  {id:60,mn:"M60",home:"Iraq",away:"Qatar",date:"2026-06-25",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"J"},
-  // GROUP K
-  {id:61,mn:"M61",home:"South Korea",away:"Cameroon",date:"2026-06-18",time:"09:00",venue:"BMO Field, Toronto",group:"K"},
-  {id:62,mn:"M62",home:"Switzerland",away:"Oman",date:"2026-06-18",time:"12:00",venue:"Estadio Azteca, Mexico City",group:"K"},
-  {id:63,mn:"M63",home:"South Korea",away:"Switzerland",date:"2026-06-22",time:"09:00",venue:"BC Place, Vancouver",group:"K"},
-  {id:64,mn:"M64",home:"Oman",away:"Cameroon",date:"2026-06-22",time:"12:00",venue:"Estadio Azteca, Mexico City",group:"K"},
-  {id:65,mn:"M65",home:"Cameroon",away:"Switzerland",date:"2026-06-26",time:"18:00",venue:"NRG Stadium, Houston",group:"K"},
-  {id:66,mn:"M66",home:"Oman",away:"South Korea",date:"2026-06-26",time:"18:00",venue:"Gillette Stadium, Boston",group:"K"},
-  // GROUP L
-  {id:67,mn:"M67",home:"Costa Rica",away:"Saudi Arabia",date:"2026-06-19",time:"09:00",venue:"Estadio Azteca, Mexico City",group:"L"},
-  {id:68,mn:"M68",home:"Egypt",away:"Yemen",date:"2026-06-19",time:"09:00",venue:"BC Place, Vancouver",group:"L"},
-  {id:69,mn:"M69",home:"Costa Rica",away:"Egypt",date:"2026-06-23",time:"09:00",venue:"BMO Field, Toronto",group:"L"},
-  {id:70,mn:"M70",home:"Yemen",away:"Saudi Arabia",date:"2026-06-23",time:"09:00",venue:"Estadio Azteca, Mexico City",group:"L"},
-  {id:71,mn:"M71",home:"Saudi Arabia",away:"Egypt",date:"2026-06-27",time:"18:00",venue:"AT&T Stadium, Dallas",group:"L"},
-  {id:72,mn:"M72",home:"Yemen",away:"Costa Rica",date:"2026-06-27",time:"18:00",venue:"SoFi Stadium, Los Angeles",group:"L"},
-  // Round of 32 (M73–M104 will be TBD slots set by admin)
-  {id:73,mn:"R32-1",home:"TBD",away:"TBD",date:"2026-06-29",time:"18:00",venue:"MetLife Stadium, New York",stage:"R32"},
-  {id:74,mn:"R32-2",home:"TBD",away:"TBD",date:"2026-06-29",time:"21:00",venue:"AT&T Stadium, Dallas",stage:"R32"},
-  {id:75,mn:"R32-3",home:"TBD",away:"TBD",date:"2026-06-30",time:"18:00",venue:"SoFi Stadium, Los Angeles",stage:"R32"},
-  {id:76,mn:"R32-4",home:"TBD",away:"TBD",date:"2026-06-30",time:"21:00",venue:"NRG Stadium, Houston",stage:"R32"},
-  {id:77,mn:"R32-5",home:"TBD",away:"TBD",date:"2026-07-01",time:"18:00",venue:"Gillette Stadium, Boston",stage:"R32"},
-  {id:78,mn:"R32-6",home:"TBD",away:"TBD",date:"2026-07-01",time:"21:00",venue:"Levi's Stadium, San Francisco",stage:"R32"},
-  {id:79,mn:"R32-7",home:"TBD",away:"TBD",date:"2026-07-02",time:"18:00",venue:"BC Place, Vancouver",stage:"R32"},
-  {id:80,mn:"R32-8",home:"TBD",away:"TBD",date:"2026-07-02",time:"21:00",venue:"BMO Field, Toronto",stage:"R32"},
-  {id:81,mn:"R32-9",home:"TBD",away:"TBD",date:"2026-07-03",time:"18:00",venue:"Estadio Azteca, Mexico City",stage:"R32"},
-  {id:82,mn:"R32-10",home:"TBD",away:"TBD",date:"2026-07-03",time:"21:00",venue:"MetLife Stadium, New York",stage:"R32"},
-  {id:83,mn:"R32-11",home:"TBD",away:"TBD",date:"2026-07-04",time:"18:00",venue:"AT&T Stadium, Dallas",stage:"R32"},
-  {id:84,mn:"R32-12",home:"TBD",away:"TBD",date:"2026-07-04",time:"21:00",venue:"SoFi Stadium, Los Angeles",stage:"R32"},
-  {id:85,mn:"R32-13",home:"TBD",away:"TBD",date:"2026-07-05",time:"18:00",venue:"NRG Stadium, Houston",stage:"R32"},
-  {id:86,mn:"R32-14",home:"TBD",away:"TBD",date:"2026-07-05",time:"21:00",venue:"Gillette Stadium, Boston",stage:"R32"},
-  {id:87,mn:"R32-15",home:"TBD",away:"TBD",date:"2026-07-06",time:"18:00",venue:"Levi's Stadium, San Francisco",stage:"R32"},
-  {id:88,mn:"R32-16",home:"TBD",away:"TBD",date:"2026-07-06",time:"21:00",venue:"BC Place, Vancouver",stage:"R32"},
-  // Round of 16
-  {id:89,mn:"R16-1",home:"TBD",away:"TBD",date:"2026-07-09",time:"18:00",venue:"MetLife Stadium, New York",stage:"R16"},
-  {id:90,mn:"R16-2",home:"TBD",away:"TBD",date:"2026-07-09",time:"21:00",venue:"AT&T Stadium, Dallas",stage:"R16"},
-  {id:91,mn:"R16-3",home:"TBD",away:"TBD",date:"2026-07-10",time:"18:00",venue:"SoFi Stadium, Los Angeles",stage:"R16"},
-  {id:92,mn:"R16-4",home:"TBD",away:"TBD",date:"2026-07-10",time:"21:00",venue:"NRG Stadium, Houston",stage:"R16"},
-  {id:93,mn:"R16-5",home:"TBD",away:"TBD",date:"2026-07-11",time:"18:00",venue:"Gillette Stadium, Boston",stage:"R16"},
-  {id:94,mn:"R16-6",home:"TBD",away:"TBD",date:"2026-07-11",time:"21:00",venue:"Levi's Stadium, San Francisco",stage:"R16"},
-  {id:95,mn:"R16-7",home:"TBD",away:"TBD",date:"2026-07-12",time:"18:00",venue:"BC Place, Vancouver",stage:"R16"},
-  {id:96,mn:"R16-8",home:"TBD",away:"TBD",date:"2026-07-12",time:"21:00",venue:"BMO Field, Toronto",stage:"R16"},
-  // Quarter Finals
-  {id:97,mn:"QF-1",home:"TBD",away:"TBD",date:"2026-07-15",time:"18:00",venue:"MetLife Stadium, New York",stage:"QF"},
-  {id:98,mn:"QF-2",home:"TBD",away:"TBD",date:"2026-07-15",time:"21:00",venue:"AT&T Stadium, Dallas",stage:"QF"},
-  {id:99,mn:"QF-3",home:"TBD",away:"TBD",date:"2026-07-16",time:"18:00",venue:"SoFi Stadium, Los Angeles",stage:"QF"},
-  {id:100,mn:"QF-4",home:"TBD",away:"TBD",date:"2026-07-16",time:"21:00",venue:"NRG Stadium, Houston",stage:"QF"},
-  // Semi Finals
-  {id:101,mn:"SF-1",home:"TBD",away:"TBD",date:"2026-07-19",time:"21:00",venue:"MetLife Stadium, New York",stage:"SF"},
-  {id:102,mn:"SF-2",home:"TBD",away:"TBD",date:"2026-07-20",time:"21:00",venue:"AT&T Stadium, Dallas",stage:"SF"},
-  // Third Place
-  {id:103,mn:"3rd",home:"TBD",away:"TBD",date:"2026-07-25",time:"21:00",venue:"SoFi Stadium, Los Angeles",stage:"3rd"},
-  // Final
-  {id:104,mn:"Final",home:"TBD",away:"TBD",date:"2026-07-26",time:"21:00",venue:"MetLife Stadium, New York",stage:"Final"},
+  // ── GROUP A ─────────────────────────────────────────────────
+  {id:1,mn:"M1",home:"Mexico",away:"South Africa",date:"2026-06-11",time:"15:00",venue:"Estadio Azteca, Mexico City",group:"A"},
+  {id:2,mn:"M2",home:"South Korea",away:"Czechia",date:"2026-06-11",time:"22:00",venue:"Estadio Akron, Guadalajara",group:"A"},
+  {id:3,mn:"M3",home:"Czechia",away:"South Africa",date:"2026-06-18",time:"12:00",venue:"Mercedes-Benz Stadium, Atlanta",group:"A"},
+  {id:4,mn:"M4",home:"Mexico",away:"South Korea",date:"2026-06-18",time:"21:00",venue:"Estadio Akron, Guadalajara",group:"A"},
+  {id:5,mn:"M5",home:"Czechia",away:"Mexico",date:"2026-06-24",time:"21:00",venue:"Estadio Azteca, Mexico City",group:"A"},
+  {id:6,mn:"M6",home:"South Africa",away:"South Korea",date:"2026-06-24",time:"21:00",venue:"AT&T Stadium, Dallas",group:"A"},
+  // ── GROUP B ─────────────────────────────────────────────────
+  {id:7,mn:"M7",home:"Canada",away:"Bosnia and Herzegovina",date:"2026-06-12",time:"15:00",venue:"BMO Field, Toronto",group:"B"},
+  {id:8,mn:"M8",home:"Qatar",away:"Switzerland",date:"2026-06-13",time:"15:00",venue:"Levi's Stadium, San Francisco",group:"B"},
+  {id:9,mn:"M9",home:"Switzerland",away:"Bosnia and Herzegovina",date:"2026-06-19",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"B"},
+  {id:10,mn:"M10",home:"Canada",away:"Qatar",date:"2026-06-19",time:"15:00",venue:"BMO Field, Toronto",group:"B"},
+  {id:11,mn:"M11",home:"Bosnia and Herzegovina",away:"Qatar",date:"2026-06-24",time:"17:00",venue:"Estadio BBVA, Monterrey",group:"B"},
+  {id:12,mn:"M12",home:"Switzerland",away:"Canada",date:"2026-06-24",time:"17:00",venue:"Levi's Stadium, San Francisco",group:"B"},
+  // ── GROUP C ─────────────────────────────────────────────────
+  {id:13,mn:"M13",home:"Brazil",away:"Morocco",date:"2026-06-13",time:"18:00",venue:"MetLife Stadium, New York",group:"C"},
+  {id:14,mn:"M14",home:"Haiti",away:"Scotland",date:"2026-06-13",time:"21:00",venue:"Gillette Stadium, Boston",group:"C"},
+  {id:15,mn:"M15",home:"Morocco",away:"Haiti",date:"2026-06-20",time:"15:00",venue:"NRG Stadium, Houston",group:"C"},
+  {id:16,mn:"M16",home:"Brazil",away:"Scotland",date:"2026-06-20",time:"18:00",venue:"SoFi Stadium, Los Angeles",group:"C"},
+  {id:17,mn:"M17",home:"Scotland",away:"Haiti",date:"2026-06-24",time:"21:00",venue:"Gillette Stadium, Boston",group:"C"},
+  {id:18,mn:"M18",home:"Morocco",away:"Brazil",date:"2026-06-24",time:"21:00",venue:"MetLife Stadium, New York",group:"C"},
+  // ── GROUP D ─────────────────────────────────────────────────
+  {id:19,mn:"M19",home:"USA",away:"Paraguay",date:"2026-06-12",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"D"},
+  {id:20,mn:"M20",home:"Australia",away:"Turkiye",date:"2026-06-13",time:"03:00",venue:"AT&T Stadium, Dallas",group:"D"},
+  {id:21,mn:"M21",home:"USA",away:"Australia",date:"2026-06-19",time:"21:00",venue:"Lumen Field, Seattle",group:"D"},
+  {id:22,mn:"M22",home:"Paraguay",away:"Turkiye",date:"2026-06-19",time:"18:00",venue:"Estadio BBVA, Monterrey",group:"D"},
+  {id:23,mn:"M23",home:"Turkiye",away:"USA",date:"2026-06-25",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"D"},
+  {id:24,mn:"M24",home:"Paraguay",away:"Australia",date:"2026-06-25",time:"21:00",venue:"AT&T Stadium, Dallas",group:"D"},
+  // ── GROUP E ─────────────────────────────────────────────────
+  {id:25,mn:"M25",home:"Germany",away:"Curacao",date:"2026-06-14",time:"13:00",venue:"NRG Stadium, Houston",group:"E"},
+  {id:26,mn:"M26",home:"Ivory Coast",away:"Ecuador",date:"2026-06-14",time:"19:00",venue:"Lincoln Financial Field, Philadelphia",group:"E"},
+  {id:27,mn:"M27",home:"Germany",away:"Ivory Coast",date:"2026-06-20",time:"21:00",venue:"MetLife Stadium, New York",group:"E"},
+  {id:28,mn:"M28",home:"Ecuador",away:"Curacao",date:"2026-06-21",time:"15:00",venue:"Arrowhead Stadium, Kansas City",group:"E"},
+  {id:29,mn:"M29",home:"Curacao",away:"Ivory Coast",date:"2026-06-25",time:"17:00",venue:"Lincoln Financial Field, Philadelphia",group:"E"},
+  {id:30,mn:"M30",home:"Ecuador",away:"Germany",date:"2026-06-25",time:"17:00",venue:"NRG Stadium, Houston",group:"E"},
+  // ── GROUP F ─────────────────────────────────────────────────
+  {id:31,mn:"M31",home:"Netherlands",away:"Japan",date:"2026-06-14",time:"16:00",venue:"AT&T Stadium, Dallas",group:"F"},
+  {id:32,mn:"M32",home:"Sweden",away:"Tunisia",date:"2026-06-14",time:"22:00",venue:"Estadio BBVA, Monterrey",group:"F"},
+  {id:33,mn:"M33",home:"Netherlands",away:"Sweden",date:"2026-06-20",time:"21:00",venue:"Gillette Stadium, Boston",group:"F"},
+  {id:34,mn:"M34",home:"Tunisia",away:"Japan",date:"2026-06-21",time:"13:00",venue:"Arrowhead Stadium, Kansas City",group:"F"},
+  {id:35,mn:"M35",home:"Japan",away:"Sweden",date:"2026-06-25",time:"19:00",venue:"AT&T Stadium, Dallas",group:"F"},
+  {id:36,mn:"M36",home:"Tunisia",away:"Netherlands",date:"2026-06-25",time:"19:00",venue:"Estadio BBVA, Monterrey",group:"F"},
+  // ── GROUP G ─────────────────────────────────────────────────
+  {id:37,mn:"M37",home:"Belgium",away:"Egypt",date:"2026-06-15",time:"18:00",venue:"Lumen Field, Seattle",group:"G"},
+  {id:38,mn:"M38",home:"Iran",away:"New Zealand",date:"2026-06-16",time:"00:00",venue:"SoFi Stadium, Los Angeles",group:"G"},
+  {id:39,mn:"M39",home:"Belgium",away:"Iran",date:"2026-06-22",time:"21:00",venue:"BC Place, Vancouver",group:"G"},
+  {id:40,mn:"M40",home:"New Zealand",away:"Egypt",date:"2026-06-22",time:"15:00",venue:"Lincoln Financial Field, Philadelphia",group:"G"},
+  {id:41,mn:"M41",home:"Egypt",away:"Iran",date:"2026-06-26",time:"23:00",venue:"Lumen Field, Seattle",group:"G"},
+  {id:42,mn:"M42",home:"New Zealand",away:"Belgium",date:"2026-06-26",time:"23:00",venue:"BC Place, Vancouver",group:"G"},
+  // ── GROUP H ─────────────────────────────────────────────────
+  {id:43,mn:"M43",home:"Spain",away:"Cape Verde",date:"2026-06-15",time:"13:00",venue:"Mercedes-Benz Stadium, Atlanta",group:"H"},
+  {id:44,mn:"M44",home:"Saudi Arabia",away:"Uruguay",date:"2026-06-15",time:"18:00",venue:"Hard Rock Stadium, Miami",group:"H"},
+  {id:45,mn:"M45",home:"Spain",away:"Saudi Arabia",date:"2026-06-22",time:"17:00",venue:"Arrowhead Stadium, Kansas City",group:"H"},
+  {id:46,mn:"M46",home:"Cape Verde",away:"Uruguay",date:"2026-06-22",time:"17:00",venue:"Estadio Azteca, Mexico City",group:"H"},
+  {id:47,mn:"M47",home:"Uruguay",away:"Spain",date:"2026-06-26",time:"20:00",venue:"Estadio Akron, Guadalajara",group:"H"},
+  {id:48,mn:"M48",home:"Cape Verde",away:"Saudi Arabia",date:"2026-06-26",time:"20:00",venue:"NRG Stadium, Houston",group:"H"},
+  // ── GROUP I ─────────────────────────────────────────────────
+  {id:49,mn:"M49",home:"France",away:"Senegal",date:"2026-06-16",time:"15:00",venue:"MetLife Stadium, New York",group:"I"},
+  {id:50,mn:"M50",home:"Iraq",away:"Norway",date:"2026-06-16",time:"18:00",venue:"Gillette Stadium, Boston",group:"I"},
+  {id:51,mn:"M51",home:"France",away:"Iraq",date:"2026-06-22",time:"21:00",venue:"Levi's Stadium, San Francisco",group:"I"},
+  {id:52,mn:"M52",home:"Norway",away:"Senegal",date:"2026-06-22",time:"21:00",venue:"Hard Rock Stadium, Miami",group:"I"},
+  {id:53,mn:"M53",home:"Norway",away:"France",date:"2026-06-26",time:"15:00",venue:"Gillette Stadium, Boston",group:"I"},
+  {id:54,mn:"M54",home:"Senegal",away:"Iraq",date:"2026-06-26",time:"15:00",venue:"BMO Field, Toronto",group:"I"},
+  // ── GROUP J ─────────────────────────────────────────────────
+  {id:55,mn:"M55",home:"Argentina",away:"Algeria",date:"2026-06-16",time:"21:00",venue:"Arrowhead Stadium, Kansas City",group:"J"},
+  {id:56,mn:"M56",home:"Austria",away:"Jordan",date:"2026-06-17",time:"21:00",venue:"Levi's Stadium, San Francisco",group:"J"},
+  {id:57,mn:"M57",home:"Argentina",away:"Austria",date:"2026-06-22",time:"13:00",venue:"MetLife Stadium, New York",group:"J"},
+  {id:58,mn:"M58",home:"Jordan",away:"Algeria",date:"2026-06-22",time:"13:00",venue:"BC Place, Vancouver",group:"J"},
+  {id:59,mn:"M59",home:"Algeria",away:"Austria",date:"2026-06-27",time:"22:00",venue:"Arrowhead Stadium, Kansas City",group:"J"},
+  {id:60,mn:"M60",home:"Jordan",away:"Argentina",date:"2026-06-27",time:"22:00",venue:"AT&T Stadium, Dallas",group:"J"},
+  // ── GROUP K ─────────────────────────────────────────────────
+  {id:61,mn:"M61",home:"Portugal",away:"DR Congo",date:"2026-06-17",time:"13:00",venue:"NRG Stadium, Houston",group:"K"},
+  {id:62,mn:"M62",home:"Uzbekistan",away:"Colombia",date:"2026-06-17",time:"18:00",venue:"Lumen Field, Seattle",group:"K"},
+  {id:63,mn:"M63",home:"Portugal",away:"Uzbekistan",date:"2026-06-23",time:"15:00",venue:"Hard Rock Stadium, Miami",group:"K"},
+  {id:64,mn:"M64",home:"Colombia",away:"DR Congo",date:"2026-06-23",time:"15:00",venue:"Lincoln Financial Field, Philadelphia",group:"K"},
+  {id:65,mn:"M65",home:"Colombia",away:"Portugal",date:"2026-06-27",time:"19:30",venue:"Hard Rock Stadium, Miami",group:"K"},
+  {id:66,mn:"M66",home:"DR Congo",away:"Uzbekistan",date:"2026-06-27",time:"19:30",venue:"Mercedes-Benz Stadium, Atlanta",group:"K"},
+  // ── GROUP L ─────────────────────────────────────────────────
+  {id:67,mn:"M67",home:"England",away:"Croatia",date:"2026-06-17",time:"21:00",venue:"SoFi Stadium, Los Angeles",group:"L"},
+  {id:68,mn:"M68",home:"Ghana",away:"Panama",date:"2026-06-17",time:"21:00",venue:"Mercedes-Benz Stadium, Atlanta",group:"L"},
+  {id:69,mn:"M69",home:"England",away:"Ghana",date:"2026-06-23",time:"21:00",venue:"Lumen Field, Seattle",group:"L"},
+  {id:70,mn:"M70",home:"Panama",away:"Croatia",date:"2026-06-23",time:"21:00",venue:"Gillette Stadium, Boston",group:"L"},
+  {id:71,mn:"M71",home:"Panama",away:"England",date:"2026-06-27",time:"17:00",venue:"MetLife Stadium, New York",group:"L"},
+  {id:72,mn:"M72",home:"Croatia",away:"Ghana",date:"2026-06-27",time:"17:00",venue:"Lincoln Financial Field, Philadelphia",group:"L"},
+  // ── ROUND OF 32 (placeholders) ──────────────────────────────
+  {id:73,mn:"R32-1",home:"TBD",away:"TBD",date:"2026-06-28",time:"15:00",venue:"SoFi Stadium, Los Angeles"},
+  {id:74,mn:"R32-2",home:"TBD",away:"TBD",date:"2026-06-29",time:"16:30",venue:"Gillette Stadium, Boston"},
+  {id:75,mn:"R32-3",home:"TBD",away:"TBD",date:"2026-06-29",time:"21:00",venue:"Estadio BBVA, Monterrey"},
+  {id:76,mn:"R32-4",home:"TBD",away:"TBD",date:"2026-06-29",time:"13:00",venue:"NRG Stadium, Houston"},
+  {id:77,mn:"R32-5",home:"TBD",away:"TBD",date:"2026-06-30",time:"17:00",venue:"MetLife Stadium, New York"},
+  {id:78,mn:"R32-6",home:"TBD",away:"TBD",date:"2026-06-30",time:"13:00",venue:"AT&T Stadium, Dallas"},
+  {id:79,mn:"R32-7",home:"TBD",away:"TBD",date:"2026-06-30",time:"21:00",venue:"Estadio Azteca, Mexico City"},
+  {id:80,mn:"R32-8",home:"TBD",away:"TBD",date:"2026-07-01",time:"12:00",venue:"Mercedes-Benz Stadium, Atlanta"},
+  {id:81,mn:"R32-9",home:"TBD",away:"TBD",date:"2026-07-01",time:"16:30",venue:"Hard Rock Stadium, Miami"},
+  {id:82,mn:"R32-10",home:"TBD",away:"TBD",date:"2026-07-01",time:"21:00",venue:"Estadio Akron, Guadalajara"},
+  {id:83,mn:"R32-11",home:"TBD",away:"TBD",date:"2026-07-02",time:"13:00",venue:"BC Place, Vancouver"},
+  {id:84,mn:"R32-12",home:"TBD",away:"TBD",date:"2026-07-02",time:"17:00",venue:"Levi's Stadium, San Francisco"},
+  {id:85,mn:"R32-13",home:"TBD",away:"TBD",date:"2026-07-02",time:"21:00",venue:"Estadio BBVA, Monterrey"},
+  {id:86,mn:"R32-14",home:"TBD",away:"TBD",date:"2026-07-03",time:"13:00",venue:"Lincoln Financial Field, Philadelphia"},
+  {id:87,mn:"R32-15",home:"TBD",away:"TBD",date:"2026-07-03",time:"17:00",venue:"Arrowhead Stadium, Kansas City"},
+  {id:88,mn:"R32-16",home:"TBD",away:"TBD",date:"2026-07-03",time:"21:00",venue:"BMO Field, Toronto"},
+  // ── ROUND OF 16 ─────────────────────────────────────────────
+  {id:89,mn:"R16-1",home:"TBD",away:"TBD",date:"2026-07-04",time:"15:00",venue:"MetLife Stadium, New York"},
+  {id:90,mn:"R16-2",home:"TBD",away:"TBD",date:"2026-07-05",time:"15:00",venue:"SoFi Stadium, Los Angeles"},
+  {id:91,mn:"R16-3",home:"TBD",away:"TBD",date:"2026-07-05",time:"21:00",venue:"AT&T Stadium, Dallas"},
+  {id:92,mn:"R16-4",home:"TBD",away:"TBD",date:"2026-07-06",time:"15:00",venue:"Levi's Stadium, San Francisco"},
+  {id:93,mn:"R16-5",home:"TBD",away:"TBD",date:"2026-07-06",time:"21:00",venue:"NRG Stadium, Houston"},
+  {id:94,mn:"R16-6",home:"TBD",away:"TBD",date:"2026-07-07",time:"12:00",venue:"Mercedes-Benz Stadium, Atlanta"},
+  {id:95,mn:"R16-7",home:"TBD",away:"TBD",date:"2026-07-07",time:"17:00",venue:"Arrowhead Stadium, Kansas City"},
+  {id:96,mn:"R16-8",home:"TBD",away:"TBD",date:"2026-07-07",time:"21:00",venue:"Gillette Stadium, Boston"},
+  // ── QUARTER FINALS ──────────────────────────────────────────
+  {id:97,mn:"QF-1",home:"TBD",away:"TBD",date:"2026-07-09",time:"15:00",venue:"SoFi Stadium, Los Angeles"},
+  {id:98,mn:"QF-2",home:"TBD",away:"TBD",date:"2026-07-10",time:"15:00",venue:"NRG Stadium, Houston"},
+  {id:99,mn:"QF-3",home:"TBD",away:"TBD",date:"2026-07-11",time:"17:00",venue:"Hard Rock Stadium, Miami"},
+  {id:100,mn:"QF-4",home:"TBD",away:"TBD",date:"2026-07-11",time:"21:00",venue:"Arrowhead Stadium, Kansas City"},
+  // ── SEMI FINALS ─────────────────────────────────────────────
+  {id:101,mn:"SF-1",home:"TBD",away:"TBD",date:"2026-07-14",time:"15:00",venue:"AT&T Stadium, Dallas"},
+  {id:102,mn:"SF-2",home:"TBD",away:"TBD",date:"2026-07-15",time:"15:00",venue:"Mercedes-Benz Stadium, Atlanta"},
+  // ── THIRD PLACE & FINAL ──────────────────────────────────────
+  {id:103,mn:"3rd Place",home:"TBD",away:"TBD",date:"2026-07-18",time:"17:00",venue:"Hard Rock Stadium, Miami"},
+  {id:104,mn:"Final",home:"TBD",away:"TBD",date:"2026-07-19",time:"15:00",venue:"MetLife Stadium, New York"},
 ];
 
-/* ─── BONUS QUESTIONS ────────────────────────────────────────── */
-const BONUS_QUESTIONS = {
-  1:"Will the match produce 3+ goals total?",
-  2:"Will there be a red card in this match?",
-  3:"Will the first goal come in the first 15 minutes?",
-  4:"Will the match be decided by a penalty shootout?",
-  5:"Will the winning team keep a clean sheet?",
-  6:"Will the MOTM be a defender or goalkeeper?",
-  7:"Will there be a hat-trick in this match?",
-  8:"Will the match end in a draw?",
-  9:"Will there be 2+ goals in the second half?",
-  10:"Will the toss of the coin (kick-off choice) team win?",
-  // ... more for each match — admin can set per match
+
+/* squadS */
+const SQUADS = {
+  Mexico:["Guillermo Ochoa","Raul Rangel","Carlos Acevedo","Jesus Gallardo","Cesar Montes","Jorge Sanchez","Johan Vasquez","Israel Reyes","Mateo Chavez","Edson Alvarez","Orbelin Pineda","Luis Romo","Roberto Alvarado","Luis Chavez","Eric Lira","Gilberto Mora","Brian Gutierrez","Obed Vargas","Alvaro Fidalgo","Raul Jimenez","Alexis Vega","Santiago Gimenez","Cesar Huerta","Julian Quinones","Guillermo Martinez","Armando Gonzalez"],
+  "South Africa":["Ronwen Williams","Ricardo Goss","Sipho Chaine","Aubrey Modiba","Khuliso Mudau","Nkosinathi Sibisi","Mbekezeli Mbokazi","Ime Okon","Samukele Kabini","Khulumani Ndamane","Thabang Matuludi","Kamogelo Sebelebele","Bradley Cross","Olwethu Makhanya","Teboho Mokoena","Sphephelo Sithole","Thalente Mbatha","Jayden Adams","Themba Zwane","Lyle Foster","Evidence Makgopa","Oswin Appollis","Iqraam Rayners","Relebohile Mofokeng","Thapelo Maseko","Tshepang Moremi"],
+  "South Korea":["Kim Seung-Gyu","Jo Hyeon-woo","Song Bum-keun","Kim Min-jae","Kim Moon-hwan","Seol Young-woo","Cho Yu-min","Lee Tae-seok","Park Jin-seob","Kim Tae-hyeon","Lee Han-beom","Jens Castrop","Lee Ki-hyuk","Lee Jae-sung","Hwang Hee-chan","Hwang In-beom","Lee Kang-in","Paik Seung-ho","Kim Jin-gyu","Lee Dong-gyeong","Bae Jun-ho","Yang Hyun-jun","Son Heung-min","Cho Gue-sung","Oh Hyeon-gyu","Eom Ji-Sung"],
+  Czechia:["Matej Kovar","Jindrich Stanek","Lukas Hornicek","Vladimir Coufal","Tomas Holes","Ladislav Krejci","David Zima","Jaroslav Zeleny","David Jurasek","David Doudera","Robin Hranac","Stepan Chaloupek","Tomas Soucek","Vladimir Darida","Lukas Provod","Michal Sadilek","Pavel Sulc","Hugo Sochurek","Alexandr Sojka","Denis Visinsky","Patrik Schick","Adam Hlozek","Jan Kuchta","Mojmir Chytil","Tomas Chory","Lukas Cerv"],
+  Canada:["Dayne St Clair","Maxime Crepeau","Owen Goodman","Alistair Johnston","Luc de Fougerolles","Alfie Jones","Joel Waterman","Derek Cornelius","Moise Bombito","Alphonso Davies","Richie Laryea","Niko Sigur","Mathieu Choiniere","Stephen Eustaquio","Ismael Kone","Liam Millar","Jacob Schaffelburg","Tajon Buchanan","Ali Ahmed","Jonathan Osorio","Nathan Saliba","Cyle Larin","Jonathan David","Tani Oluwaseyi","Promise David","Marcelo Flores"],
+  "Bosnia and Herzegovina":["Nikola Vasilj","Martin Zlomislic","Osman Hadzikic","Sead Kolasinac","Dennis Hadzikadunic","Amar Dedic","Nikola Katic","Tarik Muharemovic","Nihad Mujakic","Stjepan Radeljic","Nidal Celik","Amir Hadziahmetovic","Benjamin Tahirovic","Armin Gigovic","Dzenis Burnic","Ivan Basic","Esmir Bajraktarevic","Amar Memic","Ivan Sunjic","Kerim Alajbegovic","Ermin Mahmic","Edin Dzeko","Ermedin Demirovic","Samed Bazdar","Haris Tabakovic","Jovo Lukic"],
+  Qatar:["Meshaal Barsham","Yousef Hassan","Mohammed Al-Bakri","Pedro Miguel","Bassam Al-Rawi","Abdelkarim Hassan","Tarek Salman","Ismail Mohammad","Musaab Khidir","Karim Boudiaf","Assim Madibo","Hassan Al-Haydos","Akram Afif","Abdulaziz Hatem","Ali Asad","Ahmed Alaaeldin","Salem Al-Hajri","Jassem Gaber","Mohammed Muntari","Almoez Ali","Ismail Mohamad","Ahmed Alganehi","Tariq Salman","Salmeen Al-Enezi","Khaled Mohammed","Yusuf Abdurisag"],
+  Switzerland:["Marvin Keller","Gregor Kobel","Yvon Mvogo","Manuel Akanji","Aurele Amenda","Eray Comert","Nico Elvedi","Luca Jaquez","Miro Muheim","Ricardo Rodriguez","Silvan Widmer","Michel Aebischer","Christian Fassnacht","Remo Freuler","Ardon Jashari","Johan Manzambi","Fabian Rieder","Djibril Sow","Ruben Vargas","Granit Xhaka","Denis Zakaria","Zeki Amdouni","Breel Embolo","Cedric Itten","Dan Ndoye","Noah Okafor"],
+  Brazil:["Alisson","Ederson","Weverton","Marquinhos","Danilo","Alex Sandro","Gabriel Magalhaes","Bremer","Wesley","Roger Ibanez","Douglas Santos","Leo Pereira","Casemiro","Lucas Paqueta","Bruno Guimaraes","Fabinho","Danilo Santos","Neymar","Vinicius Jr","Raphinha","Gabriel Martinelli","Matheus Cunha","Endrick","Luiz Henrique","Igor Thiago","Rayan"],
+  Morocco:["Yassine Bounou","Munir Mohamedi","Ahmed Reda Tagnaouti","Achraf Hakimi","Nayef Aguerd","Noussair Mazraoui","Youssef Belammari","Anass Salah-Eddine","Chadi Riad","Issa Diop","Zakaria El Ouahdi","Redouane Halhal","Sofyan Amrabat","Azzedine Ounahi","Bilal El Khannouss","Ismael Saibari","Neil El Aynaoui","Samir El Mourabet","Ayyoub Bouaddi","Ayoub El Kaabi","Soufiane Rahimi","Brahim Diaz","Abde Ezzalzouli","Chemsdine Talbi","Yassine Gessim","Ayoube Amaimouni"],
+  Haiti:["Johny Placide","Alexandre Pierre","Josue Duverger","Ricardo Ade","Carlens Arcus","Martin Experience","Jean-Kevin Duverne","Duke Lacroix","Wilguens Paugain","Hannes Delcroix","Keeto Thermoncy","Leverton Pierre","Danley Jean Jacques","Carl Sainte","Jean-Ricner Bellegarde","Woodensky Pierre","Dominique Simon","Duckens Nazon","Frantzdy Pierrot","Derrick Etienne Jr","Louicius Deedson","Ruben Providence","Josue Casimir","Yassin Fortune","Wilson Isidor","Lenny Joseph"],
+  Scotland:["Angus Gunn","Craig Gordon","Liam Kelly","Andy Robertson","Kieran Tierney","Anthony Ralston","John Souttar","Scott McKenna","Jack Hendry","Aaron Hickey","Nathan Patterson","Grant Hanley","Dominic Hyam","Scott McTominay","John McGinn","Kenny McLean","Lewis Ferguson","Ryan Christie","Findlay Curtis","Ben Gannon-Doak","Tyler Fletcher","Lawrence Shankland","George Hirst","Che Adams","Ross Stewart","Lyndon Dykes"],
+  USA:["Matt Turner","Chris Brady","Matt Freese","Sergino Dest","Chris Richards","Antonee Robinson","Auston Trusty","Miles Robinson","Tim Ream","Alex Freeman","Mark McKenzie","Joe Scally","Tyler Adams","Weston McKennie","Christian Pulisic","Sebastian Berhalter","Cristian Roldan","Malik Tillman","Gio Reyna","Ricardo Pepi","Brenden Aaronson","Max Arfsten","Haji Wright","Folarin Balogun","Tim Weah","Alex Zendejas"],
+  Paraguay:["Anthony Silva","Alfredo Aguilar","Roberto Fernandez","Junior Alonso","Omar Alderete","Santiago Caceres","Gustavo Velazquez","Jorge Morel","Robert Rojas","Matias Espinoza","Alberto Espinola","Andres Cubas","Miguel Almiron","Mathias Villasanti","Damian Bobadilla","Diego Leon","Julio Enciso","Braian Ojeda","Gabriel Avalos","Cecilio Dominguez","Jose Rivas","Antonio Sanabria","Cepita Sanchez","Ivan Gonzalez","Adrian Cubas","Fabrizio Angileri"],
+  Australia:["Mathew Ryan","Paul Izzo","Patrick Beach","Aziz Behich","Milos Degenek","Harry Souttar","Jordan Bos","Cameron Burgess","Jason Geria","Alessandro Circati","Kai Trewin","Jacob Italiano","Lucas Herrington","Jackson Irvine","Ajdin Hrustic","Connor Metcalfe","Aiden O'Neill","Paul Okon-Engstler","Cameron Devlin","Mathew Leckie","Awer Mabil","Nestory Irankunda","Mohamed Toure","Nishan Velupillay","Cristian Volpato","Tete Yengi"],
+  Turkiye:["Ugurcan Cakir","Altay Bayindir","Mert Gunok","Ferdi Kadioglu","Merih Demiral","Zeki Celik","Ozan Kabak","Mert Muldur","Abdulkerim Bardakci","Rasmus Cakmak","Emirhan Topcu","Hakan Calhanoglu","Salih Ozcan","Ismail Yuksek","Arda Guler","Orkun Kokcu","Kenan Yildiz","Barish Yilmaz","Baris Alper Yilmaz","Irfan Can Kahveci","Cengiz Under","Yunus Akgun","Okay Yokuslu","Efekan Karaduman","Yusuf Yazici","Umut Nayir"],
+  Germany:["Manuel Neuer","Oliver Baumann","Alexander Nuebel","Nico Schlotterbeck","David Raum","Nathaniel Brown","Jonathan Tah","Waldemar Anton","Joshua Kimmich","Malick Thiaw","Antonio Rudiger","Pascal Gross","Leon Goretzka","Felix Nmecha","Jamal Musiala","Nadiem Amiri","Jamie Leweling","Florian Wirtz","Leroy Sane","Aleksandar Pavlovic","Angelo Stiller","Kai Havertz","Nick Woltemade","Deniz Undav","Maximilian Beier","Lennart Karl"],
+  Curacao:["Eloy Room","Trevor Doornbusch","Tyrick Bodack","Riechedly Bazoer","Joshua Brenet","Roshon van Eijma","Sherel Floranus","Deveron Fonville","Jurien Gaari","Armando Obispo","Shurandy Sambo","Juninho Bacuna","Leandro Bacuna","Livano Comenencia","Kevin Felida","Arjany Martha","Tyrese Noslin","Godfried Roemeratoe","Jeremy Antonisse","Tahith Chong","Kenji Gorre","Sontje Hansen","Gervane Kastaneer","Brandley Kuwas","Jurgen Locadia","Jearl Margaritha"],
+  "Ivory Coast":["Yahia Fofana","Mohamed Kone","Alban Lafont","Emmanuel Agbadou","Christopher Operi","Ousmane Diomande","Guela Doue","Ghislain Konan","Odilon Kossounou","Wilfried Singo","Evan Ndicka","Seko Fofana","Parfait Guiagon","Franck Kessie","Ibrahim Sangare","Jean Michael Seri","Simon Adingra","Ange-Yoan Bonny","Amad Diallo","Oumar Diakite","Yan Diomande","Evann Guessand","Nicolas Pepe","Bazoumana Toure","Elye Wahi","Christ Inao Oulai"],
+  Ecuador:["Hernan Galindez","Moises Ramirez","Gonzalo Valle","Piero Hincapie","Willian Pacho","Pervis Estupinan","Felix Torres","Joel Ordonez","Jackson Porozo","Angelo Preciado","Yaimar Medina","Moises Caicedo","Alan Franco","Kendry Paez","Gonzalo Plata","Pedro Vite","Jordy Alcivar","Denil Castillo","John Yeboah","Nilson Angulo","Alan Minda","Enner Valencia","Kevin Rodriguez","Jordy Caicedo","Anthony Valencia","Jeremy Arevalo"],
+  Netherlands:["Mark Flekken","Robin Roefs","Bart Verbruggen","Nathan Ake","Virgil van Dijk","Denzel Dumfries","Jan Paul van Hecke","Jurrien Timber","Jorrel Hato","Micky van de Ven","Ryan Gravenberch","Frenkie de Jong","Teun Koopmeiners","Tijjani Reijnders","Marten de Roon","Guus Til","Quinten Timber","Mats Wieffer","Brian Brobbey","Memphis Depay","Cody Gakpo","Noa Lang","Donyell Malen","Crysencio Summerville","Wout Weghorst","Justin Kluivert"],
+  Japan:["Tomoki Hayakawa","Keisuke Osako","Zion Suzuki","Ko Itakura","Hiroki Ito","Yuto Nagatomo","Ayumu Seko","Yukinari Sugawara","Junnosuke Suzuki","Shogo Taniguchi","Takehiro Tomiyasu","Tsuyoshi Watanabe","Ritsu Doan","Wataru Endo","Junya Ito","Daichi Kamada","Takefusa Kubo","Keito Nakamura","Kaishu Sano","Ao Tanaka","Keisuke Goto","Daizen Maeda","Koki Ogawa","Kento Shiogai","Yuito Suzuki","Ayase Ueda"],
+  Sweden:["Viktor Johansson","Kristoffer Nordfeldt","Jacob Widell Zetterström","Hjalmar Ekdal","Gabriel Gudmundsson","Isak Hien","Emil Holm","Gustaf Lagerbielke","Victor Lindelof","Eric Smith","Carl Starfelt","Daniel Svensson","Jesper Kalstrom","Yasin Ayari","Mattias Svanberg","Lucas Bergvall","Besfort Zeneli","Taha Ali","Alexander Bernhardsson","Anthony Elanga","Viktor Gyokeres","Alexander Isak","Gustaf Nilsson","Benjamin Nygren","Ken Sema","Elliot Stroud"],
+  Tunisia:["Aymen Dahmen","Bechir Ben Said","Mouez Hassen","Dylan Bronn","Montassar Talbi","Yassine Meriah","Ali Maaloul","Ghaylane Chaalali","Nader Ghandri","Mohamed Ali Ben Romdhane","Ellyes Skhiri","Aissa Laidouni","Hannibal Mejbri","Firas Chaouat","Rayan Elloumi","Hazem Mastouri","Elias Saad","Elias Achouri","Khalil Ayari","Sebastian Tounekti","Issam Jebali","Seifeddine Jaziri","Taha Yassine Khenissi","Hamza Rafia","Naim Sliti","Sayfallah Ltaief"],
+  Belgium:["Thibaut Courtois","Senne Lammens","Mike Penders","Timothy Castagne","Zeno Debast","Maxim De Cuyper","Koni De Winter","Brandon Mechele","Thomas Meunier","Nathan Ngoy","Joaquin Seys","Arthur Theate","Kevin De Bruyne","Amadou Onana","Nicolas Raskin","Youri Tielemans","Hans Vanaken","Axel Witsel","Charles De Ketelaere","Jeremy Doku","Matias Fernandez-Pardo","Romelu Lukaku","Dodi Lukebakio","Diego Moreira","Alexis Saelemaekers","Leandro Trossard"],
+  Egypt:["Mohamed El Shenawy","Mostafa Shobeir","Mohamed Alaa","Mohamed Abdelmonem","Mohamed Hany","Yasser Ibrahim","Hossam Abdelmaguid","Ahmed Fattouh","Tarek Alaa","Rami Rabia","Karim Hafez","Marwan Attia","Ahmed Sayed Zizo","Trezeguet","Emam Ashour","Mostafa Abdel Raouf","Mohannad Lasheen","Haitham Hassan","Mahmoud Saber","Ibrahim Adel","Nabil Emad","Hamdi Fathi","Mohamed Salah","Omar Marmoush","Hamza Abdel Karim","El Mahdy Soliman"],
+  Iran:["Alireza Beiranvand","Seyed Hossein Hosseini","Payam Niazmand","Danial Eiri","Ehsan Hajsafi","Saleh Hardani","Hossein Kanaani","Shoja Khalilzadeh","Milad Mohammadi","Ali Nemati","Ramin Rezaeian","Rouzbeh Cheshmi","Saeid Ezatolahi","Mehdi Ghaedi","Saman Ghoddos","Mohammad Ghorbani","Alireza Jahanbakhsh","Mohammad Mohebi","Mehdi Torabi","Aria Yousefi","Amir Mohammad Razzaghinia","Ali Alipour","Dennis Dargahi","Amirhossein Hosseinzadeh","Mehdi Taremi","Shahriar Moghanlou"],
+  "New Zealand":["Max Crocombe","Alex Paulsen","Michael Woud","Tyler Bindon","Michael Boxall","Liberato Cacace","Francis de Vries","Callan Elliot","Tim Payne","Nando Pijnaker","Tommy Smith","Finn Surman","Lachlan Bayliss","Joe Bell","Matt Garbett","Eli Just","Callum McCowatt","Ben Old","Alex Rufer","Marko Stamenic","Sarpreet Singh","Ryan Thomas","Chris Wood","Myer Bevan","Kosta Barbarouses","Marko Grgic"],
+  Spain:["David Raya","Alex Remiro","Unai Simon","Dani Carvajal","Robin Le Normand","Aymeric Laporte","David Garcia","Marc Cucurella","Alex Grimaldo","Pedro Porro","Fabian Ruiz","Rodri","Pedri","Mikel Merino","Martin Zubimendi","Aleix Garcia","Nico Williams","Lamine Yamal","Mikel Oyarzabal","Alvaro Morata","Ferran Torres","Ayoze Perez","Dani Olmo","Joselu","Bryan Zaragoza","Yeremy Pino"],
+  "Cape Verde":["CJ dos Santos","Marcio Rosa","Vozinha","Sidny Cabral","Diney Borges","Logan Costa","Roberto Lopes","Steven Moreira","Wagner Pina","Kelvin Pires","Joao Paulo Fernandes","Stopira","Telmo Arcanjo","Deroy Duarte","Laros Duarte","Jamiro Monteiro","Kevin Pina","Yannick Semedo","Gilson Benchimol","Jovane Cabral","Dailon Livramento","Ryan Mendes","Nuno da Costa","Garry Rodrigues","Willy Semedo","Helio Varela"],
+  "Saudi Arabia":["Mohammed Al-Owais","Nawaf Al-Aqidi","Ahmed Al-Kassar","Saud Abdulhamid","Hassan Al-Tambakti","Abdulelah Al-Amri","Nawaf Boushal","Ali Lajami","Ali Majrashi","Hassan Kadesh","Moteb Al-Harbi","Jehad Thakri","Mohammed Abu Al-Shamat","Salem Al-Dawsari","Abdullah Al-Khaibari","Mohamed Kanno","Nasser Al-Dawsari","Musab Al-Juwayr","Ayman Yahya","Ziyad Al-Johani","Sultan Mandesh","Alaa Al-Hejji","Firas Al-Buraikan","Saleh Al-Shehri","Abdullah Al-Hamdan","Khalid Al-Ghannam"],
+  Uruguay:["Fernando Muslera","Sebastian Sosa","Sergio Rochet","Jose Maria Gimenez","Ronald Araujo","Diego Godin","Mathias Olivera","Guillermo Varela","Sebastian Caceres","Maximiliano Araujo","Nicolas de la Cruz","Federico Valverde","Rodrigo Bentancur","Lucas Torreira","Nahitan Nandez","Giorgian De Arrascaeta","Manuel Ugarte","Darwin Nunez","Edinson Cavani","Luis Suarez","Facundo Torres","Brian Rodriguez","Maximiliano Gomez","Agustin Canobbio","Fernando Gorriaran","Santiago Bueno"],
+  France:["Mike Maignan","Robin Risser","Brice Samba","Lucas Digne","Malo Gusto","Lucas Hernandez","Theo Hernandez","Ibrahima Konate","Maxence Lacroix","Jules Kounde","William Saliba","Dayot Upamecano","N'Golo Kante","Manu Kone","Adrien Rabiot","Aurelien Tchouameni","Warren Zaire-Emery","Maghnes Akliouche","Bradley Barcola","Rayan Cherki","Ousmane Dembele","Desire Doue","Michael Olise","Kylian Mbappe","Jean-Philippe Mateta","Marcus Thuram"],
+  Senegal:["Edouard Mendy","Alfred Gomis","Seny Dieng","Kalidou Koulibaly","Abdou Diallo","Yoro Diallo","Ismail Jakobs","Formose Mendy","Moussa Niakhate","Saliou Ciss","Pathe Ciss","Pape Gueye","Lamine Camara","Idrissa Gueye","Nampalys Mendy","Krepin Diatta","Ismaila Sarr","Sadio Mane","Boulaye Dia","Nicolas Jackson","Habib Diallo","Amadou Diallo","Cheikhou Kouyate","Iliman Ndiaye","Famara Diedhiou","Niane Habib"],
+  Iraq:["Fahad Talib","Jalal Hassan","Ahmed Basil","Hussein Ali","Manaf Younis","Zaid Tahseen","Rebin Sulaka","Akam Hashem","Merchas Doski","Ahmed Yahya","Zaid Ismail","Frans Putros","Mustafa Saadoon","Amir Al Ammari","Kevin Yakob","Zidane Iqbal","Aimar Sher","Ibrahim Bayesh","Ahmed Qasim","Youssef Amyn","Marko Farji","Ali Jassim","Ali Al Hamadi","Ali Yousef","Aymen Hussein","Mohanad Ali"],
+  Norway:["Orjan Nyland","Pal Hafstad","Ole Selvik","Leo Ostigard","Stian Gregersen","Andreas Hanche-Olsen","Marcus Holmgren Pedersen","Birger Meling","Fredrik Aursnes","Sander Berge","Patrick Berg","Martin Odegaard","Mathias Normann","Alexander Sorloth","Erling Haaland","Mohamed Elyounoussi","Antonio Nusa","Jens Petter Hauge","Ola Solbakken","Victor Torp","Andreas Schjelderup","Julian Ryerson","Kristoffer Ajer","Veton Berisha","Leander Dendoncker","Marcus Pedersen"],
+  Argentina:["Emiliano Martinez","Geronimo Rulli","Juan Musso","Leonardo Balerdi","Gonzalo Montiel","Nicolas Tagliafico","Lisandro Martinez","Cristian Romero","Nicolas Otamendi","Facundo Medina","Nahuel Molina","Leandro Paredes","Rodrigo De Paul","Valentin Barco","Giovani Lo Celso","Exequiel Palacios","Alexis Mac Allister","Enzo Fernandez","Julian Alvarez","Lionel Messi","Nicolas Gonzalez","Thiago Almada","Giuliano Simeone","Nicolas Paz","Lautaro Martinez","Jose Manuel Lopez"],
+  Algeria:["Oussama Benbot","Melvin Masstil","Luca Zidane","Achraf Abada","Rayan Ait Nouri","Zinedine Belaid","Rafik Belghali","Ramy Bensebaini","Samir Chergui","Jaouen Hadjam","Aissa Mandi","Mohamed Amine Tougai","Houssem Aouar","Nabil Bentaleb","Hicham Boudaoui","Fares Chaibi","Ibrahim Maza","Yassine Titraoui","Ramiz Zerrouki","Mohamed Amine Amoura","Nadir Benbouali","Adil Boulbina","Fares Ghedjemis","Amine Gouiri","Riyad Mahrez","Anis Hadj Moussa"],
+  Austria:["Patrick Pentz","Alexander Schlager","Florian Wiegele","David Affengruber","David Alaba","Kevin Danso","Marco Friedl","Philipp Lienhart","Phillipp Mwene","Stefan Posch","Alexander Prass","Michael Svoboda","Christoph Baumgartner","Carney Chukwuemeka","Florian Grillitsch","Konrad Laimer","Marcel Sabitzer","Xaver Schlager","Romano Schmid","Alessandro Schopf","Nicolas Seiwald","Paul Wanner","Patrick Wimmer","Marko Arnautovic","Michael Gregoritsch","Sasa Kalajdzic"],
+  Jordan:["Yazid Abulaila","Noor Bani Attiah","Abdallah Al Fakhouri","Mohammad Abu Hashish","Abdullah Nasib","Hussam Abu Dhahab","Yazan Al Arab","Mohammad Abu Alnadi","Salem Obaid","Saed Al Rosan","Ehsan Haddad","Anas Badawi","Amer Jamous","Noor Al Rawabdeh","Rajaei Ayed","Ibrahim Sadeh","Mohannad Abu Taha","Nizar Al Rashdan","Mohammad Al Dawoud","Mahmoud Mardahi","Mohammad Abu Zraiq","Ali Olwan","Mousa Al Tamari","Odeh Fakhoury","Ibrahim Sabra","Ali Azaizeh"],
+  Portugal:["Diogo Costa","Jose Sa","Rui Patricio","Joao Cancelo","Ruben Dias","William Carvalho","Pepe","Nuno Mendes","Diogo Dalot","Antonio Silva","Bernardo Silva","Joao Palhinha","Bruno Fernandes","Vitinha","Joao Neves","Ruben Neves","Rafael Leao","Cristiano Ronaldo","Goncalo Ramos","Diogo Jota","Pedro Neto","Joao Felix","Francisco Conceicao","Chiquinho","Andre Silva","Renato Sanches"],
+  "DR Congo":["Matthieu Epolo","Timothy Fayulu","Lionel Mpasi","Dylan Batubinsika","Gedeon Kalulu","Steve Kapuadi","Joris Kayembe","Arthur Masuaku","Chancel Mbemba","Axel Tuanzebe","Aaron Wan-Bissaka","Brian Cipenga","Meshack Elia","Gael Kakuta","Edo Kayembe","Nathanael Mbuku","Samuel Moutoussamy","Ngal'ayel Mukau","Charles Pickel","Noah Sadiki","Aaron Tshibola","Cedric Bakambu","Simon Banza","Fiston Mayele","Yoane Wissa","Theo Bongonda"],
+  Uzbekistan:["Utkir Yusupov","Otabek Shukurov","Eldor Shomurodov","Jasurbek Yakhshiboev","Sherzod Nasrullayev","Azizbek Turgunboev","Khojiakbar Alijonov","Ibrohim Rabimov","Abbosbek Fayzullayev","Otabek Norqoziev","Jamshid Iskanderov","Shamsiddin Shokirjonov","Behruz Abdullayev","Ruslan Nishonov","Islom Tuygunov","Doniyor Tursunov","Zafarjon Tursunov","Khayrulla Ismoilov","Farrukhjon Tashkentov","Bobur Abdixoliqov","Nodir Nishonov","Jakhongir Sidikov","Khusan Khudoyberdiyev","Dostonbek Khamdamov","Jasur Yaxshibayev","Ravshan Akramov"],
+  Colombia:["Camilo Vargas","Alvaro Montero","David Ospina","Davinson Sanchez","Jhon Lucumi","Yerry Mina","Willer Ditta","Daniel Munoz","Santiago Arias","Johan Mojica","Deiver Machado","Richard Rios","Jefferson Lerma","Kevin Castano","Juan Camilo Portilla","Gustavo Puerta","Jhon Arias","Jorge Carrascal","Juan Fernando Quintero","James Rodriguez","Jaminton Campaz","Juan Camilo Hernandez","Luis Diaz","Carlos Gomez","Jhon Cordoba","Luis Suarez Charris"],
+  England:["Jordan Pickford","Dean Henderson","James Trafford","Reece James","Ezri Konsa","Jarell Quansah","John Stones","Marc Guehi","Dan Burn","Nico O'Reilly","Djed Spence","Tino Livramento","Declan Rice","Elliot Anderson","Kobbie Mainoo","Jordan Henderson","Morgan Rogers","Jude Bellingham","Eberechi Eze","Harry Kane","Ivan Toney","Ollie Watkins","Bukayo Saka","Marcus Rashford","Anthony Gordon","Noni Madueke"],
+  Croatia:["Dominik Livakovic","Dominik Kotarski","Ivor Pandur","Josko Gvardiol","Duje Caleta-Car","Josip Sutalo","Josip Stanisic","Marin Pongracic","Martin Erlic","Luka Vuskovic","Luka Modric","Mateo Kovacic","Mario Pasalic","Nikola Vlasic","Luka Sucic","Martin Baturina","Kristijan Jakic","Petar Sucic","Nikola Moro","Toni Fruk","Ivan Perisic","Andrej Kramaric","Ante Budimir","Marco Pasalic","Petar Musa","Igor Matanovic"],
+  Ghana:["Joseph Anang","Benjamin Asare","Lawrence Ati-Zigi","Jonas Adjetey","Derrick Luckassen","Gideon Mensah","Abdul Mumin","Jerome Opoku","Kojo Oppong Preprah","Baba Abdul Rahman","Alidu Seidu","Marvin Senaya","Augustine Boakye","Abdul Fatawu Issahaku","Elisha Owusu","Thomas Partey","Kwasi Sibo","Kamal Deen Sulemana","Caleb Yirenkyi","Prince Kwabena Adu","Jordan Ayew","Christopher Bonsu Baah","Ernest Nuamah","Antoine Semenyo","Brandon Thomas-Asante","Inaki Williams"],
+  Panama:["Luis Mejia","Orlando Mosquera","Cesar Samudio","Jorge Gutierrez","Amir Murillo","Fidel Escobar","Andres Andrade","Edgardo Farina","Jose Cordoba","Eric Davis","Roderick Miller","Anibal Godoy","Adalberto Carrasquilla","Carlos Harvey","Cristian Martinez","Jose Luis Rodriguez","Yoel Barcenas","Alberto Quintero","Armando Cooper","Ismael Diaz","Fredrick Pinto","Harold Cummings","Cecilio Waterman","Gabriel Torres","Alberto Quintero Jr","David Gracia"],
 };
 
-/* ─── SCORE BANDS (Total goals) ─────────────────────────────── */
-const GOAL_BANDS = [
-  {id:"0",label:"0 Goals",short:"0",emoji:"🫙"},
-  {id:"1",label:"1 Goal",short:"1",emoji:"⚽"},
-  {id:"2",label:"2 Goals",short:"2",emoji:"⚽⚽"},
-  {id:"3",label:"3 Goals",short:"3",emoji:"🔥"},
-  {id:"4+",label:"4+ Goals",short:"4+",emoji:"💥"},
-];
-
-/* ─── PROP QUESTIONS ─────────────────────────────────────────── */
-const PROP_QUESTIONS = [
-  {id:"q0",label:"Which team will score the most goals in the tournament?",type:"team"},
-  {id:"q1",label:"Will there be a penalty shootout in the Final?",type:"yesno"},
-  {id:"q2",label:"Which team will have the most red cards in the tournament?",type:"team"},
-  {id:"q3",label:"Will defending champion Argentina reach the Semi Finals?",type:"yesno"},
-  {id:"q4",label:"Which country's player will win the Best Young Player award (born after Jan 1 2003)?",type:"team"},
-  {id:"q5",label:"Will the tournament produce more than 150 total goals?",type:"yesno"},
-];
-
-/* ─── PLAYER POOL (top players per nation) ───────────────────── */
-const PLAYERS = [
-  // Argentina
-  "Lionel Messi","Julian Alvarez","Lautaro Martinez","Angel Di Maria","Emiliano Martinez","Rodrigo De Paul","Enzo Fernandez","Alejandro Garnacho",
-  // France
-  "Kylian Mbappe","Antoine Griezmann","Ousmane Dembele","Marcus Thuram","Mike Maignan","Aurelien Tchouameni","Eduardo Camavinga","Randal Kolo Muani",
-  // Brazil
-  "Vinicius Junior","Rodrygo","Raphinha","Bruno Guimaraes","Alisson","Endrick","Lucas Paqueta","Gabriel Martinelli",
-  // England
-  "Jude Bellingham","Harry Kane","Phil Foden","Bukayo Saka","Jordan Pickford","Cole Palmer","Declan Rice","Marcus Rashford",
-  // Spain
-  "Pedri","Lamine Yamal","Alvaro Morata","Rodri","Unai Simon","Dani Olmo","Nico Williams","Mikel Merino",
-  // Portugal
-  "Cristiano Ronaldo","Bruno Fernandes","Bernardo Silva","Ruben Dias","Diogo Costa","Rafael Leao","Vitinha","Goncalo Ramos",
-  // Germany
-  "Florian Wirtz","Jamal Musiala","Thomas Muller","Kai Havertz","Manuel Neuer","Leroy Sane","Toni Kroos","Niclas Fullkrug",
-  // Netherlands
-  "Virgil van Dijk","Cody Gakpo","Memphis Depay","Frenkie de Jong","Bart Verbruggen","Xavi Simons","Tijjani Reijnders","Wout Weghorst",
-  // Belgium
-  "Kevin De Bruyne","Romelu Lukaku","Yannick Carrasco","Axel Witsel","Thibaut Courtois","Dodi Lukebakio","Leandro Trossard","Arthur Theate",
-  // Croatia
-  "Luka Modric","Ivan Perisic","Mateo Kovacic","Andrej Kramaric","Dominik Livakovic","Bruno Petkovic","Lovro Majer","Josip Sutalo",
-  // Uruguay
-  "Darwin Nunez","Federico Valverde","Luis Suarez","Ronald Araujo","Sergio Rochet","Facundo Pellistri","Manuel Ugarte","Maxi Gomez",
-  // Denmark
-  "Christian Eriksen","Rasmus Hojlund","Pierre-Emile Hojbjerg","Simon Kjaer","Kasper Schmeichel","Alexander Bah","Joakim Maehle","Morten Hjulmand",
-  // USA
-  "Christian Pulisic","Tyler Adams","Weston McKennie","Gio Reyna","Matt Turner","Ricardo Pepi","Folarin Balogun","Yunus Musah",
-  // Morocco
-  "Hakim Ziyech","Achraf Hakimi","Youssef En-Nesyri","Sofyan Amrabat","Yassine Bounou","Azzedine Ounahi","Selim Amallah","Abde Ezzalzouli",
-  // Japan
-  "Takumi Minamino","Wataru Endo","Daichi Kamada","Ritsu Doan","Shuichi Gonda","Kaoru Mitoma","Junya Ito","Ayase Ueda",
-  // South Korea
-  "Son Heung-min","Lee Kang-in","Kim Min-jae","Hwang Hee-chan","Jo Hyeon-woo","Cho Gue-sung","Oh Hyeon-gyu","Paik Seung-ho",
-  // Mexico
-  "Hirving Lozano","Edson Alvarez","Raul Jimenez","Andres Guardado","Guillermo Ochoa","Santiago Gimenez","Alexis Vega","Roberto Alvarado",
-  // Canada
-  "Alphonso Davies","Jonathan David","Cyle Larin","Atiba Hutchinson","Milan Borjan","Tajon Buchanan","Alistair Johnston","Liam Millar",
-  // Senegal
-  "Sadio Mane","Kalidou Koulibaly","Ismaila Sarr","Idrissa Gueye","Edouard Mendy","Boulaye Dia","Pape Matar Sarr","Iliman Ndiaye",
-  // Australia
-  "Mathew Leckie","Aaron Mooy","Mitchell Duke","Mat Ryan","Harry Souttar","Craig Goodwin","Cameron Devlin","Keanu Baccus",
-  // Serbia
-  "Aleksandar Mitrovic","Dusan Vlahovic","Sergej Milinkovic-Savic","Nemanja Matic","Predrag Rajkovic","Filip Kostic","Lazar Samardzic","Andrija Zivkovic",
-  // Poland
-  "Robert Lewandowski","Piotr Zielinski","Arkadiusz Milik","Grzegorz Krychowiak","Wojciech Szczesny","Kamil Grosicki","Sebastian Szymanski","Nicola Zalewski",
-  // Ecuador
-  "Enner Valencia","Moises Caicedo","Jeremy Sarmiento","Piero Hincapie","Hernan Galindez","Angelo Preciado","Pervis Estupinan","Gonzalo Plata",
-  // Ghana
-  "Andre Ayew","Jordan Ayew","Mohammed Kudus","Thomas Partey","Lawrence Ati-Zigi","Tariq Lamptey","Kamaldeen Sulemana","Antoine Semenyo",
-  // Switzerland
-  "Granit Xhaka","Xherdan Shaqiri","Breel Embolo","Yann Sommer","Nico Elvedi","Remo Freuler","Ruben Vargas","Fabian Rieder",
-  // Qatar
-  "Akram Afif","Hassan Al-Haydos","Almoez Ali","Meshaal Barsham","Pedro Miguel","Mohammed Muntari","Bassam Al-Rawi","Ismail Mohamad",
-].sort();
-
-/* ─── GOALKEEPERS (for Golden Glove award) ───────────────────── */
+const PLAYERS = Object.values(SQUADS).flat().filter((p,i,a)=>a.indexOf(p)===i).sort();
 const GOALKEEPERS = [
-  "Emiliano Martinez (Argentina)",
-  "Alisson (Brazil)",
-  "Jordan Pickford (England)",
-  "Unai Simon (Spain)",
-  "Diogo Costa (Portugal)",
-  "Manuel Neuer (Germany)",
-  "Bart Verbruggen (Netherlands)",
-  "Thibaut Courtois (Belgium)",
-  "Dominik Livakovic (Croatia)",
-  "Sergio Rochet (Uruguay)",
-  "Kasper Schmeichel (Denmark)",
-  "Yann Sommer (Switzerland)",
-  "Matt Turner (USA)",
-  "Yassine Bounou (Morocco)",
-  "Shuichi Gonda (Japan)",
-  "Jo Hyeon-woo (South Korea)",
-  "Guillermo Ochoa (Mexico)",
-  "Milan Borjan (Canada)",
-  "Edouard Mendy (Senegal)",
-  "Mat Ryan (Australia)",
-  "Predrag Rajkovic (Serbia)",
-  "Wojciech Szczesny (Poland)",
-  "Hernan Galindez (Ecuador)",
-  "Lawrence Ati-Zigi (Ghana)",
-  "Mike Maignan (France)",
-  "Meshaal Barsham (Qatar)",
-].sort();
-
-const PFX = "fifa26_";
-const SHARED_PFX = "ipl26_"; // shared passwords and tokens
-const SUPER_ADMIN = "akashkotak@gmail.com";
-const CHAT_MAX = 400;
-const CHAT_CAP = 500;
-const NR = "NO_RESULT";
-
-const PTS = {
-  win: 20, motm: 30, goals: 10, streak: 15,
-  bonus: 15, season: 200, top4: 50, woodenSpoon: 50, goldenBoot: 100, goldenGlove: 75,
-};
-
-const TRASH_TALK = [
-  (perfs,zeros,lone,mn)=>`⚽ ${mn} FULL TIME!\n${perfs.length?`🎯 ${perfs.join(" & ")} nailed all 3! Class.`:"Nobody got a perfect. The beautiful game humbled us all. 💀"}\n${zeros.length?`😅 Moment of silence for ${zeros.join(", ")} — 0 from 3.`:""}\n${lone?`🐉 Lone wolf: ${lone} was the only one who called it. Respect.`:""}`,
-  (perfs,zeros,lone,mn)=>`🏟 ${mn} DONE!\n${perfs.length?`🏆 Perfect picks: ${perfs.join(", ")}. Someone's been watching the group stage properly.`:"Not a single perfect pick. Football remains delightfully unpredictable."}\n${zeros.length?`🪦 Pour one out for ${zeros.join(", ")} (0/3). The ref wasn't the only one having a bad day.`:""}\n${lone?`🐉 ${lone} backed the winner alone. Absolute scenes.`:""}`,
-  (perfs,zeros,lone,mn)=>`⚡ ${mn} FINAL WHISTLE!\n${perfs.length?`🎯 PERFECTS: ${perfs.join(", ")} — read the game perfectly!`:"Nobody called it perfectly. VAR couldn't save your predictions either."}\n${zeros.length?`💀 Complete whitewash for ${zeros.join(", ")}. Didn't get a single one.`:""}\n${lone?`🔮 Only ${lone} predicted the winner. Fortune favours the bold.`:""}`,
+  "Alisson","Ederson","Weverton","Yassine Bounou","Munir Mohamedi","Ahmed Reda Tagnaouti",
+  "Jordan Pickford","Dean Henderson","James Trafford","Mike Maignan","Robin Risser","Brice Samba",
+  "Manuel Neuer","Oliver Baumann","Alexander Nuebel","Thibaut Courtois","Senne Lammens","Mike Penders",
+  "Emiliano Martinez","Geronimo Rulli","Juan Musso","Diogo Costa","Jose Sa","Rui Patricio",
+  "Fernando Muslera","Sebastian Sosa","Sergio Rochet","Dayne St Clair","Maxime Crepeau","Owen Goodman",
+  "Mathew Ryan","Paul Izzo","Patrick Beach","David Raya","Alex Remiro","Unai Simon",
+  "Angus Gunn","Craig Gordon","Liam Kelly","Kim Seung-Gyu","Jo Hyeon-woo","Song Bum-keun",
+  "Orjan Nyland","Pal Hafstad","Ole Selvik","Matej Kovar","Jindrich Stanek","Lukas Hornicek",
+  "Mohammed Al-Owais","Nawaf Al-Aqidi","Ahmed Al-Kassar","Guillermo Ochoa","Raul Rangel","Carlos Acevedo",
+  "Ronwen Williams","Ricardo Goss","Sipho Chaine","Mark Flekken","Robin Roefs","Bart Verbruggen",
+  "Tomoki Hayakawa","Keisuke Osako","Zion Suzuki","Alireza Beiranvand","Seyed Hossein Hosseini","Payam Niazmand",
+  "Max Crocombe","Alex Paulsen","Michael Woud","Ugurcan Cakir","Altay Bayindir","Mert Gunok",
+  "Eloy Room","Trevor Doornbusch","Tyrick Bodack","Yahia Fofana","Mohamed Kone","Alban Lafont",
+  "Camilo Vargas","Alvaro Montero","David Ospina","Matthieu Epolo","Timothy Fayulu","Lionel Mpasi",
+  "Matt Turner","Chris Brady","Matt Freese","Edouard Mendy","Alfred Gomis","Seny Dieng",
+  "Fahad Talib","Jalal Hassan","Ahmed Basil","Johny Placide","Alexandre Pierre","Josue Duverger",
+  "Dominik Livakovic","Dominik Kotarski","Ivor Pandur","Joseph Anang","Benjamin Asare","Lawrence Ati-Zigi",
+  "Nikola Vasilj","Martin Zlomislic","Osman Hadzikic","Mohamed El Shenawy","Mostafa Shobeir","Mohamed Alaa",
+  "Aymen Dahmen","Bechir Ben Said","Mouez Hassen","Hernan Galindez","Moises Ramirez","Gonzalo Valle",
+  "Utkir Yusupov","Otabek Shukurov","Marvin Keller","Gregor Kobel","Yvon Mvogo",
+  "Meshaal Barsham","Yousef Hassan","Mohammed Al-Bakri","CJ dos Santos","Marcio Rosa","Vozinha",
+  "Viktor Johansson","Kristoffer Nordfeldt","Jacob Widell Zetterström","Luis Mejia","Orlando Mosquera","Cesar Samudio",
+  "Anthony Silva","Alfredo Aguilar","Roberto Fernandez",
 ];
-
-/* ─── UTILS ─────────────────────────────────────────────────── */
-const encodeEmail = e => (e||"").trim().toLowerCase().replace(/\./g,"_dot_").replace(/@/g,"_at_");
-const ek = encodeEmail;
-const normalizeEmail = e => (e||"").trim().toLowerCase();
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const isNR = v => !v || v === NR;
-const isTBD = m => (m.home||"").startsWith("TBD") || (m.away||"").startsWith("TBD");
-
-function validateEmail(e){if(!e?.trim())return"Email is required";if(!EMAIL_RE.test(e.trim()))return"Enter a valid email";return"";}
-function validatePassword(p,mode="login"){if(!p)return"Password is required";if(mode==="register"){if(p.length<8)return"Min 8 characters";if(!/[A-Z]/.test(p))return"Add an uppercase letter";if(!/[0-9]/.test(p))return"Add a number";if(!/[^A-Za-z0-9]/.test(p))return"Add a special character";}return"";}
-function validateName(n){if(!n||n.trim().length<2)return"Name must be at least 2 characters";return"";}
-async function sha256(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
-const capChat = arr => arr.length>CHAT_CAP?arr.slice(arr.length-CHAT_CAP):arr;
-
-function parseMatchDate(date,time){try{const t=(time||"00:00").trim(),p=t.length===4?"0"+t:t;const d=new Date(date+"T"+p+":00-05:00");return isNaN(d.getTime())?null:d;}catch{return null;}}
-const cutoff = m => {const d=parseMatchDate(m.date,m.time);return d?new Date(d-35*60*1000):new Date(0);};
-const isMatchLocked = (m,lm={}) => {if(m.result)return true;const st=lm[m.id]??lm[String(m.id)];if(st==="unlocked")return false;if(st==="locked")return true;return new Date()>=cutoff(m);};
-const isToday = m => m.date===new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
-
-const motmMatch = (a,b) => {
-  if(!a||!b||isNR(a)||isNR(b)) return false;
-  const na=a.trim().toLowerCase(),nb=b.trim().toLowerCase();
-  return na===nb||na.endsWith(" "+nb)||nb.endsWith(" "+na)||na.includes(nb)||nb.includes(na);
-};
-
-/* ─── FIREBASE ──────────────────────────────────────────────── */
-const firebaseConfig = {
-  apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",
-  authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",
-  databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",
-  projectId:"ipl2026-fantasy-20c9b",
-  storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",
-  messagingSenderId:"973930153403",
-  appId:"1:973930153403:web:872ce26072b07e1adf309e"
-};
-
-const firebaseReady = (async()=>{
-  const [app,db] = await Promise.all([
-    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
-    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"),
-  ]);
-  const _app = app.getApps().length ? app.getApp() : app.initializeApp(firebaseConfig);
-  return {db:db.getDatabase(_app),dbMod:db};
-})();
-
-const DB = {
-  get: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,PFX+k));return s.exists()?s.val():null;}catch(e){console.error("DB.get",k,e);return null;}},
-  set: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,PFX+k));else await dbMod.set(dbMod.ref(db,PFX+k),v);}catch(e){console.error("DB.set",k,e);}},
-  // Shared password/token paths use ipl26_ prefix
-  getPw: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"pw_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
-  setPw: async(k,v) => {try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,SHARED_PFX+"pw_"+k),v);}catch(e){console.error("DB.setPw",e);}},
-  getToken: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"token_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
-  setToken: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,SHARED_PFX+"token_"+k));else await dbMod.set(dbMod.ref(db,SHARED_PFX+"token_"+k),v);}catch(e){console.error("DB.setToken",e);}},
-  setUserPick: async(userKey,matchId,pick) => {
-    try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,PFX+"ap/"+userKey+"/"+String(matchId)),pick);return true;}catch(e){console.error("DB.setUserPick",e);return false;}
-  },
-};
 
 /* ─── SCORING ────────────────────────────────────────────────── */
 function calcScore(uPicks,ms,dbl=null){
@@ -581,7 +485,10 @@ function useCd(ts){
 function MotmDropdown({team1,team2,value,onChange}){
   const[open,setOpen]=useState(false);
   const ref=useRef();
-  const players=PLAYERS.filter(p=>p);
+  // If both teams provided, show only those squads; otherwise show all players
+  const players=(team1&&team2&&SQUADS[team1]&&SQUADS[team2])
+    ?[...(SQUADS[team1]||[]).map(p=>({p,t:team1})),...(SQUADS[team2]||[]).map(p=>({p,t:team2}))]
+    :PLAYERS.map(p=>({p,t:""}));
   useEffect(()=>{
     const close=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
     document.addEventListener("mousedown",close);
@@ -595,11 +502,12 @@ function MotmDropdown({team1,team2,value,onChange}){
       </button>
       {open&&(
         <div className="dd-list">
-          {players.map(p=>(
-            <div key={p} className={"dd-item"+(value===p?" sel":"")}
+          {players.map(({p,t})=>(
+            <div key={p+t} className={"dd-item"+(value===p?" sel":"")}
               onMouseDown={e=>{e.preventDefault();onChange(p);setOpen(false);}}>
-              <span style={{fontSize:16}}>👤</span>
+              {t&&TEAM_COLORS[t]&&<div style={{width:8,height:8,borderRadius:"50%",background:TEAM_COLORS[t].bg,flexShrink:0}}/>}
               <span style={{flex:1,color:value===p?"#004B87":"#475569",fontWeight:value===p?600:400}}>{p}</span>
+              {t&&<span style={{fontSize:9,background:TEAM_COLORS[t]?.bg||"#ccc",color:TEAM_COLORS[t]?.dk||"#fff",padding:"1px 5px",borderRadius:4}}>{t}</span>}
             </div>
           ))}
         </div>
@@ -1269,19 +1177,31 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   useEffect(()=>{reloadShared();},[reloadShared]);
   useEffect(()=>{if(["home","lb","picks","chat","wof","adm","rules"].includes(sc))reloadShared();},[sc]);// eslint-disable-line
 
-  // Auto-approve IPL users in FIFA
+  // Sync ALL approved cricket users into FIFA users on login
   useEffect(()=>{
     if(!email||!user)return;
-    const checkAutoApprove=async()=>{
-      const existing=await DB.get("u")||{};
-      const emk=ek(email);
-      if(!existing[email]&&!existing[emk]){
-        const entry={email,name:user.name,joined:new Date().toISOString(),approved:true,autoApproved:true};
-        await DB.set("u",{...existing,[email]:entry});
-        setUsers(prev=>({...prev,[emk]:entry}));
+    const syncCricketUsers=async()=>{
+      // Read cricket users (ipl26_u)
+      const iplUsers=await DB.getIpl("u")||{};
+      const fifaUsers=await DB.get("u")||{};
+      let changed=false;
+      const updated={...fifaUsers};
+      Object.values(iplUsers).forEach(u=>{
+        if(!u?.email||u.approved===false)return;
+        const emk=ek(u.email);
+        // Add to FIFA if not already there
+        if(!updated[u.email]&&!updated[emk]){
+          updated[u.email]={email:u.email,name:u.name,joined:u.joined||new Date().toISOString(),approved:true,autoApproved:true};
+          changed=true;
+        }
+      });
+      if(changed){
+        await DB.set("u",updated);
+        const nu={};Object.keys(updated).forEach(k=>{const e=updated[k];if(e?.email)nu[ek(e.email)]=e;});
+        setUsers(nu);
       }
     };
-    checkAutoApprove();
+    syncCricketUsers();
   },[email,user]);// eslint-disable-line
 
   useEffect(()=>{
@@ -1309,7 +1229,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   useEffect(()=>{
     if(justOnboarded.current)return;
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
-    else if(hasOnboarded&&!hasPropBets&&sc==="home"&&email!==SUPER_ADMIN)setSc("propbets");
+    // prop bets handled inside onboarding step 3
   },[hasOnboarded,hasPropBets,sc,email]);// eslint-disable-line
 
   /* ─── Computed ─────────────────────────────────────────────── */
@@ -1449,6 +1369,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2)]);
     await DB.set("propbets/"+myEk,obProps);
     setMyPropBets(obProps);
+    setAllPropBets(prev=>({...prev,[myEk]:obProps}));
     justOnboarded.current=true;
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
   }
