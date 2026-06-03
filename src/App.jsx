@@ -574,6 +574,9 @@ body{background:#F4F6FB;}
 .bq-btn.no.on{border-color:#dc2626;background:#fef2f2;color:#dc2626;}
 .reveal-overlay{position:fixed;inset:0;background:rgba(10,20,60,.96);z-index:300;display:flex;flex-direction:column;width:100%;max-width:100vw;left:0;transform:none;overflow-y:auto;}
 `;
+const FSP_LOGO_LG = "/fsp_logo.png";
+const FSP_LOGO_MD = "/fsp_logo.png";
+const FSP_LOGO_SM = "/fsp_logo.png";
 
 /* --- SUB-COMPONENTS --- */
 function TLogo({t,sz=48}){const c=TC[t]||{bg:"#94a3b8",dk:"#fff"};return<div style={{width:sz,height:sz,borderRadius:8,background:c.bg,color:c.dk,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:sz*.32,flexShrink:0,letterSpacing:.5,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>{(t||"?").slice(0,3).toUpperCase()}</div>;}
