@@ -1304,10 +1304,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Onboarding check ─────────────────────────────────────── */
   const hasOnboarded=!!(spk[myEk]);
-  const hasPropBets=PROP_QUESTIONS.every((q,i)=>myPropBets?.[`q${i}`]&&myPropBets[`q${i}`]!=="");
+  const hasPropBets=justOnboarded.current||PROP_QUESTIONS.every((q,i)=>myPropBets?.[`q${i}`]&&myPropBets[`q${i}`]!=="");
 
   useEffect(()=>{
-    if(justOnboarded.current){justOnboarded.current=false;return;}
+    if(justOnboarded.current)return;
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
     else if(hasOnboarded&&!hasPropBets&&sc==="home"&&email!==SUPER_ADMIN)setSc("propbets");
   },[hasOnboarded,hasPropBets,sc,email]);// eslint-disable-line
