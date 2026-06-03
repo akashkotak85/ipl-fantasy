@@ -318,6 +318,37 @@ function FspLogo({size=80,style={}}){
 const PFX = "fifa26_";
 const SHARED_PFX = "ipl26_";
 const SUPER_ADMIN = "akashkotak@gmail.com";
+
+const GOAL_BANDS = [
+  {id:"0",label:"0 Goals",short:"0",emoji:"🫙"},
+  {id:"1",label:"1 Goal",short:"1",emoji:"⚽"},
+  {id:"2",label:"2 Goals",short:"2",emoji:"⚽⚽"},
+  {id:"3",label:"3 Goals",short:"3",emoji:"🔥"},
+  {id:"4+",label:"4+ Goals",short:"4+",emoji:"💥"},
+];
+
+const BONUS_QUESTIONS = {
+  1:"Will the match produce 3+ goals total?",
+  2:"Will there be a red card in this match?",
+  3:"Will the first goal come in the first 15 minutes?",
+  4:"Will the match be decided by a penalty shootout?",
+  5:"Will the winning team keep a clean sheet?",
+  6:"Will the MOTM be a defender or goalkeeper?",
+  7:"Will there be a hat-trick in this match?",
+  8:"Will the match end in a draw?",
+  9:"Will there be 2+ goals in the second half?",
+  10:"Will the toss of the coin (kick-off choice) team win?",
+};
+
+const PROP_QUESTIONS = [
+  {id:"q0",label:"Who will win the FIFA World Cup 2026?",type:"team"},
+  {id:"q1",label:"Which team will finish in 2nd place (runners-up)?",type:"team"},
+  {id:"q2",label:"Which team will finish in 3rd place?",type:"team"},
+  {id:"q3",label:"Which team will finish in 4th place?",type:"team"},
+  {id:"q4",label:"Which team will be the Wooden Spoon (worst group stage exit)?",type:"team"},
+  {id:"q5",label:"Will there be a VAR controversy in the Final?",type:"yesno"},
+];
+
 const CHAT_MAX = 400;
 const CHAT_CAP = 500;
 const NR = "NO_RESULT";
