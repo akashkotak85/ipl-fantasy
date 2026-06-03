@@ -122,7 +122,7 @@ export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, o
       <style>{CSS}</style>
       <StarField />
 
-      <div className="ss-trophy">🏆</div>
+      <div style={{width:64,height:64,borderRadius:14,background:"linear-gradient(135deg,#FFE57F,#F0C040)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8,boxShadow:"0 6px 20px rgba(255,215,0,.25)"}}><p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:26,color:"#0f2456",margin:0,letterSpacing:1}}>FSP</p></div>
       <p className="ss-title">Fantasy Sports Predictor</p>
       <p className="ss-subtitle">Choose Your</p>
       <p className="ss-subtitle2">Sport</p>
