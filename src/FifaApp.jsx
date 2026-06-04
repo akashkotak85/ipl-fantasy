@@ -503,16 +503,18 @@ const firebaseReady = (async()=>{
 })();
 
 const DB = {
-  get: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,PFX+k));return s.exists()?s.val():null;}catch(e){console.error("DB.get",k,e);return null;}},
-  set: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,PFX+k));else await dbMod.set(dbMod.ref(db,PFX+k),v);}catch(e){console.error("DB.set",k,e);}},
-  getPw: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"pw_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
-  setPw: async(k,v) => {try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,SHARED_PFX+"pw_"+k),v);}catch(e){console.error("DB.setPw",e);}},
-  getToken: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"token_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
-  setToken: async(k,v) => {try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,SHARED_PFX+"token_"+k));else await dbMod.set(dbMod.ref(db,SHARED_PFX+"token_"+k),v);}catch(e){console.error("DB.setToken",e);}},
-  setUserPick: async(userKey,matchId,pick) => {
+  // FIFA game data — uses fifa26_ prefix in the shared IPL database
+  get: async k=>{try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,PFX+k));return s.exists()?s.val():null;}catch(e){console.error("DB.get",k,e);return null;}},
+  set: async(k,v)=>{try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,PFX+k));else await dbMod.set(dbMod.ref(db,PFX+k),v);}catch(e){console.error("DB.set",k,e);}},
+  setUserPick: async(userKey,matchId,pick)=>{
     try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,PFX+"ap/"+userKey+"/"+String(matchId)),pick);return true;}catch(e){console.error("DB.setUserPick",e);return false;}
   },
-  getIpl: async k => {try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+k));return s.exists()?s.val():null;}catch(e){return null;}},
+  // Shared user/auth data — uses ipl26_ prefix (same accounts across both apps)
+  getPw: async k=>{try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"pw_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
+  setPw: async(k,v)=>{try{const{db,dbMod}=await firebaseReady;await dbMod.set(dbMod.ref(db,SHARED_PFX+"pw_"+k),v);}catch(e){console.error("DB.setPw",e);}},
+  getToken: async k=>{try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+"token_"+k));return s.exists()?s.val():null;}catch(e){return null;}},
+  setToken: async(k,v)=>{try{const{db,dbMod}=await firebaseReady;if(v==null)await dbMod.remove(dbMod.ref(db,SHARED_PFX+"token_"+k));else await dbMod.set(dbMod.ref(db,SHARED_PFX+"token_"+k),v);}catch(e){console.error("DB.setToken",e);}},
+  getIpl: async k=>{try{const{db,dbMod}=await firebaseReady;const s=await dbMod.get(dbMod.ref(db,SHARED_PFX+k));return s.exists()?s.val():null;}catch(e){return null;}},
 };
 
 /* ─── SCORING ────────────────────────────────────────────────── */
