@@ -1,7 +1,7 @@
 /*
   SportSelector.jsx
   Shown after login — user picks Cricket or Football.
-  Admin can toggle sport visibility via ipl26_sports in Firebase.
+  Admin accesses the unified Admin Hub from here.
 */
 import * as React from "react";
 import { useState, useEffect } from "react";
@@ -50,11 +50,6 @@ const CSS = `
 .ss-logout{margin-top:32px;background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);font-size:12px;font-family:'Barlow',sans-serif;font-weight:600;padding:8px 20px;border-radius:20px;cursor:pointer;letter-spacing:.5px;transition:all .2s;}
 .ss-logout:hover{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);}
 .ss-coming{position:absolute;top:12px;right:12px;background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.4);border-radius:8px;padding:3px 8px;font-size:9px;font-weight:700;color:#fde68a;letter-spacing:1px;text-transform:uppercase;}
-.ss-admin-row{display:flex;gap:8px;margin-top:16px;justify-content:center;flex-wrap:wrap;}
-.ss-admin-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);font-size:11px;font-family:'Barlow',sans-serif;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s;}
-.ss-admin-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
-.ss-admin-btn.on{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.4);color:#86efac;}
-.ss-admin-btn.off{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:#fca5a5;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .ss-cards{animation:fadeUp .5s ease forwards;}
 `;
@@ -104,9 +99,7 @@ function SportCard({ sport, config, onClick, disabled }) {
           <p className="ss-card-name">{isIPL ? "IPL 2026 & More" : "FIFA World Cup 2026 & More"}</p>
           <span className={`ss-card-badge ${config?.enabled ? "live" : "soon"}`}>
             {config?.enabled
-              ? isIPL
-                ? "🏏 Cricket"
-                : "⚽ Football"
+              ? isIPL ? "🏏 Cricket" : "⚽ Football"
               : "⏳ Coming Soon"}
           </span>
         </div>
@@ -150,98 +143,23 @@ export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, o
       </div>
 
       {isAdmin && (
-        <div style={{
-          marginTop: 24,
-          width: "100%",
-          maxWidth: 360,
-          background: "rgba(255,255,255,.05)",
-          border: "1px solid rgba(255,255,255,.1)",
-          borderRadius: 16,
-          padding: "14px 16px",
-        }}>
-          <p style={{
-            fontSize: 9,
-            fontFamily: "'Barlow Condensed',sans-serif",
+        <button
+          onClick={() => setShowAdmin(true)}
+          style={{
+            marginTop: 20,
+            padding: "10px 28px",
+            borderRadius: 20,
+            background: "rgba(197,160,40,.15)",
+            border: "1px solid rgba(197,160,40,.35)",
+            color: "#C5A028",
+            fontSize: 12,
+            fontFamily: "'Barlow',sans-serif",
             fontWeight: 700,
-            letterSpacing: 3,
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,.3)",
-            marginBottom: 12,
-            textAlign: "center",
+            cursor: "pointer",
+            letterSpacing: .5,
           }}>
-            Admin · Sport Visibility
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { key: "ipl", label: "Cricket", sub: "IPL 2026 & More", icon: "🏏", enabled: ipl },
-              { key: "fifa", label: "Football", sub: "FIFA World Cup 2026 & More", icon: "⚽", enabled: fifa },
-            ].map(({ key, label, sub, icon, enabled }) => (
-              <div key={key} style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: "rgba(255,255,255,.05)",
-                borderRadius: 12,
-                padding: "10px 14px",
-                border: "1px solid rgba(255,255,255,.08)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 22 }}>{icon}</span>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>{label}</p>
-                    <p style={{ fontSize: 10, color: "rgba(255,255,255,.4)", margin: 0 }}>{sub}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onToggleSport(key, !enabled)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    padding: "6px 14px",
-                    borderRadius: 20,
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 11,
-                    fontFamily: "'Barlow',sans-serif",
-                    fontWeight: 700,
-                    letterSpacing: 0.5,
-                    background: enabled ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.2)",
-                    color: enabled ? "#86efac" : "#fca5a5",
-                    transition: "all .2s",
-                  }}
-                >
-                  <span style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: enabled ? "#22c55e" : "#ef4444",
-                    display: "inline-block",
-                    flexShrink: 0,
-                  }}/>
-                  {enabled ? "ON" : "OFF"}
-                </button>
-              </div>
-            ))}
-          </div>
-          <p style={{
-            fontSize: 10,
-            color: "rgba(255,255,255,.25)",
-            textAlign: "center",
-            marginTop: 10,
-            fontStyle: "italic",
-          }}>
-            Both sports can be ON at the same time
-          </p>
-          <button
-            onClick={() => setShowAdmin(true)}
-            style={{width:"100%",marginTop:12,padding:"10px",borderRadius:12,
-              background:"rgba(197,160,40,.15)",border:"1px solid rgba(197,160,40,.3)",
-              color:"#C5A028",fontSize:12,fontFamily:"'Barlow',sans-serif",
-              fontWeight:700,cursor:"pointer",letterSpacing:.5}}>
-            🛠️ Admin Hub
-          </button>
-          </div>
+          🛠️ Admin Hub
+        </button>
       )}
 
       <button className="ss-logout" onClick={onLogout}>
