@@ -868,7 +868,138 @@ function FifaMatchIntel({m,allMs}){
   );
 }
 
-/* ─── INLINE REVEAL ───────────────────────────────────────────── */
+/* ─── LEADERBOARD CARD ───────────────────────────────────────── */
+function LbCard({u,i,isMe,sw,actualTop4,actualWs,actualGb,actualGg,actualGball,PTS,onboardSc}){
+  const[open,setOpen]=React.useState(false);
+  const hasSp=!!(u.userSp&&u.userSp!=="__skip__");
+  const hasT4=(u.userT4||[]).length>0;
+  const hasWs=!!u.userWs;
+  const hasGb=(u.userGb||[]).length>0;
+  const hasGg=(u.userGg||[]).length>0;
+  const hasGball=(u.userGball||[]).length>0;
+  const hasAny=hasSp||hasT4||hasWs||hasGb||hasGg||hasGball;
+  const canExpand=hasAny&&(hasGb||hasGg||hasGball||hasWs);
+
+  const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":null;
+  const cardBg=isMe?"linear-gradient(135deg,#EBF4FF,#E0EDFF)":"#fff";
+  const borderCol=isMe?"#004B8750":"#e8edf5";
+
+  // Points breakdown chips
+  const top4Correct=actualTop4.length>0?(u.userT4||[]).filter(t=>actualTop4.includes(t)).length:0;
+
+  return(
+    <div style={{background:cardBg,border:"1px solid "+borderCol,borderRadius:14,
+      marginBottom:10,overflow:"hidden",
+      boxShadow:isMe?"0 2px 12px #004B8720":"0 1px 4px #0000000A"}}>
+
+      {/* ── Main row ── */}
+      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+        {/* Rank */}
+        <div style={{width:30,textAlign:"center",flexShrink:0}}>
+          {medal
+            ?<span style={{fontSize:20}}>{medal}</span>
+            :<span style={{fontSize:12,fontWeight:700,color:"#94a3b8"}}>#{i+1}</span>}
+        </div>
+
+        {/* Avatar */}
+        <Av name={u.name} sz={36}/>
+
+        {/* Name + season summary */}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+            <span style={{fontWeight:700,fontSize:13,color:"#0a1628",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</span>
+            {isMe&&<span style={{fontSize:9,background:"#004B87",color:"#fff",borderRadius:10,padding:"1px 7px",flexShrink:0}}>YOU</span>}
+          </div>
+          {hasSp
+            ?<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:10,color:"#94a3b8"}}>🏆</span>
+                  <FlagBox team={u.userSp} sz={14}/>
+                  <span style={{fontSize:10,fontWeight:600,color:sw&&u.userSp===sw?"#15803d":"#1a2540"}}>
+                    {u.userSp.split(" ").slice(0,2).join(" ")}{sw&&u.userSp===sw?" ✅":""}
+                  </span>
+                </div>
+                {hasWs&&<>
+                  <span style={{color:"#d1d5db",fontSize:10}}>·</span>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:10,color:"#94a3b8"}}>🪵</span>
+                    <FlagBox team={u.userWs} sz={14}/>
+                    <span style={{fontSize:10,fontWeight:600,
+                      color:actualWs&&u.userWs===actualWs?"#15803d":actualWs?"#dc2626":"#1a2540"}}>
+                      {u.userWs.split(" ")[0]}{actualWs?(u.userWs===actualWs?" ✅":" ✗"):""}
+                    </span>
+                  </div>
+                </>}
+              </div>
+            :<span style={{fontSize:10,color:"#94a3b8"}}>
+                {isMe?"⏳ Set your picks in My Game →":"⏳ Picks not set yet"}
+              </span>}
+        </div>
+
+        {/* Points */}
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <p className="C" style={{fontSize:24,fontWeight:800,color:"#004B87",margin:0,lineHeight:1}}>{u.pts}</p>
+          <p style={{fontSize:9,color:"#94a3b8",margin:0,textTransform:"uppercase",letterSpacing:.5}}>pts</p>
+        </div>
+      </div>
+
+      {/* ── Top 4 bar (always visible when set) ── */}
+      {hasT4&&<div
+        onClick={()=>canExpand&&setOpen(o=>!o)}
+        style={{cursor:canExpand?"pointer":"default",padding:"8px 14px 10px",borderTop:"1px solid #f1f5f9",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+        <span style={{fontSize:9,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",flexShrink:0}}>Top 4</span>
+        {(u.userT4||[]).map(t=>{
+          const ok=actualTop4.length>0&&actualTop4.includes(t);
+          const bad=actualTop4.length>0&&!ok;
+          return<div key={t} style={{display:"flex",alignItems:"center",gap:3,
+            background:ok?"#EAF3DE":bad?"#FEF2F2":"#f1f5f9",
+            borderRadius:20,padding:"3px 8px 3px 4px",
+            border:"1px solid "+(ok?"#86EFAC":bad?"#FECACA":"#e2e8f0")}}>
+            <FlagBox team={t} sz={14}/>
+            <span style={{fontSize:9,fontWeight:600,color:ok?"#166534":bad?"#991B1B":"#475569"}}>
+              {t.length>8?t.split(" ")[0]:t}
+            </span>
+            {ok&&<span style={{fontSize:8}}>✅</span>}
+            {bad&&<span style={{fontSize:8}}>✗</span>}
+          </div>;
+        })}
+        {top4Correct>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{top4Correct*PTS.top4}pts</span>}
+        {canExpand&&<span style={{marginLeft:"auto",fontSize:11,color:"#94a3b8"}}>{open?"▲":"▼"}</span>}
+      </div>}
+
+      {/* ── Expanded: Boot / Glove / Ball ── */}
+      {open&&hasAny&&<div style={{padding:"0 14px 12px",borderTop:"1px solid #f1f5f9",display:"flex",flexDirection:"column",gap:6,paddingTop:8}}>
+        {hasGb&&<PlayerRow label="👟 Boot" items={u.userGb} winner={actualGb} pts={PTS.goldenBoot}/>}
+        {hasGg&&<PlayerRow label="🧤 Glove" items={u.userGg} winnerArr={actualGg} pts={PTS.goldenGlove}/>}
+        {hasGball&&<PlayerRow label="🏅 Ball" items={u.userGball} winner={actualGball} pts={PTS.goldenGlove}/>}
+      </div>}
+    </div>
+  );
+}
+
+function PlayerRow({label,items,winner,winnerArr,pts}){
+  const winners=winnerArr||[];
+  return(
+    <div style={{display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+      <span style={{fontSize:9,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",flexShrink:0,paddingTop:3,minWidth:52}}>{label}</span>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        {items.map(p=>{
+          const isW=winner?p===winner:winners.includes(p);
+          const isBad=(winner&&!isW)||(winnerArr&&winnerArr.length>0&&!isW);
+          return<span key={p} style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:isW?700:400,
+            background:isW?"#DCFCE7":isBad?"#FEF2F2":"#f8faff",
+            border:"1px solid "+(isW?"#86EFAC":isBad?"#FECACA":"#e2e8f0"),
+            color:isW?"#166534":isBad?"#991B1B":"#475569"}}>
+            {p.split(" ").slice(-1)[0]}{isW?" ✅":""}
+          </span>;
+        })}
+        {(winner||(winnerArr&&winnerArr.length>0))&&items.some(p=>winner?p===winner:winners.includes(p))&&
+          <span style={{fontSize:10,fontWeight:700,color:"#15803d",alignSelf:"center"}}>+{pts}pts</span>}
+      </div>
+    </div>
+  );
+}
+
 function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,goalBandAnswers,users}){
   const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
   const bonusAns=bonusAnswers?.[String(m.id)]??bonusAnswers?.[Number(m.id)];
@@ -1314,6 +1445,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[bc,setBc]=useState([]);const[bcMsg,setBcMsg]=useState("");
   const[pinnedBc,setPinnedBc]=useState(null);
   const[maintenance,setMaintenance]=useState(false);
+  const[loaded,setLoaded]=useState(false);
   const[manualPtsAdj,setManualPtsAdj]=useState({});
   const[pendingUsers,setPendingUsers]=useState({});
   const[toast,setToast]=useState(null);
@@ -1407,6 +1539,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(agg&&Array.isArray(agg))setActualGg(agg);
     if(agball)setActualGball(agball);
     setPinnedBc(pbc||null);
+    setLoaded(true);
   },[myEk]);
 
   useEffect(()=>{reloadShared();},[reloadShared]);
@@ -1460,9 +1593,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   /* ─── Onboarding check ─────────────────────────────────────── */
   const hasOnboarded=!!(spk[myEk]);
   useEffect(()=>{
+    if(!loaded)return;
     if(justOnboarded.current)return;
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
-  },[hasOnboarded,sc,email]);// eslint-disable-line
+  },[loaded,hasOnboarded,sc,email]);// eslint-disable-line
 
   /* ─── Computed ─────────────────────────────────────────────── */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
@@ -2148,90 +2282,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p>
         </div>
         {getLb().map((u,i)=>(
-          <div key={u.email} style={{background:u.email===email?"#E6F0FB":"#fff",border:"1px solid "+(u.email===email?"#004B8760":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:32,flexShrink:0}}>
-                <span style={{fontSize:i<3?18:13}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
-              </div>
-              <Av name={u.name} sz={30}/>
-              <div style={{flex:1,minWidth:0}}>
-                <p style={{color:"#0a1628",fontWeight:600,fontSize:13,margin:0}}>{u.name}{u.email===email?" (You)":""}</p>
-              </div>
-              <p className="C" style={{color:"#004B87",fontSize:22,margin:0,letterSpacing:1}}>{u.pts}</p>
-            </div>
-            {/* Season picks row */}
-            <div style={{display:"flex",gap:8,borderTop:"1px solid #f1f5f9",paddingTop:7,flexWrap:"wrap"}}>
-              <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
-                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>🏆</span>
-                {u.userSp&&u.userSp!=="__skip__"?<><FlagBox team={u.userSp} sz={16}/><span className="C" style={{fontSize:12,color:sw&&u.userSp===sw?"#15803d":"#004B87"}}>{u.userSp}{sw&&u.userSp===sw?" ✅":""}</span></>:<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0",flex:1,flexWrap:"wrap"}}>
-                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600,textTransform:"uppercase"}}>Top4:</span>
-                {(u.userT4||[]).length>0?(u.userT4||[]).map(t=>{
-                  const correct=actualTop4.length>0&&actualTop4.includes(t);
-                  const wrong=actualTop4.length>0&&!actualTop4.includes(t);
-                  return<div key={t} style={{display:"inline-flex",alignItems:"center",gap:2,background:correct?"#EAF3DE":wrong?"#FCEBEB":"#f1f5f9",borderRadius:6,padding:"1px 4px",border:"0.5px solid "+(correct?"#97C459":wrong?"#F09595":"#e2e8f0")}}><FlagBox team={t} sz={12}/><span style={{fontSize:9,fontWeight:700,color:correct?"#27500A":wrong?"#791F1F":"#475569"}}>{t}</span>{correct&&<span style={{fontSize:9}}>✅</span>}{wrong&&<span style={{fontSize:9}}>✗</span>}</div>;
-                }):<span style={{fontSize:11,color:"#94a3b8"}}>—</span>}
-                {actualTop4.length>0&&(u.userT4||[]).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:4}}>+{(u.userT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4}pts</span>}
-              </div>
-            </div>
-            {/* WS row */}
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🪵 Spoon:</span>
-              {u.userWs
-                ?<><FlagBox team={u.userWs} sz={14}/><span className="C" style={{fontSize:11,fontWeight:600,color:actualWs&&u.userWs===actualWs?"#15803d":actualWs?"#dc2626":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span>{actualWs&&u.userWs===actualWs&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.woodenSpoon}pts</span>}</>
-                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-            </div>
-            {/* GB row */}
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>👟 Boot:</span>
-              {(u.userGb||[]).length>0
-                ?(u.userGb||[]).map(p=>{
-                    const isWinner=actualGb&&p===actualGb;
-                    const isWrong=actualGb&&!isWinner;
-                    return<span key={p} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
-                      background:isWinner?"#f0fdf4":isWrong?"#fef2f2":"#f8faff",
-                      border:"1px solid "+(isWinner?"#bbf7d0":isWrong?"#fecaca":"#e2e8f0"),
-                      color:isWinner?"#15803d":isWrong?"#dc2626":"#475569"}}>
-                      {p.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
-                    </span>;
-                  })
-                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              {actualGb&&(u.userGb||[]).includes(actualGb)&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenBoot}pts</span>}
-            </div>
-            {/* GG row */}
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🧤 Glove:</span>
-              {(u.userGg||[]).length>0
-                ?(u.userGg||[]).map(g=>{
-                    const isWinner=actualGg.length>0&&actualGg.includes(g);
-                    return<span key={g} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
-                      background:isWinner?"#f0fdf4":actualGg.length>0?"#fef2f2":"#f8faff",
-                      border:"1px solid "+(isWinner?"#bbf7d0":actualGg.length>0?"#fecaca":"#e2e8f0"),
-                      color:isWinner?"#15803d":actualGg.length>0?"#dc2626":"#475569"}}>
-                      {g.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
-                    </span>;
-                  })
-                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              {actualGg.length>0&&(u.userGg||[]).filter(g=>actualGg.includes(g)).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenGlove}pts</span>}
-            </div>
-            {/* GBall row */}
-            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🏅 Ball:</span>
-              {(u.userGball||[]).length>0
-                ?(u.userGball||[]).map(p=>{
-                    const isWinner=actualGball&&p===actualGball;
-                    return<span key={p} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
-                      background:isWinner?"#f0fdf4":actualGball?"#f8faff":"#f8faff",
-                      border:"1px solid "+(isWinner?"#bbf7d0":"#e2e8f0"),
-                      color:isWinner?"#15803d":"#475569"}}>
-                      {p.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
-                    </span>;
-                  })
-                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              {actualGball&&(u.userGball||[]).includes(actualGball)&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenGlove}pts</span>}
-            </div>
-          </div>
+          <LbCard key={u.email} u={u} i={i} isMe={u.email===email}
+            sw={sw} actualTop4={actualTop4} actualWs={actualWs}
+            actualGb={actualGb} actualGg={actualGg} actualGball={actualGball}
+            PTS={PTS}/>
         ))}
         {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
       </div>}
