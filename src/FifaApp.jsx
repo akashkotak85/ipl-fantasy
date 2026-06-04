@@ -1446,6 +1446,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[pinnedBc,setPinnedBc]=useState(null);
   const[maintenance,setMaintenance]=useState(false);
   const[loaded,setLoaded]=useState(false);
+  const[readOnly,setReadOnly]=useState(false);
   const[manualPtsAdj,setManualPtsAdj]=useState({});
   const[pendingUsers,setPendingUsers]=useState({});
   const[toast,setToast]=useState(null);
@@ -1473,7 +1474,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Load shared data ─────────────────────────────────────── */
   const reloadShared=useCallback(async()=>{
-    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,at4,gball,aws,agb,agg,agball,pu,pbc]=await Promise.all([
+    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,at4,gball,aws,agb,agg,agball,pu,pbc,tStatus]=await Promise.all([
       DB.get("u"),DB.get("ap"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("t4"),DB.get("ws"),DB.get("gb"),DB.get("gg"),DB.get("sw"),
       DB.get("lockedm"),DB.get("rx"),DB.get("maintenance"),DB.get("ptsadj"),
@@ -1481,6 +1482,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       DB.get("bq"),DB.get("bonusans"),DB.get("goalbanans"),
       DB.get("actualtop4"),DB.get("gball"),
       DB.get("actualws"),DB.get("actualgb"),DB.get("actualgg"),DB.get("actualgball"),DB.get("pending"),DB.get("pinnedbc"),
+      DB.get("tourneystatus"),
     ]);
 
     if(u){const nu={};Object.keys(u).forEach(k=>{const e=u[k];if(e?.email)nu[ek(e.email)]=e;});setUsers(nu);}
@@ -1539,6 +1541,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(agg&&Array.isArray(agg))setActualGg(agg);
     if(agball)setActualGball(agball);
     setPinnedBc(pbc||null);
+    if(tStatus!=null)setReadOnly(tStatus==="finished");
     setLoaded(true);
   },[myEk]);
 
@@ -2130,6 +2133,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   return(
     <div className="fifa-app" style={{paddingBottom:68}}><style>{CSS}</style>
       {hdr}
+      {readOnly&&<div style={{background:"#7c3aed",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:16}}>🏁</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1}}>FIFA World Cup 2026 has ended — you're viewing historical data.</p></div>}
       {pinnedBc&&<div style={{background:"#004B87",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
 
       {/* Points quick ref */}
