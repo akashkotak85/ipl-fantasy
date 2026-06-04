@@ -4,8 +4,11 @@ import MatchIntelPanel from"./MatchIntelPanel.jsx";
 import StockMarket from"./StockMarket.jsx";
 import SportSelector from"./SportSelector.jsx";
 import FifaApp from"./FifaApp.jsx";
+import TournamentHistory from"./TournamentHistory.jsx";
+import CricketHub from"./CricketHub.jsx";
+import CareerStats from"./CareerStats.jsx";
 import { DB } from "./firebase.js";
-import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, TC, TF, TEAMS, BASE_MATCHES, BONUS_QUESTIONS, PROP_QUESTIONS, ALL_PLAYERS } from "./cricketData.js";
+import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, getLiveTournaments, getFinishedTournaments, TC as _TC, TF as _TF, TEAMS as _TEAMS, BASE_MATCHES as _BASE_MATCHES, BONUS_QUESTIONS as _BONUS_QUESTIONS, PROP_QUESTIONS as _PROP_QUESTIONS, ALL_PLAYERS as _ALL_PLAYERS } from "./cricketData.js";
 import { NR, CHAT_MAX, CHAT_CAP, ek, normalizeEmail, canonicalKey, normalizeKeyMap, normalizeAP, validateEmail, validatePassword, validateName, capChat, sha256, isNR, showVal, getP, getTeamForm, cutoff, isMatchLocked, isToday, isTBD, motmMatch, resolvePlayoffSlots, applyRmEntry, calcScore, calcBadges, calcBonusPts, calcScoreBandPts, calcPropPts } from "./cricketScoring.js";
 import { Av, Toggle, Tst, TLogo, FormDots, SBar, useCd, PotmDropdown } from "./cricketUI.jsx";
 import PickStatusPanel from "./PickStatusPanel.jsx";
@@ -711,9 +714,19 @@ const[rememberMe,setRememberMe]=useState(true);
 const[activeSport,setActiveSport]=useState(null);
 const[sportsConfig,setSportsConfig]=useState({ipl:true,fifa:false});
 const[sportConfigLoaded,setSportConfigLoaded]=useState(false);
+const[selectedTournament,setSelectedTournament]=useState(null);
+const[showCareer,setShowCareer]=useState(false);
+// Tournament-specific data — falls back to IPL 2026 defaults when no tournament selected
+const TC=selectedTournament?.TC||_TC;
+const TF=selectedTournament?.TF||_TF;
+const TEAMS=selectedTournament?.teams||_TEAMS;
+const BASE_MATCHES=selectedTournament?.matches||_BASE_MATCHES;
+const BONUS_QUESTIONS=selectedTournament?.bonusQuestions||_BONUS_QUESTIONS;
+const PROP_QUESTIONS=selectedTournament?.propQuestions||_PROP_QUESTIONS;
+const ALL_PLAYERS=selectedTournament?.allPlayers||_ALL_PLAYERS;
   const[email,setEmail]=useState("");const[user,setUser]=useState(null);const[isAdmin,setIsAdmin]=useState(false);
   const[users,setUsers]=useState({});const[myPicks,setMyPicks]=useState({});const[allPicks,setAllPicks]=useState({});
-  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null,_partial:null})),[]);
+  const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null,_partial:null})),[BASE_MATCHES]);
   const[ms,setMs]=useState(()=>buildBaseMatches());
   const[spk,setSpk]=useState({});const[mySp,setMySp]=useState("");
   const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
@@ -1287,6 +1300,8 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         <p style={{color:"#bfdbfe",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.5}}>My Pts</p>
       </div>
       <button onClick={()=>setSc("sport_select")} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>⚽ Sports</button>
+      <button onClick={()=>setShowCareer(true)} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>📊 Career</button>
+      <button onClick={()=>setShowCareer(true)} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>📊 Career</button>
       <button onClick={logout} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>Out</button>
     </div>
   </div>,[myPts,isAdmin,maintenance,user]);// eslint-disable-line
@@ -1301,16 +1316,24 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         onSelect={(sport)=>{
           setActiveSport(sport);
           if(sport==="ipl"){
-            const emk2=ek(email);
-            const hasOnboarded=!!(spk[emk2]);
-            const userPb=allPropBets[emk2]||{};
-            const hasPropBets=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
-            if(!hasOnboarded)setSc("onboard");
-            else if(!hasPropBets&&email!==SUPER_ADMIN){
-              setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
-              setSc("propbets");
+            // Auto-skip hub if only one live tournament and nothing finished
+            const live=getLiveTournaments();
+            const finished=getFinishedTournaments();
+            if(live.length===1&&finished.length===0){
+              setSelectedTournament(live[0]);
+              const emk2=ek(email);
+              const hasOnboarded=!!(spk[emk2]);
+              const userPb=allPropBets[emk2]||{};
+              const hasPropBets=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+              if(!hasOnboarded)setSc("onboard");
+              else if(!hasPropBets&&email!==SUPER_ADMIN){
+                setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
+                setSc("propbets");
+              }
+              else setSc("home");
+            } else {
+              setSc("hub");
             }
-            else setSc("home");
           }else if(sport==="fifa"){
             setSc("fifa");
           }
@@ -1329,6 +1352,32 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         isAdmin={isAdmin}
         onBack={()=>setSc("sport_select")}
         onLogout={logout}
+      />
+    );
+  }
+
+  if(showCareer)return<CareerStats email={email} userName={user?.name} onBack={()=>setShowCareer(false)}/>;
+
+  if(sc==="hub"){
+    return(
+      <CricketHub
+        user={user}
+        isAdmin={isAdmin}
+        onSelectTournament={(t)=>{
+          setSelectedTournament(t);
+          if(t._readOnly){setSc("home");return;}
+          const emk2=ek(email);
+          const hasOnboarded=!!(spk[emk2]);
+          const userPb=allPropBets[emk2]||{};
+          const hasPropBets=_PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+          if(!hasOnboarded)setSc("onboard");
+          else if(!hasPropBets&&email!==SUPER_ADMIN){
+            setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
+            setSc("propbets");
+          }
+          else setSc("home");
+        }}
+        onBack={()=>setSc("sport_select")}
       />
     );
   }
@@ -1548,6 +1597,8 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       {toast&&<Tst t={toast}/>}
     </div>;
   }
+
+  if(readOnly)return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} done={done.length} tournament={selectedTournament} sport="cricket" PTS={PTS} onBack={()=>setSc("sport_select")}/>;
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🏏</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline.</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>🚪 Sign Out</button></div></div>;
 
