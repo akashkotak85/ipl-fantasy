@@ -6,6 +6,8 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 
+const FSP_LOGO = "/fsp_logo.png";
+
 const LOGOS = {
   IPL: "https://documents.iplt20.com/ipl/assets/images/ipl-logo-new-old.png",
   FIFA: "https://upload.wikimedia.org/wikipedia/en/thumb/6/67/2026_FIFA_World_Cup_emblem.svg/200px-2026_FIFA_World_Cup_emblem.svg.png",
@@ -122,7 +124,7 @@ export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, o
       <style>{CSS}</style>
       <StarField />
 
-      <div style={{width:64,height:64,borderRadius:14,background:"linear-gradient(135deg,#FFE57F,#F0C040)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8,boxShadow:"0 6px 20px rgba(255,215,0,.25)"}}><p style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:26,color:"#0f2456",margin:0,letterSpacing:1}}>FSP</p></div>
+      <img src={FSP_LOGO} alt="FSP" style={{width:90,height:90,objectFit:"contain",marginBottom:8,filter:"drop-shadow(0 6px 20px rgba(255,215,0,.3))"}}/>
       <p className="ss-title">Fantasy Sports Predictor</p>
       <p className="ss-subtitle">Choose Your</p>
       <p className="ss-subtitle2">Sport</p>
