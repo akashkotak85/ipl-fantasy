@@ -5,6 +5,7 @@
 */
 import * as React from "react";
 import { useState, useEffect } from "react";
+import AdminHub from "./AdminHub.jsx";
 
 const FSP_LOGO = "/fsp_logo.png";
 
@@ -118,6 +119,8 @@ function SportCard({ sport, config, onClick, disabled }) {
 export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, onLogout, onToggleSport }) {
   const ipl = sportsConfig?.ipl !== false;
   const fifa = sportsConfig?.fifa === true;
+  const [showAdmin, setShowAdmin] = useState(false);
+  if (showAdmin) return <AdminHub email={user?.email} onBack={() => setShowAdmin(false)} />;
 
   return (
     <div className="ss-wrap">
@@ -230,7 +233,15 @@ export default function SportSelector({ user, isAdmin, sportsConfig, onSelect, o
           }}>
             Both sports can be ON at the same time
           </p>
-        </div>
+          <button
+            onClick={() => setShowAdmin(true)}
+            style={{width:"100%",marginTop:12,padding:"10px",borderRadius:12,
+              background:"rgba(197,160,40,.15)",border:"1px solid rgba(197,160,40,.3)",
+              color:"#C5A028",fontSize:12,fontFamily:"'Barlow',sans-serif",
+              fontWeight:700,cursor:"pointer",letterSpacing:.5}}>
+            🛠️ Admin Hub
+          </button>
+          </div>
       )}
 
       <button className="ss-logout" onClick={onLogout}>
