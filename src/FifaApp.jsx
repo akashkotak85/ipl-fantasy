@@ -328,26 +328,117 @@ const GOAL_BANDS = [
 ];
 
 const BONUS_QUESTIONS = {
-  1:"Will the match produce 3+ goals total?",
-  2:"Will there be a red card in this match?",
-  3:"Will the first goal come in the first 15 minutes?",
-  4:"Will the match be decided by a penalty shootout?",
-  5:"Will the winning team keep a clean sheet?",
-  6:"Will the MOTM be a defender or goalkeeper?",
-  7:"Will there be a hat-trick in this match?",
-  8:"Will the match end in a draw?",
-  9:"Will there be 2+ goals in the second half?",
-  10:"Will the toss of the coin (kick-off choice) team win?",
+  // Group Stage — M1 to M72
+  1:"Will Mexico score in the first half against South Africa?",
+  2:"Will this match produce fewer than 3 goals combined?",
+  3:"Will South Africa register a shot on target in the first 20 minutes?",
+  4:"Will Mexico win by 2 or more goals?",
+  5:"Will this final Group A match end in a draw?",
+  6:"Will the Group A decider produce 3+ goals?",
+  7:"Will Canada keep a clean sheet in their opening match?",
+  8:"Will Qatar score their first-ever World Cup goal against Switzerland?",
+  9:"Will Switzerland win this match by 2+ goals?",
+  10:"Will Canada score in the first half vs Qatar?",
+  11:"Will Bosnia and Herzegovina score first against Qatar?",
+  12:"Will Canada qualify from Group B after this match?",
+  13:"Will Brazil score 2+ goals against Morocco?",
+  14:"Will Haiti concede 2+ goals against Scotland?",
+  15:"Will Morocco keep a clean sheet vs Haiti?",
+  16:"Will Brazil win without conceding a goal?",
+  17:"Will Scotland secure qualification with a win here?",
+  18:"Will Brazil top Group C with a win or draw here?",
+  19:"Will the USA score inside the opening 20 minutes vs Paraguay?",
+  20:"Will Turkiye score first against Australia?",
+  21:"Will USA win this match to stay top of Group D?",
+  22:"Will this match produce an own goal?",
+  23:"Will Turkiye score a late winner (80+ min) against USA?",
+  24:"Will Paraguay qualify from this group?",
+  25:"Will Germany score 3 or more goals against Curacao?",
+  26:"Will Ivory Coast cause an upset against Ecuador?",
+  27:"Will Germany win this crunch Group E match?",
+  28:"Will Ecuador record a comfortable 2+ goal win vs Curacao?",
+  29:"Will Curacao register their first World Cup point here?",
+  30:"Will Ecuador hold Germany to qualify from Group E?",
+  31:"Will Netherlands win comfortably by 2+ goals vs Japan?",
+  32:"Will Sweden keep a clean sheet against Tunisia?",
+  33:"Will Netherlands vs Sweden produce 3+ goals?",
+  34:"Will Japan record a famous World Cup upset vs Tunisia?",
+  35:"Will Japan qualify by beating Sweden here?",
+  36:"Will Tunisia beat Netherlands to reach the knockouts?",
+  37:"Will Belgium score 3+ goals against Egypt?",
+  38:"Will Iran keep a clean sheet vs New Zealand?",
+  39:"Will Belgium vs Iran be decided by a single goal?",
+  40:"Will New Zealand claim a shock point or win vs Egypt?",
+  41:"Will this match produce a red card?",
+  42:"Will New Zealand cause the biggest upset of the group stage vs Belgium?",
+  43:"Will Spain score first in their opening match vs Cape Verde?",
+  44:"Will Uruguay beat Saudi Arabia to go top of Group H?",
+  45:"Will Spain qualify from Group H after beating Saudi Arabia?",
+  46:"Will Uruguay score first against Cape Verde?",
+  47:"Will Uruguay vs Spain produce 2+ goals?",
+  48:"Will Saudi Arabia qualify from Group H in this decider?",
+  49:"Will France score 2 or more goals vs Senegal?",
+  50:"Will Norway score first against Iraq?",
+  51:"Will France win to go top of Group I?",
+  52:"Will Norway qualify from Group I by beating Senegal?",
+  53:"Will this Norway vs France clash end in a draw?",
+  54:"Will Senegal record a 2+ goal win vs Iraq to progress?",
+  55:"Will Argentina score in the first 15 minutes vs Algeria?",
+  56:"Will Austria win their opening match against Jordan?",
+  57:"Will Argentina avoid defeat and secure top spot in Group J?",
+  58:"Will Jordan register their first World Cup win vs Algeria?",
+  59:"Will Algeria qualify by beating Austria in this decider?",
+  60:"Will Jordan cause the shock of the group stage by beating Argentina?",
+  61:"Will Portugal score 3+ goals in their opener vs DR Congo?",
+  62:"Will Colombia claim an upset win vs Uzbekistan?",
+  63:"Will Portugal vs Uzbekistan end with a clean sheet for Portugal?",
+  64:"Will Colombia score first against DR Congo?",
+  65:"Will Colombia top Group K with a win or draw here?",
+  66:"Will DR Congo secure qualification in this dead-rubber?",
+  67:"Will England win their opening match vs Croatia by 2+ goals?",
+  68:"Will Ghana beat Panama in this Group L opener?",
+  69:"Will England score first against Ghana?",
+  70:"Will Croatia vs Panama produce fewer than 3 goals?",
+  71:"Will England qualify from Group L with a win here?",
+  72:"Will Croatia secure a top-2 finish by beating Ghana?",
+  // Round of 32 — R32-1 to R32-16
+  73:"Will this Round of 32 match be decided in 90 minutes?",
+  74:"Will either team score in the first 20 minutes of this match?",
+  75:"Will this match produce 3 or more goals?",
+  76:"Will there be a red card in this knockout match?",
+  77:"Will the match winner keep a clean sheet?",
+  78:"Will this match go to extra time?",
+  79:"Will there be a penalty in this Round of 32 match?",
+  80:"Will the favourite (higher-ranked team) win this match?",
+  81:"Will this match produce a goal in the final 10 minutes?",
+  82:"Will any player score a brace (2 goals) in this match?",
+  83:"Will this match be decided by a penalty shootout?",
+  84:"Will both teams score in this Round of 32 clash?",
+  85:"Will there be 2+ goals in the second half of this match?",
+  86:"Will the winning team win by 2+ goals?",
+  87:"Will this match be goalless at half time?",
+  88:"Will a substitute score the decisive goal in this match?",
+  // Round of 16 — R16-1 to R16-8
+  89:"Will this Round of 16 match go to extra time?",
+  90:"Will the first goal in this match come from a set piece?",
+  91:"Will both teams score in this Round of 16 clash?",
+  92:"Will this match be decided by a penalty shootout?",
+  93:"Will there be a red card in this match?",
+  94:"Will the winning team keep a clean sheet in this Round of 16?",
+  95:"Will this match produce 3+ goals in 90 minutes?",
+  96:"Will a penalty be awarded and scored in this match?",
+  // Quarter Finals — QF-1 to QF-4
+  97:"Will this Quarter Final go to extra time?",
+  98:"Will the first goal in this Quarter Final come in the second half?",
+  99:"Will this Quarter Final be decided by a penalty shootout?",
+  100:"Will both teams score in this Quarter Final?",
+  // Semi Finals — SF-1, SF-2
+  101:"Will this Semi Final produce 2+ goals in 90 minutes?",
+  102:"Will this Semi Final be decided by a penalty shootout?",
+  // 3rd Place & Final
+  103:"Will the 3rd Place match produce 3 or more goals?",
+  104:"Will the Final be decided by a penalty shootout?",
 };
-
-const PROP_QUESTIONS = [
-  {id:"q0",label:"Who will win the FIFA World Cup 2026?",type:"team"},
-  {id:"q1",label:"Which team will finish in 2nd place (runners-up)?",type:"team"},
-  {id:"q2",label:"Which team will finish in 3rd place?",type:"team"},
-  {id:"q3",label:"Which team will finish in 4th place?",type:"team"},
-  {id:"q4",label:"Which team will be the Wooden Spoon (worst group stage exit)?",type:"team"},
-  {id:"q5",label:"Will there be a VAR controversy in the Final?",type:"yesno"},
-];
 
 const CHAT_MAX = 400;
 const CHAT_CAP = 500;
@@ -357,7 +448,7 @@ const PTS = {
   win:20, motm:30, goals:10, streak:15,
   bonus:15, season:200, top4:50,
   woodenSpoon:50, goldenBoot:100,
-  goldenGlove:75, prop:15,
+  goldenGlove:75,
 };
 
 const TRASH_TALK = [
@@ -1164,6 +1255,30 @@ function GbSearch({selected,onToggle}){
   );
 }
 
+function GgSearch({selected,onToggle}){
+  const[q,setQ]=useState("");
+  const filtered=q.trim()?GOALKEEPERS.filter(g=>g.toLowerCase().includes(q.toLowerCase())):GOALKEEPERS;
+  return(
+    <div>
+      <input className="inp" placeholder="Search goalkeepers…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:8}}/>
+      <div style={{maxHeight:180,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:5,padding:2}}>
+        {filtered.map(g=>{
+          const sel=selected.includes(g);
+          return(
+            <button key={g} onClick={()=>onToggle(g)}
+              style={{display:"inline-flex",alignItems:"center",gap:4,padding:"4px 9px",borderRadius:8,
+                background:sel?"#006BB6":"#fff",border:"1.5px solid "+(sel?"#006BB6":"#e2e8f0"),
+                cursor:"pointer",fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":"#475569",transition:"all .15s"}}>
+              {sel&&<span style={{fontSize:9}}>🧤</span>}
+              {g}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════
    MAIN FIFA APP
    ════════════════════════════════════════════════════════════════ */
@@ -1181,12 +1296,9 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[t4pk,setT4pk]=useState({});const[myT4,setMyT4]=useState([]);
   const[myWs,setMyWs]=useState("");const[wspk,setWspk]=useState({});
   const[myGb,setMyGb]=useState([]);const[gbpk,setGbpk]=useState({});
-  const[myGg,setMyGg]=useState([]);const[ggpk,setGgpk]=useState({});
-  const[propAnswers,setPropAnswers]=useState({});
-  const[myPropBets,setMyPropBets]=useState({});
-  const[allPropBets,setAllPropBets]=useState({});
+  const[myGg,setMyGg]=useState([]);const[ggpk,setGgpk]=useState({});const[myGball,setMyGball]=useState([]);const[gballpk,setGballpk]=useState({});
   const[sw,setSw]=useState(null);const[actualTop4,setActualTop4]=useState([]);
-  const[actualWs,setActualWs]=useState("");const[actualGb,setActualGb]=useState("");const[actualGg,setActualGg]=useState([]);
+  const[actualWs,setActualWs]=useState("");const[actualGb,setActualGb]=useState("");const[actualGg,setActualGg]=useState([]);const[actualGball,setActualGball]=useState("");
   const[lockedMatches,setLockedMatches]=useState({});
   const[doubleMatch,setDoubleMatch]=useState(null);
   const[rxns,setRxns]=useState({});
@@ -1205,8 +1317,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[draft,setDraft]=useState({});
   const[obStep,setObStep]=useState(0);
   const[obSp,setObSp]=useState("");const[obT4,setObT4]=useState([]);
-  const[obWs,setObWs]=useState("");const[obGb,setObGb]=useState([]);const[obGg,setObGg]=useState([]);
-  const[obProps,setObProps]=useState({q0:"",q1:"",q2:"",q3:"",q4:"",q5:""});
+  const[obWs,setObWs]=useState("");const[obGb,setObGb]=useState([]);const[obGg,setObGg]=useState([]);const[obGball,setObGball]=useState([]);
   const[chatMuted,setChatMuted]=useState(false);
   const[mutedUsers,setMutedUsers]=useState({});
   const[onlineUsers,setOnlineUsers]=useState({});
@@ -1223,14 +1334,14 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Load shared data ─────────────────────────────────────── */
   const reloadShared=useCallback(async()=>{
-    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,pa,pb,at4,aws,agb,agg,pu,pbc]=await Promise.all([
+    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,at4,gball,aws,agb,agg,agball,pu,pbc]=await Promise.all([
       DB.get("u"),DB.get("ap"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("t4"),DB.get("ws"),DB.get("gb"),DB.get("gg"),DB.get("sw"),
       DB.get("lockedm"),DB.get("rx"),DB.get("maintenance"),DB.get("ptsadj"),
       DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),
       DB.get("bq"),DB.get("bonusans"),DB.get("goalbanans"),
-      DB.get("propanswers"),DB.get("propbets"),DB.get("actualtop4"),
-      DB.get("actualws"),DB.get("actualgb"),DB.get("actualgg"),DB.get("pending"),DB.get("pinnedbc"),
+      DB.get("actualtop4"),DB.get("gball"),
+      DB.get("actualws"),DB.get("actualgb"),DB.get("actualgg"),DB.get("actualgball"),DB.get("pending"),DB.get("pinnedbc"),
     ]);
 
     if(u){const nu={};Object.keys(u).forEach(k=>{const e=u[k];if(e?.email)nu[ek(e.email)]=e;});setUsers(nu);}
@@ -1270,6 +1381,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     const nws={};if(ws)Object.keys(ws).forEach(k=>{nws[ek(k)]=ws[k];});setWspk(nws);setMyWs(nws[myEk]||"");
     const ngb={};if(gb)Object.keys(gb).forEach(k=>{ngb[ek(k)]=gb[k];});setGbpk(ngb);setMyGb(ngb[myEk]||[]);
     const ngg={};if(gg)Object.keys(gg).forEach(k=>{ngg[ek(k)]=gg[k];});setGgpk(ngg);setMyGg(ngg[myEk]||[]);
+    const ngball={};if(gball)Object.keys(gball).forEach(k=>{ngball[ek(k)]=gball[k];});setGballpk(ngball);setMyGball(ngball[myEk]||[]);
     if(sw2!=null)setSw(sw2);
     if(lk)setLockedMatches(lk);
     if(rx)setRxns(rx);
@@ -1281,12 +1393,12 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(bans)setBonusAnswers(bans);
     if(gban)setGoalBandAnswers(gban);
     const normBQ={};if(bq&&typeof bq==="object"){Object.keys(bq).forEach(k=>{normBQ[ek(k)]=bq[k];});}setAllBonusPicks(normBQ);setMyBonusPicks(normBQ[myEk]||{});
-    const normPB={};if(pb&&typeof pb==="object"){Object.keys(pb).forEach(k=>{normPB[ek(k)]=pb[k];});}setAllPropBets(normPB);setMyPropBets(normPB[myEk]||{});
-    if(pa)setPropAnswers(pa);
+
     if(at4&&Array.isArray(at4))setActualTop4(at4);
     if(aws)setActualWs(aws);
     if(agb)setActualGb(agb);
     if(agg&&Array.isArray(agg))setActualGg(agg);
+    if(agball)setActualGball(agball);
     setPinnedBc(pbc||null);
   },[myEk]);
 
@@ -1340,14 +1452,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Onboarding check ─────────────────────────────────────── */
   const hasOnboarded=!!(spk[myEk]);
-  const hasPropBets=justOnboarded.current||PROP_QUESTIONS.every((q,i)=>myPropBets?.[`q${i}`]&&myPropBets[`q${i}`]!=="");
-
   useEffect(()=>{
     if(justOnboarded.current)return;
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
-    // If onboarded but prop bets missing, jump directly to prop bets step
-    else if(hasOnboarded&&!hasPropBets&&sc==="home"){setObStep(3);setSc("onboard");}
-  },[hasOnboarded,hasPropBets,sc,email]);// eslint-disable-line
+  },[hasOnboarded,sc,email]);// eslint-disable-line
 
   /* ─── Computed ─────────────────────────────────────────────── */
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
@@ -1374,13 +1482,9 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       const p=myPicks[String(m.id)]??myPicks[Number(m.id)];if(!p?.gb)return s;
       return s+(p.gb===ans?PTS.goals:0);
     },0);
-    const propPts=PROP_QUESTIONS.reduce((s,q,i)=>{
-      const ans=propAnswers?.[`q${i}`];const myAns=myPropBets?.[`q${i}`];
-      if(!ans||!myAns||myAns==="")return s;
-      return s+(String(myAns)===String(ans)?PTS.prop:0);
-    },0);
-    return pts+seasonPts+t4pts+wsPts+gbPts+ggPts+bonusPts+goalPts+propPts+getManualAdj(email);
-  },[myPicks,ms,doubleMatch,mySp,sw,myT4,actualTop4,myWs,actualWs,myGb,actualGb,myGg,actualGg,bonusAnswers,myBonusPicks,goalBandAnswers,done,propAnswers,myPropBets,getManualAdj,email]);
+    const gballPts=actualGball&&myGball.includes(actualGball)?PTS.goldenGlove:0; // reuse goldenGlove pts value (75)
+    return pts+seasonPts+t4pts+wsPts+gbPts+ggPts+gballPts+bonusPts+goalPts+getManualAdj(email);
+  },[myPicks,ms,doubleMatch,mySp,sw,myT4,actualTop4,myWs,actualWs,myGb,actualGb,myGg,actualGg,myGball,actualGball,bonusAnswers,myBonusPicks,goalBandAnswers,done,getManualAdj,email]);
 
   const myPts=useMemo(calcMyPts,[calcMyPts]);
 
@@ -1409,15 +1513,12 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         const p=up[String(m.id)]??up[Number(m.id)];if(!p?.gb)return s;
         return s+(p.gb===ans?PTS.goals:0);
       },0);
-      const propPts=PROP_QUESTIONS.reduce((s,q,i)=>{
-        const ans=propAnswers?.[`q${i}`];const uAns=(allPropBets[emk]||{})?.[`q${i}`];
-        if(!ans||!uAns||uAns==="")return s;
-        return s+(String(uAns)===String(ans)?PTS.prop:0);
-      },0);
-      const total=mPts+sp2+t4p+wsp+gbp+ggp+bonusPts+goalPts+propPts+getManualAdj(u.email);
-      return{...u,pts:total,userSp,userT4,userWs,userGb,userGg};
+      const userGball=(gballpk[emk]||[]);
+      const gballPts2=actualGball&&userGball.includes(actualGball)?PTS.goldenGlove:0;
+      const total=mPts+sp2+t4p+wsp+gbp+ggp+gballPts2+bonusPts+goalPts+getManualAdj(u.email);
+      return{...u,pts:total,userSp,userT4,userWs,userGb,userGg,userGball};
     }).sort((a,b)=>b.pts-a.pts);
-  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,wspk,gbpk,ggpk,actualTop4,actualWs,actualGb,actualGg,bonusAnswers,allBonusPicks,goalBandAnswers,done,propAnswers,allPropBets,getManualAdj]);
+  },[users,allPicks,ms,doubleMatch,spk,sw,t4pk,wspk,gbpk,ggpk,gballpk,actualTop4,actualWs,actualGb,actualGg,actualGball,bonusAnswers,allBonusPicks,goalBandAnswers,done,getManualAdj]);
 
   /* ─── Actions ──────────────────────────────────────────────── */
   async function submitPick(){
@@ -1478,18 +1579,13 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(!obWs){toast2("Pick Wooden Spoon team","error");return;}
     if(!obGb||obGb.length!==5){toast2("Pick exactly 5 Golden Boot candidates","error");return;}
     if(obGg.length!==3){toast2("Pick exactly 3 Golden Glove goalkeepers","error");return;}
-    const unanswered=PROP_QUESTIONS.filter((q,i)=>!obProps[`q${i}`]||obProps[`q${i}`]==="");
-    if(unanswered.length>0){toast2("Answer all prop bet questions","error");return;}
+    if(obGball.length===0){toast2("Pick at least 1 Golden Ball candidate","error");return;}
     const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};
     const ws2={...wspk,[myEk]:obWs};const gb2={...gbpk,[myEk]:obGb};const gg2={...ggpk,[myEk]:obGg};
     setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);setWspk(ws2);setMyWs(obWs);setGbpk(gb2);setMyGb(obGb);setGgpk(gg2);setMyGg(obGg);
-    await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2)]);
-    await DB.set("propbets/"+myEk,obProps);
-    // Immediately re-read to confirm the write landed before navigating
-    const freshPB=await DB.get("propbets")||{};
-    const normFreshPB={};Object.keys(freshPB).forEach(k=>{normFreshPB[ek(k)]=freshPB[k];});
-    setAllPropBets(normFreshPB);
-    setMyPropBets(normFreshPB[myEk]||obProps);
+    const gball2={...gballpk,[myEk]:obGball};
+    setGballpk(gball2);setMyGball(obGball);
+    await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2),DB.set("gball",gball2)]);
     justOnboarded.current=true;
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
   }
@@ -1654,10 +1750,10 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           <FspLogo size={80} style={{margin:"0 auto 12px",display:"block"}}/>
           <p style={{color:"#bfdbfe",fontSize:12,margin:"0 0 4px"}}>Welcome, {user?.name}!</p>
           <p className="C" style={{color:"#C5A028",fontSize:22,letterSpacing:2,margin:0}}>
-            {obStep===0?"PICK YOUR CHAMPION":obStep===1?"TOP 4 TEAMS":obStep===2?"AWARDS & WOODEN SPOON":"SEASON PROP BETS"}
+            {obStep===0?"PICK YOUR CHAMPION":obStep===1?"TOP 4 TEAMS":"AWARDS & GOLDEN BALL"}
           </p>
           <div style={{display:"flex",gap:6,marginTop:12}}>
-            {[0,1,2,3].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:obStep>=i?"#C5A028":"rgba(255,255,255,.2)"}}/>)}
+            {[0,1,2].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:obStep>=i?"#C5A028":"rgba(255,255,255,.2)"}}/>)}
           </div>
         </div>
         <div style={{padding:"20px 16px",paddingBottom:40}}>
@@ -1744,58 +1840,41 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
               <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:.5}}>🧤 Golden Glove · +{PTS.goldenGlove}pts · {obGg.length}/3</p>
               <p style={{fontSize:11,color:"#94a3b8",margin:"0 0 10px"}}>Pick 3 goalkeepers who could win best goalkeeper. If any of them wins, you get the points.</p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                {GOALKEEPERS.map(gk=>{
-                  const sel=obGg.includes(gk);
-                  return(
-                    <button key={gk} onClick={()=>{
-                      if(sel)setObGg(prev=>prev.filter(x=>x!==gk));
-                      else if(obGg.length<3)setObGg(prev=>[...prev,gk]);
-                      else toast2("Max 3 goalkeepers","error");
-                    }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:8,
-                      background:sel?"#006BB6":"#fff",border:"1.5px solid "+(sel?"#006BB6":"#e2e8f0"),
-                      cursor:"pointer",fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":"#475569"}}>
-                      🧤 {gk}
-                    </button>
-                  );
-                })}
-              </div>
+              <GgSearch selected={obGg} onToggle={(g)=>{
+                if(obGg.includes(g))setObGg(prev=>prev.filter(x=>x!==g));
+                else if(obGg.length<3)setObGg(prev=>[...prev,g]);
+                else toast2("Max 3 goalkeepers","error");
+              }}/>
               {obGg.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
-                {obGg.map(g=><span key={g} style={{background:"#006BB6",color:"#fff",fontSize:10,padding:"3px 10px",borderRadius:10,fontWeight:600}}>✓ {g}</span>)}
+                {obGg.map(g=><span key={g} style={{background:"#006BB6",color:"#fff",fontSize:10,padding:"3px 10px",borderRadius:10,fontWeight:600,display:"inline-flex",alignItems:"center",gap:5}}>
+                  🧤 {g}<button onClick={()=>setObGg(prev=>prev.filter(x=>x!==g))} style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",cursor:"pointer",fontSize:12,padding:0,lineHeight:1}}>✕</button>
+                </span>)}
+              </div>}
+            </div>
+
+            {/* Golden Ball — pick 5 player candidates */}
+            <div style={{background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontWeight:700,fontSize:12,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:.5}}>🏅 Golden Ball · +{PTS.goldenGlove}pts · {obGball.length}/5</p>
+              <p style={{fontSize:11,color:"#94a3b8",margin:"0 0 10px"}}>Pick 5 players who could win Player of the Tournament. If any of them wins, you get the points.</p>
+              <GbSearch selected={obGball} onToggle={(p)=>{
+                if(obGball.includes(p))setObGball(prev=>prev.filter(x=>x!==p));
+                else if(obGball.length<5)setObGball(prev=>[...prev,p]);
+                else toast2("Max 5 players","error");
+              }}/>
+              {obGball.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
+                {obGball.map(p=><span key={p} style={{background:"#B8860B",color:"#fff",fontSize:10,padding:"3px 10px",borderRadius:10,fontWeight:600,display:"inline-flex",alignItems:"center",gap:5}}>
+                  🏅 {p}<button onClick={()=>setObGball(prev=>prev.filter(x=>x!==p))} style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",cursor:"pointer",fontSize:12,padding:0,lineHeight:1}}>✕</button>
+                </span>)}
               </div>}
             </div>
 
             <div style={{display:"flex",gap:8,marginTop:4}}>
               <button style={{flex:1,padding:"12px",borderRadius:10,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:2}} onClick={()=>setObStep(1)}>← Back</button>
-              <button className="lbtn" disabled={!obWs||obGb.length!==5||obGg.length!==3} onClick={()=>setObStep(3)} style={{flex:2,opacity:obWs&&obGb.length===5&&obGg.length===3?1:.4}}>Next → Prop Bets</button>
+              <button className="lbtn" disabled={!obWs||obGb.length!==5||obGg.length!==3||obGball.length===0} onClick={doneOnboard} style={{flex:2,opacity:obWs&&obGb.length===5&&obGg.length===3&&obGball.length>0?1:.4}}>Lock All Picks ⚽</button>
             </div>
           </>}
 
-          {obStep===3&&<>
-            <p style={{color:"#0a1628",fontSize:15,fontWeight:600,margin:"0 0 4px"}}>Season Prop Bets</p>
-            <p style={{color:"#64748b",fontSize:12,margin:"0 0 16px"}}>6 questions · +{PTS.prop}pts each · locked for the tournament</p>
-            {PROP_QUESTIONS.map((q,i)=>{
-              const val=obProps[q.id]||"";
-              const filled=!!(val&&val!=="");
-              return(
-                <div key={q.id} style={{background:filled?"#f0fdf4":"#f8faff",border:"1px solid "+(filled?"#bbf7d0":"#e2e8f0"),borderRadius:10,padding:"12px 14px",marginBottom:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                    <p style={{fontSize:12,fontWeight:700,color:"#004B87",margin:0}}>Q{i+1} · +{PTS.prop}pts</p>
-                    {filled?<span style={{fontSize:10,color:"#15803d",fontWeight:700}}>✓</span>:<span style={{fontSize:10,color:"#ef4444",fontWeight:600}}>Required</span>}
                   </div>
-                  <p style={{fontSize:13,color:"#0a1628",fontWeight:600,margin:"0 0 8px",lineHeight:1.4}}>{q.label}</p>
-                  {q.type==="team"&&<select className="sel" value={val} onChange={e=>setObProps(p=>({...p,[q.id]:e.target.value}))} style={{borderColor:filled?"#bbf7d0":"#e2e8f0"}}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]} {t}</option>)}</select>}
-                  {q.type==="player"&&<MotmDropdown team1="" team2="" value={val} onChange={v=>setObProps(p=>({...p,[q.id]:v}))}/>}
-                  {q.type==="yesno"&&<div style={{display:"flex",gap:8}}><button className={"bq-btn yes"+(val==="true"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"true"}))}>✅ Yes</button><button className={"bq-btn no"+(val==="false"?" on":"")} onClick={()=>setObProps(p=>({...p,[q.id]:"false"}))}>❌ No</button></div>}
-                </div>
-              );
-            })}
-            <button style={{width:"100%",padding:"12px",borderRadius:10,background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:2,marginBottom:10}} onClick={()=>setObStep(2)}>← Back</button>
-            <button className="lbtn" disabled={PROP_QUESTIONS.some((q,i)=>!obProps[`q${i}`]||obProps[`q${i}`]==="")} onClick={doneOnboard} style={{opacity:PROP_QUESTIONS.every((q,i)=>obProps[`q${i}`]&&obProps[`q${i}`]!=="")?"1":".4"}}>
-              Lock All Picks — Vamos! ⚽
-            </button>
-          </>}
-        </div>
         {toast&&<Tst t={toast}/>}
       </div>
     );
@@ -2011,6 +2090,23 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 :<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
               {actualGg.length>0&&myGg&&myGg.filter(g=>actualGg.includes(g)).length>0&&<p style={{color:"#15803d",fontSize:12,fontWeight:700,marginTop:8}}>✅ Correct! +{PTS.goldenGlove}pts</p>}
             </div>
+            <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:12}}>
+              <p className="st">🏅 GOLDEN BALL CANDIDATES (+{PTS.goldenGlove}pts)</p>
+              <p style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>Points if any of your 5 picks wins Player of the Tournament</p>
+              {myGball&&myGball.length>0
+                ?<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{myGball.map(p=>{
+                    const correct=actualGball&&p===actualGball;const wrong=actualGball&&p!==actualGball;
+                    return<div key={p} style={{display:"flex",alignItems:"center",gap:5,background:correct?"#f0fdf4":wrong?"#fef2f2":"#f8faff",border:"1px solid "+(correct?"#bbf7d0":wrong?"#fecaca":"#e2e8f0"),borderRadius:8,padding:"5px 9px"}}>
+                      <span style={{fontSize:11}}>🏅</span>
+                      <span style={{fontSize:11,fontWeight:600,color:correct?"#15803d":wrong?"#dc2626":"#475569"}}>{p}</span>
+                      {correct&&<span>✅</span>}{wrong&&actualGball&&<span style={{fontSize:10,color:"#dc2626"}}>✗</span>}
+                    </div>;
+                  })}</div>
+                :<p style={{color:"#94a3b8",fontSize:12}}>Not set</p>}
+              {actualGball&&myGball&&myGball.includes(actualGball)&&<p style={{color:"#15803d",fontSize:12,fontWeight:700,marginTop:8}}>✅ {actualGball} won! +{PTS.goldenGlove}pts</p>}
+              {actualGball&&myGball&&!myGball.includes(actualGball)&&<p style={{color:"#dc2626",fontSize:12,fontWeight:700,marginTop:8}}>❌ {actualGball} won — not in your picks</p>}
+              {!actualGball&&myGball&&myGball.length>0&&<p style={{color:"#94a3b8",fontSize:11,marginTop:6}}>Awaiting tournament result</p>}
+            </div>
           </div>}
           {htab==="groups"&&<div>
             {Object.entries(GROUPS).map(([grp,teams])=>(
@@ -2063,48 +2159,62 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
                 {actualTop4.length>0&&(u.userT4||[]).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:4}}>+{(u.userT4||[]).filter(t=>actualTop4.includes(t)).length*PTS.top4}pts</span>}
               </div>
             </div>
-            {/* WS + GB + GG row */}
-            <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-              <div style={{display:"flex",alignItems:"center",gap:5,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
-                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>🪵</span>
-                {u.userWs?<><FlagBox team={u.userWs} sz={14}/><span className="C" style={{fontSize:11,color:actualWs&&u.userWs===actualWs?"#15803d":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span></>:<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
-                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>👟</span>
-                {(u.userGb||[]).length>0
-                  ?<span style={{fontSize:10,color:actualGb&&u.userGb&&u.userGb.includes(actualGb)?"#15803d":"#475569",fontWeight:600}}>{(u.userGb||[]).length} picks{actualGb&&u.userGb&&u.userGb.includes(actualGb)?" ✅":actualGb?" ✗":""}</span>
-                  :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:4,background:"#f8faff",borderRadius:8,padding:"4px 8px",border:"1px solid #e2e8f0"}}>
-                <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>🧤</span>
-                {(u.userGg||[]).length>0
-                  ?<span style={{fontSize:10,color:actualGg.length>0&&u.userGg&&u.userGg.filter(g=>actualGg.includes(g)).length>0?"#15803d":"#475569",fontWeight:600}}>{(u.userGg||[]).length} picks{actualGg.length>0&&u.userGg&&u.userGg.filter(g=>actualGg.includes(g)).length>0?" ✅":actualGg.length>0?" ✗":""}</span>
-                  :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
-              </div>
+            {/* WS row */}
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🪵 Spoon:</span>
+              {u.userWs
+                ?<><FlagBox team={u.userWs} sz={14}/><span className="C" style={{fontSize:11,fontWeight:600,color:actualWs&&u.userWs===actualWs?"#15803d":actualWs?"#dc2626":"#004B87"}}>{u.userWs}{actualWs&&(u.userWs===actualWs?" ✅":" ✗")}</span>{actualWs&&u.userWs===actualWs&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.woodenSpoon}pts</span>}</>
+                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
             </div>
-            {/* Prop bets row */}
-            {(()=>{
-              const up2=allPropBets[ek(u.email)]||{};
-              const hasSome=PROP_QUESTIONS.some((q,i)=>up2[q.id]&&up2[q.id]!=="");
-              if(!hasSome)return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:5,marginTop:5}}><span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>Prop bets not answered</span></div>;
-              return<div style={{borderTop:"1px solid #f1f5f9",paddingTop:6,marginTop:4}}>
-                <p style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:"0 0 5px"}}>Season Prop Bets</p>
-                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                  {PROP_QUESTIONS.map((q,i)=>{
-                    const val=up2[q.id]||"";
-                    const correctAns=propAnswers?.[q.id]||"";
-                    const isCorrect=correctAns&&val&&String(val)===String(correctAns);
-                    const isWrong=correctAns&&val&&String(val)!==String(correctAns);
-                    const shortVal=q.type==="player"?val.split(" ").slice(-1)[0]:q.type==="yesno"?(val==="true"?"Yes":"No"):val.split(" ")[0];
-                    return<div key={q.id} style={{display:"flex",alignItems:"center",gap:3,background:isCorrect?"#f0fdf4":isWrong?"#fef2f2":val?"#FFFBEB":"#f8faff",border:"1px solid "+(isCorrect?"#bbf7d0":isWrong?"#fecaca":val?"#FDE68A":"#e2e8f0"),borderRadius:6,padding:"2px 6px"}}>
-                      <span style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>Q{i+1}:</span>
-                      <span style={{fontSize:10,fontWeight:700,color:isCorrect?"#15803d":isWrong?"#dc2626":val?"#92400E":"#94a3b8"}}>{shortVal||"—"}</span>
-                      {isCorrect&&<span style={{fontSize:9,color:"#15803d",fontWeight:700}}>+{PTS.prop}</span>}
-                    </div>;
-                  })}
-                </div>
-              </div>;
-            })()}
+            {/* GB row */}
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>👟 Boot:</span>
+              {(u.userGb||[]).length>0
+                ?(u.userGb||[]).map(p=>{
+                    const isWinner=actualGb&&p===actualGb;
+                    const isWrong=actualGb&&!isWinner;
+                    return<span key={p} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
+                      background:isWinner?"#f0fdf4":isWrong?"#fef2f2":"#f8faff",
+                      border:"1px solid "+(isWinner?"#bbf7d0":isWrong?"#fecaca":"#e2e8f0"),
+                      color:isWinner?"#15803d":isWrong?"#dc2626":"#475569"}}>
+                      {p.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
+                    </span>;
+                  })
+                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
+              {actualGb&&(u.userGb||[]).includes(actualGb)&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenBoot}pts</span>}
+            </div>
+            {/* GG row */}
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🧤 Glove:</span>
+              {(u.userGg||[]).length>0
+                ?(u.userGg||[]).map(g=>{
+                    const isWinner=actualGg.length>0&&actualGg.includes(g);
+                    return<span key={g} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
+                      background:isWinner?"#f0fdf4":actualGg.length>0?"#fef2f2":"#f8faff",
+                      border:"1px solid "+(isWinner?"#bbf7d0":actualGg.length>0?"#fecaca":"#e2e8f0"),
+                      color:isWinner?"#15803d":actualGg.length>0?"#dc2626":"#475569"}}>
+                      {g.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
+                    </span>;
+                  })
+                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
+              {actualGg.length>0&&(u.userGg||[]).filter(g=>actualGg.includes(g)).length>0&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenGlove}pts</span>}
+            </div>
+            {/* GBall row */}
+            <div style={{display:"flex",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:9,color:"#94a3b8",fontWeight:700,textTransform:"uppercase",flexShrink:0}}>🏅 Ball:</span>
+              {(u.userGball||[]).length>0
+                ?(u.userGball||[]).map(p=>{
+                    const isWinner=actualGball&&p===actualGball;
+                    return<span key={p} style={{fontSize:10,fontWeight:isWinner?700:400,padding:"1px 7px",borderRadius:8,
+                      background:isWinner?"#f0fdf4":actualGball?"#f8faff":"#f8faff",
+                      border:"1px solid "+(isWinner?"#bbf7d0":"#e2e8f0"),
+                      color:isWinner?"#15803d":"#475569"}}>
+                      {p.split(" ").slice(-1)[0]}{isWinner?" ✅":""}
+                    </span>;
+                  })
+                :<span style={{fontSize:10,color:"#94a3b8"}}>—</span>}
+              {actualGball&&(u.userGball||[]).includes(actualGball)&&<span style={{fontSize:10,fontWeight:700,color:"#15803d",marginLeft:2}}>+{PTS.goldenGlove}pts</span>}
+            </div>
           </div>
         ))}
         {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
@@ -2316,7 +2426,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         {[
           ["⚽ Points","Match Winner: +"+PTS.win+"pts | Man of the Match: +"+PTS.motm+"pts | Both Correct (streak): +"+PTS.streak+"pts extra | Total Goals Band: +"+PTS.goals+"pts | Bonus Question: +"+PTS.bonus+"pts"],
           ["⚡ Double Match","One match per day earns 2× all points. Watch for the ⚡ badge."],
-          ["🏆 Season Picks","Champion: +"+PTS.season+"pts | Top 4 (SF teams): +"+PTS.top4+"pts each | Wooden Spoon (last team): +"+PTS.woodenSpoon+"pts | Golden Boot (pick 5 candidates): +"+PTS.goldenBoot+"pts | Golden Glove (pick 3 keepers): +"+PTS.goldenGlove+"pts"],
+          ["🏆 Season Picks","Champion: +"+PTS.season+"pts | Top 4 (SF teams): +"+PTS.top4+"pts each | Wooden Spoon (last team): +"+PTS.woodenSpoon+"pts | Golden Boot (pick 5 candidates): +"+PTS.goldenBoot+"pts | Golden Glove (pick 3 keepers): +"+PTS.goldenGlove+"pts | Golden Ball (pick 5 candidates): +"+PTS.goldenGlove+"pts"],
           ["⚽ Goals Band","Predict total goals in the match: 0 / 1 / 2 / 3 / 4+. Correct = +"+PTS.goals+"pts."],
           ["🔒 Lock Times","Predictions lock 35 minutes before kickoff (ET). No changes after lock."],
           ["💡 Group Leans","After lock, see how the group split on Winner (home/draw/away)."],
@@ -2330,7 +2440,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:12,padding:"14px"}}>
           <p style={{fontWeight:700,fontSize:13,color:"#92400E",margin:"0 0 8px"}}>📊 Full Points Summary</p>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-            {[["🏆 Winner correct","+"+PTS.win+"pts"],["⭐ MOTM correct","+"+PTS.motm+"pts"],["🔥 Both correct bonus","+"+PTS.streak+"pts"],["⚽ Goals band correct","+"+PTS.goals+"pts"],["❓ Bonus Q correct","+"+PTS.bonus+"pts"],["⚡ Double match","×2 all above"],["🥇 Champion","+"+PTS.season+"pts"],["🏅 Top 4 team","+"+PTS.top4+"pts each"],["🪵 Wooden Spoon","+"+PTS.woodenSpoon+"pts"],["👟 Golden Boot (pick 5)","+"+PTS.goldenBoot+"pts"],["🧤 Golden Glove (pick 3)","+"+PTS.goldenGlove+"pts"]].map(([l,v])=>(
+            {[["🏆 Winner correct","+"+PTS.win+"pts"],["⭐ MOTM correct","+"+PTS.motm+"pts"],["🔥 Both correct bonus","+"+PTS.streak+"pts"],["⚽ Goals band correct","+"+PTS.goals+"pts"],["❓ Bonus Q correct","+"+PTS.bonus+"pts"],["⚡ Double match","×2 all above"],["🥇 Champion","+"+PTS.season+"pts"],["🏅 Top 4 team","+"+PTS.top4+"pts each"],["🪵 Wooden Spoon","+"+PTS.woodenSpoon+"pts"],["👟 Golden Boot (pick 5)","+"+PTS.goldenBoot+"pts"],["🧤 Golden Glove (pick 3)","+"+PTS.goldenGlove+"pts"],["🏅 Golden Ball (pick 5)","+"+PTS.goldenGlove+"pts"]].map(([l,v])=>(
               <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,.6)",borderRadius:8,padding:"6px 8px"}}>
                 <span style={{fontSize:11,color:"#92400E"}}>{l}</span>
                 <span className="C" style={{fontSize:13,color:"#004B87"}}>{v}</span>
@@ -2549,18 +2659,11 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             </div>
           </div>
           <div className="ac">
-            <p className="st">🔮 PROP BET ANSWERS</p>
-            {PROP_QUESTIONS.map((q,i)=>{
-              const cur=propAnswers?.[q.id]||"";
-              return(
-                <div key={q.id} style={{marginBottom:12}}>
-                  <p style={{fontSize:11,fontWeight:700,color:"#004B87",margin:"0 0 4px"}}>Q{i+1} · {q.label}</p>
-                  {q.type==="team"&&<select className="sel" value={cur} onChange={async e=>{const upd={...propAnswers,[q.id]:e.target.value};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}}><option value="">Select team…</option>{TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]} {t}</option>)}</select>}
-                  {q.type==="player"&&<MotmDropdown team1="" team2="" value={cur} onChange={async v=>{const upd={...propAnswers,[q.id]:v};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}}/>}
-                  {q.type==="yesno"&&<div style={{display:"flex",gap:8}}>{[["true","✅ Yes"],["false","❌ No"]].map(([v,lbl])=><button key={v} onClick={async()=>{const upd={...propAnswers,[q.id]:v};setPropAnswers(upd);await DB.set("propanswers",upd);toast2("Saved","ok");}} style={{flex:1,padding:"8px",borderRadius:8,background:cur===v?(v==="true"?"#f0fdf4":"#fef2f2"):"#f1f5f9",color:cur===v?(v==="true"?"#15803d":"#dc2626"):"#475569",border:"1px solid "+(cur===v?(v==="true"?"#bbf7d0":"#fecaca"):"#e2e8f0"),cursor:"pointer",fontSize:13,fontWeight:700}}>{lbl}</button>)}</div>}
-                </div>
-              );
-            })}
+            <p className="st">🏅 GOLDEN BALL WINNER</p>
+            <p style={{fontSize:11,color:"#64748b",marginBottom:10}}>Set the actual Player of the Tournament. Anyone who included them in their 5 candidates gets +{PTS.goldenGlove}pts.</p>
+            <MotmDropdown team1="" team2="" value={actualGball} onChange={async v=>{setActualGball(v);await DB.set("actualgball",v);toast2("🏅 Golden Ball: "+v,"ok");}}/>
+            {actualGball&&<p style={{fontSize:11,color:"#15803d",fontWeight:700,marginTop:8}}>✓ Set: {actualGball}</p>}
+            {actualGball&&<button onClick={async()=>{setActualGball("");await DB.set("actualgball",null);toast2("Cleared");}} style={{marginTop:8,padding:"6px 14px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ Clear</button>}
           </div>
         </div>}
 
