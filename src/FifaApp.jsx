@@ -1345,7 +1345,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   useEffect(()=>{
     if(justOnboarded.current)return;
     if(!hasOnboarded&&sc!=="onboard")setSc("onboard");
-    // prop bets handled inside onboarding step 3
+    // If onboarded but prop bets missing, jump directly to prop bets step
+    else if(hasOnboarded&&!hasPropBets&&sc==="home"){setObStep(3);setSc("onboard");}
   },[hasOnboarded,hasPropBets,sc,email]);// eslint-disable-line
 
   /* ─── Computed ─────────────────────────────────────────────── */
@@ -1484,8 +1485,11 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);setWspk(ws2);setMyWs(obWs);setGbpk(gb2);setMyGb(obGb);setGgpk(gg2);setMyGg(obGg);
     await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2)]);
     await DB.set("propbets/"+myEk,obProps);
-    setMyPropBets(obProps);
-    setAllPropBets(prev=>({...prev,[myEk]:obProps}));
+    // Immediately re-read to confirm the write landed before navigating
+    const freshPB=await DB.get("propbets")||{};
+    const normFreshPB={};Object.keys(freshPB).forEach(k=>{normFreshPB[ek(k)]=freshPB[k];});
+    setAllPropBets(normFreshPB);
+    setMyPropBets(normFreshPB[myEk]||obProps);
     justOnboarded.current=true;
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
   }
