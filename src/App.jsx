@@ -731,6 +731,7 @@ const[sportConfigLoaded,setSportConfigLoaded]=useState(false);
   const[obStep,setObStep]=useState(0);const[obSp,setObSp]=useState("");const[obT4,setObT4]=useState([]);
   const[toast,setToast]=useState(null);
   const[maintenance,setMaintenance]=useState(false);
+  const[readOnly,setReadOnly]=useState(false);
   const[manualPtsAdj,setManualPtsAdj]=useState({});
   const[lockedMatches,setLockedMatches]=useState({});
   const[manMatchForm,setManMatchForm]=useState({mn:"",home:"RCB",away:"MI",date:"",time:"19:30",venue:""});
@@ -789,12 +790,13 @@ const[actualTop4,setActualTop4]=useState([]);
 
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
-    const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu,bonusAns,bqAll,pbAll,paAll,sba,at4]=await Promise.all([
+    const[ap,u,rm,b,cm,sp,sw2,t4,rx,rms,br,mn,mnt,pts,lk,pbc,dm,cm2,mu,mpo,pu,bonusAns,bqAll,pbAll,paAll,sba,at4,tStatus]=await Promise.all([
       DB.get("ap"),DB.get("u"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("sw"),DB.get("t4"),DB.get("rx"),DB.get("rms"),
       DB.get("bracket"),DB.get("manmatches"),DB.get("maintenance"),DB.get("ptsadj"),DB.get("lockedm"),
       DB.get("pinnedbc"),DB.get("doublematch"),DB.get("chatmuted"),DB.get("mutedusers"),DB.get("matchptsoverride"),
-      DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans"),DB.get("actualtop4")
+      DB.get("pending"),DB.get("bonusans"),DB.get("bq"),DB.get("propbets"),DB.get("propanswers"),DB.get("sbans"),DB.get("actualtop4"),
+      DB.get("tourneystatus")
     ]);
     if(u){const nu={};Object.keys(u).forEach(k=>{const entry=u[k];if(entry?.email)nu[ek(entry.email)]=entry;});setUsers(nu);}
     if(pu)setPendingUsers(pu);else setPendingUsers({});
@@ -824,6 +826,7 @@ const[actualTop4,setActualTop4]=useState([]);
     const nt4=normalizeKeyMap(t4);setT4pk(nt4);if(em)setMyT4(nt4[emk]||[]);
     if(rx)setRxns(rx);if(rms)setReminders(rms);
     if(mnt!=null)setMaintenance(!!mnt);
+    if(tStatus!=null)setReadOnly(tStatus==="finished");
     if(pts)setManualPtsAdj(normalizeKeyMap(pts));
     if(lk)setLockedMatches(lk);
     setPinnedBc(pbc||null);
@@ -1551,6 +1554,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   /* -------- MAIN SHELL -------- */
   return<div className="app" style={{paddingBottom:68}}><style>{CSS}</style>
     {hdr}
+    {readOnly&&<div style={{background:"#7c3aed",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:16}}>🏁</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1}}>IPL 2026 has ended — you're viewing historical data. Thanks for playing!</p></div>}
     {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📢</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
     {bc.length>0&&sc==="home"&&!pinnedBc&&(()=>{const lt=bc[bc.length-1];return<div style={{background:"#FFF9E6",borderBottom:"1px solid #FDE68A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setBcSeenTs(Date.now())}><span style={{color:"#B8860B",fontSize:14}}>📌</span><p style={{color:"#92400E",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lt.msg}</p>{unbc>0&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:12}}>{unbc} new</span>}</div>;})()}
     <div style={{background:"#fff",padding:"8px 16px",display:"flex",borderBottom:"1px solid #e2e8f0"}}>
