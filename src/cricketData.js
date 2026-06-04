@@ -387,7 +387,7 @@ export const ALL_PLAYERS = Object.entries(SQ)
   .flatMap(([team, players]) => players.map((p) => ({ p, t: team })))
   .sort((a, b) => a.p.localeCompare(b.p));
 
-const TRASH_TALK=[
+export const TRASH_TALK=[
   (perfs,zeros,lone,mn)=>`🏏 ${mn} VERDICT!
 ${perfs.length?`✅ ${perfs.join(" & ")} nailed all 3! Flawless.`:"Nobody got all 3. Collective suffering. 🏏"}
 ${zeros.length?`😔 Moment of silence for ${zeros.join(", ")} — 0 from 3.`:""}
