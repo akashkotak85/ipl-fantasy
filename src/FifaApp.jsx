@@ -13,6 +13,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import TournamentHistory from"./TournamentHistory.jsx";
 
 /* ─── TEAMS ──────────────────────────────────────────────────── */
 const TEAMS = [
@@ -1883,6 +1884,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   ),[myPts,maintenance,onBack]);
 
   /* ─── MAINTENANCE ──────────────────────────────────────────── */
+  if(readOnly)return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} actualWs={actualWs} actualGb={actualGb} actualGg={actualGg} actualGball={actualGball} done={done.length} sport="football" PTS={PTS} onBack={onBack}/>;
+
   if(maintenance&&!isAdmin){
     return(
       <div className="fifa-app"><style>{CSS}</style>
