@@ -918,6 +918,11 @@ function InlineReveal({m,allPicks,allBonusPicks,bonusAnswers,goalBandAnswers,use
                     color:!gbAns?"#94a3b8":gbOk?"#15803d":"#dc2626"}}>
                     ⚽{bandShort}{gbAns?(gbOk?" ✓":" ✗"):""}
                   </span>}
+                  {bq!=null&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:4,fontWeight:700,
+                    background:bonusAns==null?"#f1f5f9":bqOk?"#dcfce7":"#fee2e2",
+                    color:bonusAns==null?"#94a3b8":bqOk?"#15803d":"#dc2626"}}>
+                    ❓{bq?"Yes":"No"}{bonusAns!=null?(bqOk?" ✓":" ✗"):""}
+                  </span>}
                 </div>
               </div>
             </div>
@@ -1580,12 +1585,22 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(!obGb||obGb.length!==5){toast2("Pick exactly 5 Golden Boot candidates","error");return;}
     if(obGg.length!==3){toast2("Pick exactly 3 Golden Glove goalkeepers","error");return;}
     if(obGball.length===0){toast2("Pick at least 1 Golden Ball candidate","error");return;}
-    const sp2={...spk,[myEk]:obSp};const t42={...t4pk,[myEk]:obT4};
-    const ws2={...wspk,[myEk]:obWs};const gb2={...gbpk,[myEk]:obGb};const gg2={...ggpk,[myEk]:obGg};
-    setSpk(sp2);setMySp(obSp);setT4pk(t42);setMyT4(obT4);setWspk(ws2);setMyWs(obWs);setGbpk(gb2);setMyGb(obGb);setGgpk(gg2);setMyGg(obGg);
-    const gball2={...gballpk,[myEk]:obGball};
-    setGballpk(gball2);setMyGball(obGball);
-    await Promise.all([DB.set("sp",sp2),DB.set("t4",t42),DB.set("ws",ws2),DB.set("gb",gb2),DB.set("gg",gg2),DB.set("gball",gball2)]);
+    // Update local state optimistically
+    setSpk(p=>({...p,[myEk]:obSp}));setMySp(obSp);
+    setT4pk(p=>({...p,[myEk]:obT4}));setMyT4(obT4);
+    setWspk(p=>({...p,[myEk]:obWs}));setMyWs(obWs);
+    setGbpk(p=>({...p,[myEk]:obGb}));setMyGb(obGb);
+    setGgpk(p=>({...p,[myEk]:obGg}));setMyGg(obGg);
+    setGballpk(p=>({...p,[myEk]:obGball}));setMyGball(obGball);
+    // Write only this user's slot — never overwrite other users' picks
+    await Promise.all([
+      DB.set("sp/"+myEk,obSp),
+      DB.set("t4/"+myEk,obT4),
+      DB.set("ws/"+myEk,obWs),
+      DB.set("gb/"+myEk,obGb),
+      DB.set("gg/"+myEk,obGg),
+      DB.set("gball/"+myEk,obGball),
+    ]);
     justOnboarded.current=true;
     setSc("home");toast2("All picks locked! Vamos! ⚽","ok");
   }
@@ -1772,9 +1787,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <button onClick={async()=>{
               // Skip onboarding — mark as done with placeholder so user can browse
               const placeholder="__skip__";
-              const sp2={...spk,[myEk]:placeholder};
-              setSpk(sp2);setMySp(placeholder);
-              await DB.set("sp",sp2);
+              setSpk(p=>({...p,[myEk]:placeholder}));setMySp(placeholder);
+              await DB.set("sp/"+myEk,placeholder);
               justOnboarded.current=true;
               setSc("home");toast2("You can set your picks anytime from My Game → Season","info");
             }} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:10,background:"transparent",color:"#94a3b8",border:"1px solid #e2e8f0",cursor:"pointer",fontSize:13,fontFamily:"'Barlow',sans-serif"}}>
