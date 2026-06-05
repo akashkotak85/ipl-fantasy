@@ -1482,15 +1482,27 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,email,all
 }
 
 /* ─── PICK STATUS PANEL ──────────────────────────────────────── */
-function PickStatusPanel({ms,users,allPicks,lockedMatches,adminEmail,goalBandAnswers,bonusAnswers,allBonusPicks}){
+function PickStatusPanel({ms,users,allPicks,lockedMatches,adminEmail,goalBandAnswers,bonusAnswers,allBonusPicks,onReset}){
   const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away)).sort((a,b)=>Number(a.id)-Number(b.id));
-  const[psMatch,setPsMatch]=useState(()=>playableMs[0]?.id??null);
+  const[psMatch,setPsMatch]=useState(null);
+  // Auto-select first match once matches load (handles async reload timing)
+  useEffect(()=>{if(psMatch===null&&playableMs.length>0)setPsMatch(playableMs[0].id);},[playableMs.length]);// eslint-disable-line
   const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
   const selM=playableMs.find(m=>Number(m.id)===Number(psMatch))||null;
+  const getUP=(emk,id)=>{const up=allPicks[emk]||{};return up[String(id)]??up[Number(id)]??null;};
 
   const ae=Object.entries(allPicks);
   const tot=approvedUsers.length;
-  const picked=selM?ae.filter(([emk])=>approvedUsers.some(u=>ek(u.email)===emk)&&(allPicks[emk]?.[String(selM.id)]??allPicks[emk]?.[Number(selM.id)])!=null).length:0;
+  const picked=selM?ae.filter(([emk])=>approvedUsers.some(u=>ek(u.email)===emk)&&getUP(emk,selM.id)!=null).length:0;
+  const winHome=selM?ae.filter(([emk])=>getUP(emk,selM.id)?.win===selM.home).length:0;
+  const winAway=selM?ae.filter(([emk])=>getUP(emk,selM.id)?.win===selM.away).length:0;
+  const winDraw=selM?ae.filter(([emk])=>getUP(emk,selM.id)?.win==="Draw").length:0;
+  const hc=TEAM_COLORS[selM?.home]||{bg:"#333"},ac=TEAM_COLORS[selM?.away]||{bg:"#555"};
+
+  async function resetPick(emk,name){
+    if(!confirm("Reset pick for "+name+"?"))return;
+    if(onReset)await onReset(emk,selM.id);
+  }
 
   return(
     <div>
@@ -1512,21 +1524,44 @@ function PickStatusPanel({ms,users,allPicks,lockedMatches,adminEmail,goalBandAns
           ))}
         </div>
 
+        {/* Winner distribution (3-way: home / draw / away) */}
+        {picked>0&&(()=>{
+          const t2=winHome+winDraw+winAway||1;
+          const pH=Math.round(winHome/t2*100),pD=Math.round(winDraw/t2*100),pA=100-pH-pD;
+          return<div className="ac" style={{marginBottom:12}}>
+            <p className="st" style={{marginBottom:8}}>PICK DISTRIBUTION</p>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.3}}>Winner</span>
+              <span style={{fontSize:10,color:"#94a3b8"}}>{winHome+winDraw+winAway} picks</span>
+            </div>
+            <div style={{display:"flex",height:10,borderRadius:5,overflow:"hidden",background:"#e2e8f0",marginBottom:6}}>
+              <div style={{width:pH+"%",background:hc.bg}}/>
+              <div style={{width:pD+"%",background:"#94a3b8"}}/>
+              <div style={{width:pA+"%",background:ac.bg}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontWeight:700}}>
+              <span style={{color:hc.bg}}>{selM.home} {pH}% ({winHome})</span>
+              <span style={{color:"#64748b"}}>Draw {pD}% ({winDraw})</span>
+              <span style={{color:ac.bg}}>{selM.away} {pA}% ({winAway})</span>
+            </div>
+          </div>;
+        })()}
+
         <div className="ac">
           <p className="st" style={{marginBottom:10}}>USER PICKS — {selM.mn}: {selM.home} vs {selM.away}</p>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:"2px solid #e2e8f0"}}>
-                  {["Player","Win","MOTM","Goals","❓",selM.result?"Pts":""].filter(Boolean).map(h=>(
-                    <th key={h} style={{textAlign:"left",padding:"6px 6px",color:"#64748b",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>{h}</th>
+                  {["Player","Win","MOTM","Goals","❓",...(selM.result?["Pts"]:[]),""].map((h,i)=>(
+                    <th key={i} style={{textAlign:"left",padding:"6px 6px",color:"#64748b",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {approvedUsers.map(u=>{
                   const emk=ek(u.email);
-                  const p=allPicks[emk]?.[String(selM.id)]??allPicks[emk]?.[Number(selM.id)];
+                  const p=getUP(emk,selM.id);
                   let rowPts=0,winOk=false,motmOk=false;
                   if(p&&selM.result){
                     const wA=!isNR(selM.result.win),mA=!isNR(selM.result.motm);
@@ -1545,39 +1580,53 @@ function PickStatusPanel({ms,users,allPicks,lockedMatches,adminEmail,goalBandAns
                     if(bqAns!=null&&userBQ!=null&&userBQ===bqAns)base+=PTS.bonus;
                     rowPts=base;
                   }
+                  const rowBg=p?(selM.result?(rowPts>0?"#f0fdf4":"#fff7f7"):"#FFFBEB"):"#fafafa";
+                  if(!p){
+                    return(
+                      <tr key={u.email} style={{borderBottom:"1px solid #f1f5f9",background:rowBg}}>
+                        <td style={{padding:"8px 6px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><Av name={u.name} sz={22}/><p style={{fontSize:11,fontWeight:600,color:"#0a1628",margin:0}}>{u.name}{u.email===adminEmail?" (You)":""}</p></div></td>
+                        <td colSpan={selM.result?5:4} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>
+                      </tr>
+                    );
+                  }
+                  const gbAns2=goalBandAnswers?.[String(selM.id)];
+                  const gbOk=gbAns2&&p.gb&&p.gb===gbAns2;
+                  const bqA=bonusAnswers?.[String(selM.id)];
+                  const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];
+                  const bqOk=bqA!=null&&uBQ!=null&&uBQ===bqA;
                   return(
-                    <tr key={u.email} style={{borderBottom:"1px solid #f1f5f9",background:p?(selM.result?(rowPts>0?"#f0fdf4":"#fff7f7"):"#FFFBEB"):"#fafafa"}}>
+                    <tr key={u.email} style={{borderBottom:"1px solid #f1f5f9",background:rowBg}}>
                       <td style={{padding:"8px 6px"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <Av name={u.name} sz={22}/>
-                          <p style={{fontSize:11,fontWeight:600,color:"#0a1628",margin:0}}>{u.name}</p>
+                          <p style={{fontSize:11,fontWeight:600,color:"#0a1628",margin:0}}>{u.name}{u.email===adminEmail?" (You)":""}</p>
                         </div>
                       </td>
-                      {p?<>
-                        <td style={{padding:"6px"}}>
-                          <span style={{fontSize:10,fontWeight:700,padding:"2px 5px",borderRadius:5,
-                            color:selM.result?(winOk?"#15803d":"#dc2626"):"#0a1628",
-                            background:selM.result?(winOk?"#dcfce7":"#fee2e2"):"#f1f5f9"}}>
-                            {p.win==="Draw"?"Draw":p.win}
-                          </span>
-                        </td>
-                        <td style={{padding:"6px",fontSize:10,color:selM.result?(motmOk?"#15803d":"#dc2626"):"#475569",fontWeight:selM.result?700:400}}>
-                          {p.motm?.split(" ").slice(-1)[0]||"—"}
-                        </td>
-                        <td style={{padding:"6px",fontSize:10,fontWeight:700,color:"#94a3b8"}}>
-                          {p.gb?GOAL_BANDS.find(b=>b.id===p.gb)?.emoji+(p.gb):"—"}
-                        </td>
-                        <td style={{padding:"6px",fontSize:10}}>
-                          {(()=>{const bqA=bonusAnswers?.[String(selM.id)];const uBQ=(allBonusPicks?.[emk]||{})[String(selM.id)];const bqOk=bqA!=null&&uBQ!=null&&uBQ===bqA;return uBQ!=null?<span style={{fontWeight:700,color:bqA!=null?(bqOk?"#15803d":"#dc2626"):"#0a1628"}}>{uBQ?"Y":"N"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk?" ✓":" ✗"}</span>}</span>:<span style={{color:"#94a3b8"}}>—</span>;})()}
-                        </td>
-                        {selM.result&&<td style={{padding:"6px"}}><span className="C" style={{fontSize:14,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span></td>}
-                      </>:<td colSpan={selM.result?5:4} style={{textAlign:"center",padding:"8px 4px",color:"#94a3b8",fontSize:11,fontStyle:"italic"}}>no pick</td>}
+                      <td style={{padding:"6px"}}>
+                        <span style={{fontSize:10,fontWeight:700,padding:"2px 5px",borderRadius:5,color:selM.result?(winOk?"#15803d":"#dc2626"):"#0a1628",background:selM.result?(winOk?"#dcfce7":"#fee2e2"):"#f1f5f9"}}>{p.win==="Draw"?"Draw":p.win}</span>
+                      </td>
+                      <td style={{padding:"6px",fontSize:10,color:selM.result?(motmOk?"#15803d":"#dc2626"):"#475569",fontWeight:selM.result?700:400}}>{p.motm?.split(" ").slice(-1)[0]||"—"}</td>
+                      <td style={{padding:"6px",fontSize:10,fontWeight:700,color:gbAns2?(gbOk?"#15803d":"#dc2626"):"#94a3b8"}}>{p.gb?(GOAL_BANDS.find(b=>b.id===p.gb)?.short||p.gb):"—"}</td>
+                      <td style={{padding:"6px",fontSize:10}}>{uBQ!=null?<span style={{fontWeight:700,color:bqA!=null?(bqOk?"#15803d":"#dc2626"):"#0a1628"}}>{uBQ?"Y":"N"}{bqA!=null&&<span style={{fontSize:9}}>{bqOk?" ✓":" ✗"}</span>}</span>:<span style={{color:"#94a3b8"}}>—</span>}</td>
+                      {selM.result&&<td style={{padding:"6px"}}><span className="C" style={{fontSize:14,fontWeight:800,color:rowPts>0?"#15803d":"#94a3b8"}}>+{rowPts}</span></td>}
+                      <td style={{textAlign:"center",padding:"6px 2px"}}><button onClick={()=>resetPick(emk,u.name)} style={{padding:"3px 7px",borderRadius:6,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:10,fontWeight:700}}>🗑</button></td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {/* Who hasn't picked yet (pre-result, pre-lock only) */}
+          {(()=>{
+            const noPick=approvedUsers.filter(u=>!getUP(ek(u.email),selM.id));
+            const stillOpen=!selM.result&&!isMatchLocked(selM,lockedMatches);
+            if(noPick.length===0||!stillOpen)return null;
+            return<div style={{marginTop:10,padding:"10px 12px",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#991b1b",margin:"0 0 4px",textTransform:"uppercase"}}>Yet to predict ({noPick.length})</p>
+              <p style={{fontSize:11,color:"#dc2626",margin:0,lineHeight:1.6}}>{noPick.map(u=>u.name).join(", ")}</p>
+            </div>;
+          })()}
         </div>
       </>}
     </div>
@@ -1929,6 +1978,22 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   async function delMsg(id){
     const latest=await DB.get("ch")||[];
     const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);
+  }
+
+  /* Reset a single user's pick + bonus, then refresh in place (no reload) */
+  async function resetUserPick(targetEmk,matchId){
+    const sid=String(matchId);
+    await DB.set("ap/"+targetEmk+"/"+sid,null);
+    await DB.set("bq/"+targetEmk+"/"+sid,null);
+    const freshAP=await DB.get("ap");const normAP={};
+    if(freshAP&&typeof freshAP==="object"){
+      Object.keys(freshAP).forEach(k=>{const ck=ek(k);const up=freshAP[k];normAP[ck]={};
+        if(up&&typeof up==="object")Object.keys(up).forEach(mid=>{const p=up[mid];if(p&&(p.win||p.motm))normAP[ck][String(mid)]=p;});});
+    }
+    setAllPicks(normAP);if(normAP[myEk])setMyPicks(normAP[myEk]);else setMyPicks({});
+    const bqAll=await DB.get("bq")||{};const normBQ={};Object.keys(bqAll).forEach(k=>{normBQ[ek(k)]=bqAll[k];});
+    setAllBonusPicks(normBQ);setMyBonusPicks(normBQ[myEk]||{});
+    toast2("Pick reset","ok");
   }
 
   /* Admin manual pick save — bypasses lock, atomic write + re-fetch */
@@ -2855,7 +2920,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           ))}
         </div>}
 
-        {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} lockedMatches={lockedMatches} adminEmail={email} goalBandAnswers={goalBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks}/>}
+        {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} lockedMatches={lockedMatches} adminEmail={email} goalBandAnswers={goalBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} onReset={resetUserPick}/>}
 
         {admTab==="users"&&<div>
           <input className="inp" placeholder="Search users…" value={userSearch} onChange={e=>setUserSearch(e.target.value)} style={{marginBottom:12}}/>
