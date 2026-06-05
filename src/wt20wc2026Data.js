@@ -256,11 +256,11 @@ export const WT20_CAPTAINS = {
 
 // ── Season Prop Bets (set once during onboarding) ─────────
 export const WT20_PROPS = [
-  { id: "q0", label: "Golden Bat — who will score the most runs in the tournament?", type: "player" },
-  { id: "q1", label: "Golden Ball — who will take the most wickets in the tournament?", type: "player" },
-  { id: "q2", label: "Which team will post the highest total in any single match?", type: "team" },
-  { id: "q3", label: "Will there be at least one Super Over in the tournament?", type: "yesno" },
-  { id: "q4", label: "Who will be named Player of the Tournament?", type: "player" },
+  { id: "q0", label: "Golden Bat — who will score the most runs in the tournament?", type: "player", short: "🏏 Golden Bat" },
+  { id: "q1", label: "Golden Ball — who will take the most wickets in the tournament?", type: "player", short: "🎯 Golden Ball" },
+  { id: "q2", label: "Which team will post the highest total in any single match?", type: "team", short: "📈 Hi Total" },
+  { id: "q3", label: "Will there be at least one Super Over in the tournament?", type: "yesno", short: "⚡ Super Over" },
+  { id: "q4", label: "Who will be named Player of the Tournament?", type: "player", short: "🏆 Player of T" },
 ];
 
 // ── Tournament Config ──────────────────────────────────────
