@@ -26,6 +26,7 @@ export default function PickStatusPanel({
   TC,
   SQ,
   DB,
+  onReset,
 }) {
   const playableMs = ms
     .filter((m) => !isTBD(m) && TEAMS.includes(m.home) && TEAMS.includes(m.away))
@@ -71,9 +72,13 @@ export default function PickStatusPanel({
 
   async function resetPick(emk, name) {
     if (!confirm("Reset pick for " + name + "?")) return;
-    await DB.set("ap/" + emk + "/" + String(selM.id), null);
-    await DB.set("bq/" + emk + "/" + String(selM.id), null);
-    window.location.reload();
+    if (onReset) {
+      await onReset(emk, selM.id);
+    } else {
+      await DB.set("ap/" + emk + "/" + String(selM.id), null);
+      await DB.set("bq/" + emk + "/" + String(selM.id), null);
+      window.location.reload();
+    }
   }
 
   return (
