@@ -1,4 +1,5 @@
-// cricketData.js import { WT20WC_2026 } from "./wt20wc2026Data.js";
+// cricketData.js 
+import { WT20WC_2026 } from "./wt20wc2026Data.js";
 // All cricket DATA lives here — no logic, no React.
 //
 // Restructured so each tournament is a self-describing config object. Today
