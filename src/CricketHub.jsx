@@ -128,7 +128,7 @@ function ComingSoon() {
 }
 
 export default function CricketHub({ user, isAdmin, onSelectTournament, onBack }) {
-  const [activeTab, setActiveTab] = useState("now");
+  const [activeTab, setActiveTab] = useState("live");
   const [firebaseStatuses, setFirebaseStatuses] = useState({});
   const [statusLoading, setStatusLoading] = useState(true);
 
@@ -164,6 +164,13 @@ export default function CricketHub({ user, isAdmin, onSelectTournament, onBack }
 
   const hasAnythingNow = live.length > 0 || upcoming.length > 0;
 
+  // Auto-switch to history when nothing is live/upcoming
+  React.useEffect(() => {
+    if (!statusLoading && !hasAnythingNow && finished.length > 0) {
+      setActiveTab("history");
+    }
+  }, [statusLoading, hasAnythingNow, finished.length]);
+
   return (
     <div className="ch-wrap">
       <style>{CSS}</style>
@@ -175,27 +182,25 @@ export default function CricketHub({ user, isAdmin, onSelectTournament, onBack }
         <p className="ch-title">Cricket</p>
         <p className="ch-user">Welcome back, {user?.name || "Player"} 🏏</p>
 
-        {/* Tab bar — only show History tab if there are finished tournaments */}
-        {finished.length > 0 && (
-          <div className="ch-tabs">
-            <button
-              className={`ch-tab${activeTab === "now" ? " on" : ""}`}
-              onClick={() => setActiveTab("now")}>
-              🏏 Now
-            </button>
-            <button
-              className={`ch-tab${activeTab === "history" ? " on" : ""}`}
-              onClick={() => setActiveTab("history")}>
-              📜 History {finished.length > 0 ? `(${finished.length})` : ""}
-            </button>
-          </div>
-        )}
+        {/* Tab bar — always show both tabs */}
+        <div className="ch-tabs">
+          <button
+            className={`ch-tab${activeTab === "live" ? " on" : ""}`}
+            onClick={() => setActiveTab("live")}>
+            🏟️ Live
+          </button>
+          <button
+            className={`ch-tab${activeTab === "history" ? " on" : ""}`}
+            onClick={() => setActiveTab("history")}>
+            📜 History{finished.length > 0 ? ` (${finished.length})` : ""}
+          </button>
+        </div>
       </div>
 
       {statusLoading && <div className="ch-spinner" />}
 
       {/* ── NOW TAB ─────────────────────────────────────────── */}
-      {!statusLoading && activeTab === "now" && (
+      {!statusLoading && activeTab === "live" && (
         <>
           {!hasAnythingNow ? (
             <ComingSoon />
@@ -226,10 +231,17 @@ export default function CricketHub({ user, isAdmin, onSelectTournament, onBack }
       {!statusLoading && activeTab === "history" && (
         <div className="ch-section">
           {finished.length === 0 ? (
-            <p style={{
-              textAlign: "center", color: "rgba(255,255,255,.4)",
-              fontSize: 13, padding: "48px 0",
-            }}>No finished tournaments yet.</p>
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <p style={{ fontSize: 36, marginBottom: 12 }}>📭</p>
+              <p style={{ color: "#fff", fontFamily: "'Barlow Condensed',sans-serif",
+                fontWeight: 800, fontSize: 20, letterSpacing: 1,
+                textTransform: "uppercase", margin: "0 0 8px" }}>
+                No Past Seasons Yet
+              </p>
+              <p style={{ color: "rgba(255,255,255,.4)", fontSize: 13, lineHeight: 1.6 }}>
+                Finished tournaments will appear here once they are closed via Admin Hub.
+              </p>
+            </div>
           ) : (
             <>
               <p className="ch-section-label">Past seasons</p>
