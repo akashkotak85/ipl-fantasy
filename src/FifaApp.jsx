@@ -1023,7 +1023,7 @@ function getTeamForm(team,matches,n=5){
 }
 
 /* ─── FIFA MATCH INTEL ───────────────────────────────────────── */
-function FifaMatchIntel({m,allMs}){
+function FifaMatchIntel({m,allMs,allPicks={}}){
   const [open,setOpen] = useState(false);
   if(isTBD(m)) return null;
 
@@ -1111,6 +1111,23 @@ function FifaMatchIntel({m,allMs}){
             </div>
           )}
 
+          {/* How the group is leaning (live picks) */}
+          {(()=>{
+            const picks=Object.values(allPicks).map(up=>up?.[String(m.id)]??up?.[Number(m.id)]).filter(Boolean);
+            const lH=picks.filter(pk=>pk.win===m.home).length,lD=picks.filter(pk=>pk.win==="Draw").length,lA=picks.filter(pk=>pk.win===m.away).length,lTot=lH+lD+lA;
+            if(!lTot) return null;
+            const pH=Math.round(lH/lTot*100),pD=Math.round(lD/lTot*100),pA=100-pH-pD;
+            return <div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"8px",marginBottom:10}}>
+              <p style={{fontSize:9,color:"#64748b",fontWeight:600,textTransform:"uppercase",margin:"0 0 6px"}}>How the group is leaning ({lTot})</p>
+              <div style={{display:"flex",height:12,borderRadius:6,overflow:"hidden",background:"#e2e8f0",marginBottom:5}}>
+                <div style={{width:pH+"%",background:"#15803d"}}/><div style={{width:pD+"%",background:"#f59e0b"}}/><div style={{width:pA+"%",background:"#dc2626"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,fontWeight:700}}>
+                <span style={{color:"#15803d"}}>{m.home} {pH}%</span><span style={{color:"#b45309"}}>Draw {pD}%</span><span style={{color:"#dc2626"}}>{m.away} {pA}%</span>
+              </div>
+            </div>;
+          })()}
+
           {/* Group Stage Info */}
           {(homeGroup||awayGroup)&&(
             <div style={{display:"flex",gap:8}}>
@@ -1141,6 +1158,44 @@ function FifaMatchIntel({m,allMs}){
 }
 
 /* ─── LEADERBOARD CARD ───────────────────────────────────────── */
+function fifaWeekStart(iso){const d=new Date(iso+"T00:00:00");const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d;}
+function fifaFmt(d){return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});}
+function FifaWeeklyLeaderboard({ms,users,allPicks,allBonusPicks,goalBandAnswers,bonusAnswers,doubleMatch,email}){
+  const weeks=useMemo(()=>{
+    const played=ms.filter(m=>m.result&&m.date);const map=new Map();
+    played.forEach(m=>{const ws=fifaWeekStart(m.date);const key=ws.toISOString().slice(0,10);if(!map.has(key)){const we=new Date(ws);we.setDate(we.getDate()+6);map.set(key,{key,start:ws,end:we,matches:[]});}map.get(key).matches.push(m);});
+    return [...map.values()].sort((a,b)=>a.start-b.start);
+  },[ms]);
+  const[idx,setIdx]=useState(0);
+  useEffect(()=>{if(weeks.length)setIdx(weeks.length-1);},[weeks.length]);
+  if(weeks.length===0)return <div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>📅</p><p style={{color:"#94a3b8",marginTop:12}}>No completed matches yet — gameweek boards appear once results are in.</p></div>;
+  const wk=weeks[Math.min(idx,weeks.length-1)];const weekMs=wk.matches;
+  const approved=Object.values(users).filter(u=>u?.email&&u.approved!==false);
+  const rows=approved.map(u=>{
+    const emk=ek(u.email);const up=allPicks[emk]||{};const ub=allBonusPicks?.[emk]||{};
+    const base=calcScore(up,weekMs,doubleMatch).pts;
+    const goalPts=weekMs.reduce((s,m)=>{const ans=goalBandAnswers?.[String(m.id)];if(!ans)return s;const pk=up[String(m.id)]??up[Number(m.id)];if(!pk?.gb)return s;return s+(pk.gb===ans?PTS.goals:0);},0);
+    const bonusPts=weekMs.reduce((s,m)=>{const ans=bonusAnswers?.[String(m.id)];if(ans==null)return s;const uA=ub[String(m.id)];if(uA==null)return s;return s+(uA===ans?PTS.bonus:0);},0);
+    return{...u,wkPts:base+goalPts+bonusPts,played:weekMs.filter(m=>up[String(m.id)]||up[Number(m.id)]).length};
+  }).sort((a,b)=>b.wkPts-a.wkPts);
+  const topPts=rows[0]?.wkPts||0;const medals=["🥇","🥈","🥉"];
+  return(<div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"8px 10px",marginBottom:12}}>
+      <button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx<=0} style={{width:34,height:34,borderRadius:8,border:"1px solid #e2e8f0",background:idx<=0?"#f8fafc":"#fff",color:"#004B87",cursor:idx<=0?"default":"pointer",fontSize:16,fontWeight:800,opacity:idx<=0?.4:1}}>‹</button>
+      <div style={{textAlign:"center"}}><p className="C" style={{fontSize:16,fontWeight:800,color:"#0a1628",margin:0}}>Gameweek {idx+1}</p><p style={{fontSize:10,color:"#94a3b8",margin:"1px 0 0"}}>{fifaFmt(wk.start)} – {fifaFmt(wk.end)} · {weekMs.length} match{weekMs.length>1?"es":""}</p></div>
+      <button onClick={()=>setIdx(i=>Math.min(weeks.length-1,i+1))} disabled={idx>=weeks.length-1} style={{width:34,height:34,borderRadius:8,border:"1px solid #e2e8f0",background:idx>=weeks.length-1?"#f8fafc":"#fff",color:"#004B87",cursor:idx>=weeks.length-1?"default":"pointer",fontSize:16,fontWeight:800,opacity:idx>=weeks.length-1?.4:1}}>›</button>
+    </div>
+    {rows[0]&&rows[0].wkPts>0&&(<div style={{background:"linear-gradient(135deg,#FFF7E0,#FFFBEB)",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:26}}>👑</span><div style={{flex:1}}><p style={{fontSize:9,color:"#92400E",fontWeight:700,textTransform:"uppercase",letterSpacing:.5,margin:0}}>Gameweek MVP</p><p className="C" style={{fontSize:17,fontWeight:800,color:"#0a1628",margin:"1px 0 0"}}>{rows[0].name}</p></div><p className="C" style={{fontSize:20,fontWeight:800,color:"#15803d",margin:0}}>+{rows[0].wkPts}</p></div>)}
+    {rows.map((u,i)=>{const isMe=u.email===email;return(<div key={u.email} style={{display:"flex",alignItems:"center",gap:10,background:isMe?"#E6F0FB":"#fff",border:"1px solid "+(isMe?"#004B8740":"#e2e8f0"),borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+      <span style={{width:24,textAlign:"center",fontSize:i<3?16:12,fontWeight:800,color:"#64748b",fontFamily:"'Barlow Condensed',sans-serif"}}>{i<3?medals[i]:i+1}</span>
+      <Av name={u.name} sz={30}/>
+      <div style={{flex:1,minWidth:0}}><p style={{fontSize:13,fontWeight:600,color:"#0a1628",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}{isMe?" (You)":""}</p><p style={{fontSize:10,color:"#94a3b8",margin:0}}>{u.played}/{weekMs.length} predicted</p></div>
+      <div style={{width:60,marginRight:4}}><div style={{height:6,borderRadius:3,background:"#eef2f7",overflow:"hidden"}}><div style={{width:(topPts>0?Math.round(u.wkPts/topPts*100):0)+"%",height:"100%",background:u.wkPts>0?"#004B87":"transparent"}}/></div></div>
+      <span className="C" style={{fontSize:16,fontWeight:800,color:u.wkPts>0?"#15803d":"#94a3b8",minWidth:34,textAlign:"right"}}>+{u.wkPts}</span>
+    </div>);})}
+  </div>);
+}
+
 function LbCard({u,i,isMe,sw,actualTop4,actualWs,actualGb,actualGg,actualGball,PTS,onboardSc}){
   const[open,setOpen]=React.useState(false);
   const hasSp=!!(u.userSp&&u.userSp!=="__skip__");
@@ -1496,7 +1551,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,email,all
         </div>
       )}
 
-      {showIntel&&<FifaMatchIntel m={m} allMs={allMs||[]}/>}
+      {showIntel&&<FifaMatchIntel m={m} allMs={allMs||[]} allPicks={allPicks}/>}
 
       {m.result&&(
         <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1951,6 +2006,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   const myPts=useMemo(calcMyPts,[calcMyPts]);
 
+  const[lbMode,setLbMode]=useState("overall");
   const getLb=useCallback(()=>{
     return Object.values(users).filter(u=>u?.email&&u.approved!==false).map(u=>{
       const emk=ek(u.email);
@@ -2659,6 +2715,9 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           <p className="C" style={{color:"#C5A028",fontSize:26,letterSpacing:2,margin:0}}>LEADERBOARD</p>
           <p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p>
         </div>
+        <div style={{display:"flex",gap:6,marginBottom:14,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:4}}>{[["overall","🏆 Overall"],["week","📅 Gameweek"]].map(([k,l])=><button key={k} onClick={()=>setLbMode(k)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:12,background:lbMode===k?"#004B87":"transparent",color:lbMode===k?"#fff":"#64748b"}}>{l}</button>)}</div>
+        {lbMode==="week"&&<FifaWeeklyLeaderboard ms={ms} users={users} allPicks={allPicks} allBonusPicks={allBonusPicks} goalBandAnswers={goalBandAnswers} bonusAnswers={bonusAnswers} doubleMatch={doubleMatch} email={email}/>}
+        {lbMode==="overall"&&<>
         {getLb().map((u,i)=>(
           <LbCard key={u.email} u={u} i={i} isMe={u.email===email}
             sw={sw} actualTop4={actualTop4} actualWs={actualWs}
@@ -2666,6 +2725,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             PTS={PTS}/>
         ))}
         {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>👥</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
+        </>}
       </div>}
 
       {/* ── MY GAME ── */}
