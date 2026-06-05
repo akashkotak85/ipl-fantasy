@@ -9,6 +9,8 @@ import TournamentHistory from"./TournamentHistory.jsx";
 import CareerStats from"./CareerStats.jsx";
 import { createDB } from "./firebase.js";
 import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, getLiveTournaments, getFinishedTournaments, TC as _TC, TF as _TF, TEAMS as _TEAMS, BASE_MATCHES as _BASE_MATCHES, BONUS_QUESTIONS as _BONUS_QUESTIONS, PROP_QUESTIONS as _PROP_QUESTIONS, ALL_PLAYERS as _ALL_PLAYERS } from "./cricketData.js";
+const TC=_TC,TF=_TF,TEAMS=_TEAMS,BASE_MATCHES=_BASE_MATCHES,BONUS_QUESTIONS=_BONUS_QUESTIONS,PROP_QUESTIONS=_PROP_QUESTIONS,ALL_PLAYERS=_ALL_PLAYERS,SQ={};
+const TC=_TC,TF=_TF,TEAMS=_TEAMS,BASE_MATCHES=_BASE_MATCHES,BONUS_QUESTIONS=_BONUS_QUESTIONS,PROP_QUESTIONS=_PROP_QUESTIONS,ALL_PLAYERS=_ALL_PLAYERS;
 import { NR, CHAT_MAX, CHAT_CAP, ek, normalizeEmail, canonicalKey, normalizeKeyMap, normalizeAP, validateEmail, validatePassword, validateName, capChat, sha256, isNR, showVal, getP, getTeamForm, cutoff, isMatchLocked, isToday, isTBD, motmMatch, resolvePlayoffSlots, applyRmEntry, calcScore, calcBadges, calcBonusPts, calcScoreBandPts, calcPropPts } from "./cricketScoring.js";
 import { Av, Toggle, Tst, TLogo, FormDots, SBar, useCd, PotmDropdown } from "./cricketUI.jsx";
 import PickStatusPanel from "./PickStatusPanel.jsx";
@@ -725,6 +727,7 @@ const BASE_MATCHES=selectedTournament?.matches||_BASE_MATCHES;
 const BONUS_QUESTIONS=selectedTournament?.bonusQuestions||_BONUS_QUESTIONS;
 const PROP_QUESTIONS=selectedTournament?.propQuestions||_PROP_QUESTIONS;
 const ALL_PLAYERS=selectedTournament?.allPlayers||_ALL_PLAYERS;
+const SQ=selectedTournament?.SQ||{};
   const[email,setEmail]=useState("");const[user,setUser]=useState(null);const[isAdmin,setIsAdmin]=useState(false);
   const[users,setUsers]=useState({});const[myPicks,setMyPicks]=useState({});const[allPicks,setAllPicks]=useState({});
   const buildBaseMatches=useCallback(()=>BASE_MATCHES.map(m=>({...m,result:null,_partial:null})),[BASE_MATCHES]);
@@ -800,7 +803,7 @@ const[actualTop4,setActualTop4]=useState([]);
         DB.get("t4").then(t4=>t4?DB.set("t4",normalizeKeyMap(t4)):null),
       ]);
     }catch(e){console.error("repair",e);}
-  },[]);
+  },[DB]);// eslint-disable-line
 
   const reloadShared=useCallback(async(em)=>{
     const emk=ek(em);
@@ -903,8 +906,8 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     setT4pk({});setMyT4([]);setSw(null);
     setReadOnly(false);
     reloadShared(email);
-  },[selectedTournament?.dbPrefix]);// eslint-disable-line // eslint-disable-line react-hooks/exhaustive-deps
-
+  },[selectedTournament?.dbPrefix]);// eslint-disable-line
+  
   // Enforce prop bets: whenever user arrives at home screen, check if props filled
   const propBetsSkipped=useRef(false);
   useEffect(()=>{
@@ -1301,7 +1304,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   const hdr=useMemo(()=><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"13px 16px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>
       <img src={FSP_LOGO_SM} alt="FSP" style={{width:36,height:36,objectFit:"contain"}}/>
-      <div><p className="C" style={{color:"#FFE57F",fontSize:13,fontWeight:700,letterSpacing:1,margin:0,textTransform:"uppercase"}}>Cricket Fantasy{isAdmin?" · Admin":""}</p><p style={{color:"#bfdbfe",fontSize:10,margin:0}}>IPL 2026{maintenance?" · !":""}</p></div>
+      <div><p className="C" style={{color:"#FFE57F",fontSize:13,fontWeight:700,letterSpacing:1,margin:0,textTransform:"uppercase"}}>Cricket Fantasy{isAdmin?" · Admin":""}</p><p style={{color:"#bfdbfe",fontSize:10,margin:0}}>{selectedTournament?.name||"IPL 2026"}{maintenance?" · !":""}</p></div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
       <div style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:10,padding:"5px 12px",textAlign:"center"}}>
@@ -1309,7 +1312,6 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         <p style={{color:"#bfdbfe",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.5}}>My Pts</p>
       </div>
       <button onClick={()=>setSc("sport_select")} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>⚽ Sports</button>
-      <button onClick={()=>setShowCareer(true)} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>📊 Career</button>
       <button onClick={()=>setShowCareer(true)} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>📊 Career</button>
       <button onClick={logout} style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,color:"#bfdbfe",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600}}>Out</button>
     </div>
@@ -1391,30 +1393,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
 
   if(showCareer)return<CareerStats email={email} userName={user?.name} onBack={()=>setShowCareer(false)}/>;
 
-  if(sc==="hub"){
-    return(
-      <CricketHub
-        user={user}
-        isAdmin={isAdmin}
-        onSelectTournament={(t)=>{
-          setSelectedTournament(t);
-          if(t._readOnly){setSc("home");return;}
-          const emk2=ek(email);
-          const hasOnboarded=!!(spk[emk2]);
-          const userPb=allPropBets[emk2]||{};
-          const hasPropBets=_PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
-          if(!hasOnboarded)setSc("onboard");
-          else if(!hasPropBets&&email!==SUPER_ADMIN){
-            setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
-            setSc("propbets");
-          }
-          else setSc("hub");
-        }}
-        onBack={()=>setSc("sport_select")}
-      />
-    );
-  }
-
+  
   if(sc==="splash")return<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f2456,#1D428A,#2a5bbf)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 20px"}}><style>{CSS}</style><img src={FSP_LOGO_LG} alt="FSP" style={{width:110,height:110,objectFit:"contain",marginBottom:16}}/><p className="C" style={{fontSize:32,fontWeight:800,color:"#fff",letterSpacing:3,margin:0}}>FANTASY SPORTS</p><p className="C" style={{fontSize:20,fontWeight:700,color:"#fff",letterSpacing:3,margin:"2px 0 0"}}>PREDICTOR</p><p style={{color:"#FFE57F",fontSize:11,letterSpacing:4,marginTop:8,marginBottom:40,textTransform:"uppercase"}}>CRICKET · FOOTBALL · MORE</p><div style={{display:"flex",alignItems:"center",gap:8,color:"rgba(255,255,255,.5)",fontSize:12}}><div className="spin" style={{width:14,height:14,border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%"}}/> Loading…</div></div>;
 
   if(sc==="pending_approval")return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,textAlign:"center"}}><div style={{width:60,height:60,borderRadius:14,background:"#EBF0FA",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:16}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:22,color:"#1D428A"}}>...</span></div><p className="C" style={{color:"#1D428A",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>PENDING APPROVAL</p><p style={{color:"#64748b",fontSize:14,marginTop:12,lineHeight:1.6}}>Your registration is awaiting admin approval.</p><button onClick={()=>setSc("login")} style={{marginTop:28,padding:"12px 28px",borderRadius:10,background:"linear-gradient(135deg,#1D428A,#2a5bbf)",color:"#fff",border:"none",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,textTransform:"uppercase",letterSpacing:1}}>← Back to Sign In</button></div></div>;
@@ -1954,7 +1933,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2}/>}
 
       {/* -- PICK STATUS TAB -- */}
-      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks}/>}
+      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} TEAMS={TEAMS} TC={TC} SQ={SQ} DB={DB}/>}
 
       {/* -- RESULTS TAB -- */}
       {admTab==="results"&&<div>
