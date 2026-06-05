@@ -4,9 +4,48 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
-import { TC, SQ } from "./cricketData.js";
+import { TC as _TC, SQ as _SQ } from "./cricketData.js";
+
+// ── Active-tournament visuals registry ─────────────────────
+// App calls setActiveVisuals() on tournament switch so TLogo / PotmDropdown
+// render the correct colors, squads, and flag logos without every call site
+// needing to pass tournament context. Defaults to IPL.
+export const activeVisuals = { TC: _TC, SQ: _SQ, LOGOS: null };
+export function setActiveVisuals({ TC, SQ, LOGOS } = {}) {
+  activeVisuals.TC = TC || _TC;
+  activeVisuals.SQ = SQ || _SQ;
+  activeVisuals.LOGOS = LOGOS || null;
+}
 
 export function TLogo({ t, sz = 48 }) {
+  const TC = activeVisuals.TC;
+  const LOGOS = activeVisuals.LOGOS;
+  const url = LOGOS && LOGOS[t];
+  if (url) {
+    return (
+      <div
+        style={{
+          width: sz,
+          height: sz,
+          borderRadius: 8,
+          overflow: "hidden",
+          flexShrink: 0,
+          boxShadow: "0 2px 6px rgba(0,0,0,.2)",
+          background: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <img
+          src={url}
+          alt={t}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+      </div>
+    );
+  }
   const c = TC[t] || { bg: "#94a3b8", dk: "#fff" };
   return (
     <div
@@ -182,6 +221,7 @@ export function FormDots({ form, align = "left" }) {
 export function PotmDropdown({ homeTeam, awayTeam, value, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
+  const SQ = activeVisuals.SQ;
   const players = [
     ...(SQ[homeTeam] || []).map((p) => ({ p, t: homeTeam })),
     ...(SQ[awayTeam] || []).map((p) => ({ p, t: awayTeam })),
@@ -208,7 +248,7 @@ export function PotmDropdown({ homeTeam, awayTeam, value, onChange }) {
       {open && (
         <div className="dd-list">
           {players.map(({ p, t }) => {
-            const c = TC[t] || { bg: "#333", dk: "#fff" };
+            const c = activeVisuals.TC[t] || { bg: "#333", dk: "#fff" };
             return (
               <div
                 key={p}
