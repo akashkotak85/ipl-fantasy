@@ -4,6 +4,7 @@ import MatchIntelPanel from"./MatchIntelPanel.jsx";
 import StockMarket from"./StockMarket.jsx";
 import SportSelector from"./SportSelector.jsx";
 import FifaApp from"./FifaApp.jsx";
+import CricketHub from"./CricketHub.jsx";
 import TournamentHistory from"./TournamentHistory.jsx";
 import CricketHub from"./CricketHub.jsx";
 import CareerStats from"./CareerStats.jsx";
@@ -715,6 +716,7 @@ const[activeSport,setActiveSport]=useState(null);
 const[sportsConfig,setSportsConfig]=useState({ipl:true,fifa:false});
 const[sportConfigLoaded,setSportConfigLoaded]=useState(false);
 const[selectedTournament,setSelectedTournament]=useState(null);
+const[selectedTournament,setSelectedTournament]=useState(null);
 const[showCareer,setShowCareer]=useState(false);
 // Tournament-specific data — falls back to IPL 2026 defaults when no tournament selected
 const TC=selectedTournament?.TC||_TC;
@@ -1344,6 +1346,30 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     );
   }
 
+  if(sc==="hub"){
+    return(
+      <CricketHub
+        user={user}
+        isAdmin={isAdmin}
+        onSelectTournament={(t)=>{
+          setSelectedTournament(t);
+          if(t._readOnly){setSc("home");return;}
+          const emk2=ek(email);
+          const hasOnboarded=!!(spk[emk2]);
+          const userPb=allPropBets[emk2]||{};
+          const hasPropBets=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+          if(!hasOnboarded)setSc("onboard");
+          else if(!hasPropBets&&email!==SUPER_ADMIN){
+            setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
+            setSc("propbets");
+          }
+          else setSc("home");
+        }}
+        onBack={()=>setSc("sport_select")}
+      />
+    );
+  }
+
   if(sc==="fifa"){
     return(
       <FifaApp
@@ -1375,7 +1401,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
             setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
             setSc("propbets");
           }
-          else setSc("home");
+          else setSc("hub");
         }}
         onBack={()=>setSc("sport_select")}
       />
