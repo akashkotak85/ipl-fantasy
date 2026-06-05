@@ -439,7 +439,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
 
 
 
-function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,onSaveSeasonData,spk,t4pk,allPropBets,allBonusPicks,toast2}){
+function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,onSaveSeasonData,spk,t4pk,allPropBets,allBonusPicks,toast2,TEAMS,TF,BONUS_QUESTIONS,ALL_PLAYERS,PROP_QUESTIONS}){
   const[selUser,setSelUser]=useState("");
   const[selMatch,setSelMatch]=useState(null);
   const[draft,setDraft]=useState({toss:"",win:"",motm:"",sb:"",bqAns:null});
@@ -1929,7 +1929,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       </div>}
 
       {/* -- MANUAL PICK ENTRY TAB -- */}
-      {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2}/>}
+      {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2} TEAMS={TEAMS} TF={TF} BONUS_QUESTIONS={BONUS_QUESTIONS} ALL_PLAYERS={ALL_PLAYERS} PROP_QUESTIONS={PROP_QUESTIONS}/>}
 
       {/* -- PICK STATUS TAB -- */}
       {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} TEAMS={TEAMS} TC={TC} SQ={SQ} DB={DB}/>}
