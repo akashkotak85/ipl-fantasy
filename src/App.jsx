@@ -6,7 +6,6 @@ import SportSelector from"./SportSelector.jsx";
 import FifaApp from"./FifaApp.jsx";
 import CricketHub from"./CricketHub.jsx";
 import TournamentHistory from"./TournamentHistory.jsx";
-import CricketHub from"./CricketHub.jsx";
 import CareerStats from"./CareerStats.jsx";
 import { DB } from "./firebase.js";
 import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, getLiveTournaments, getFinishedTournaments, TC as _TC, TF as _TF, TEAMS as _TEAMS, BASE_MATCHES as _BASE_MATCHES, BONUS_QUESTIONS as _BONUS_QUESTIONS, PROP_QUESTIONS as _PROP_QUESTIONS, ALL_PLAYERS as _ALL_PLAYERS } from "./cricketData.js";
@@ -715,7 +714,6 @@ const[rememberMe,setRememberMe]=useState(true);
 const[activeSport,setActiveSport]=useState(null);
 const[sportsConfig,setSportsConfig]=useState({ipl:true,fifa:false});
 const[sportConfigLoaded,setSportConfigLoaded]=useState(false);
-const[selectedTournament,setSelectedTournament]=useState(null);
 const[selectedTournament,setSelectedTournament]=useState(null);
 const[showCareer,setShowCareer]=useState(false);
 // Tournament-specific data — falls back to IPL 2026 defaults when no tournament selected
