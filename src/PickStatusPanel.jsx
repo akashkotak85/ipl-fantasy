@@ -7,7 +7,7 @@
 // Bonus, [Pts if result], Action.
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SCORE_BANDS, PTS } from "./cricketData.js";
 import { ek, getP, isNR, motmMatch, isMatchLocked, isTBD } from "./cricketScoring.js";
 import { Av, TLogo } from "./cricketUI.jsx";
@@ -30,7 +30,13 @@ export default function PickStatusPanel({
   const playableMs = ms
     .filter((m) => !isTBD(m) && TEAMS.includes(m.home) && TEAMS.includes(m.away))
     .sort((a, b) => Number(a.id) - Number(b.id));
-  const [psMatch, setPsMatch] = useState(() => playableMs[0]?.id ?? null);
+  const [psMatch, setPsMatch] = useState(null);
+  // Auto-select first match once matches load (handles async reloadShared timing)
+  useEffect(() => {
+    if (psMatch === null && playableMs.length > 0) {
+      setPsMatch(playableMs[0].id);
+    }
+  }, [playableMs.length]); // eslint-disable-line
   const approvedUsers = Object.values(users)
     .filter((u) => u?.email && u.approved !== false)
     .sort((a, b) => a.name.localeCompare(b.name));
