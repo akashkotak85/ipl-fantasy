@@ -1622,7 +1622,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     </div>;
   }
 
-  if(readOnly&&sc==="home")return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} done={done.length} tournament={selectedTournament} sport="cricket" PTS={PTS} onBack={()=>setSc("hub")}/>;
+  if(readOnly&&sc==="home"&&(selectedTournament?.dbPrefix||"ipl26_")==="ipl26_")return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} done={done.length} tournament={selectedTournament} sport="cricket" PTS={PTS} onBack={()=>setSc("hub")}/>;
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🏏</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline.</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>🚪 Sign Out</button></div></div>;
 
