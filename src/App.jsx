@@ -1622,15 +1622,14 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     </div>;
   }
 
-  if(readOnly)return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} done={done.length} tournament={selectedTournament} sport="cricket" PTS={PTS} onBack={()=>setSc("sport_select")}/>;
+  if(readOnly&&sc==="home")return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} done={done.length} tournament={selectedTournament} sport="cricket" PTS={PTS} onBack={()=>setSc("hub")}/>;
 
   if(maintenance&&!isAdmin)return<div className="app"><style>{CSS}</style><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,textAlign:"center"}}><span style={{fontSize:48,marginBottom:16}}>🏏</span><p className="C" style={{color:"#1D428A",fontSize:26,fontWeight:800,letterSpacing:2}}>MAINTENANCE MODE</p><p style={{color:"#64748b",fontSize:14,marginTop:8}}>The app is temporarily offline.</p><button onClick={logout} style={{marginTop:24,padding:"10px 24px",borderRadius:10,background:"#f1f5f9",color:"#64748b",border:"1px solid #e2e8f0",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:600,fontSize:13}}>🚪 Sign Out</button></div></div>;
 
   /* -------- MAIN SHELL -------- */
   return<div className="app" style={{paddingBottom:68}}><style>{CSS}</style>
     {hdr}
-    {readOnly&&<div style={{background:"#7c3aed",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:16}}>🏁</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1}}>IPL 2026 has ended — you're viewing historical data. Thanks for playing!</p></div>}
-    {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📢</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
+        {pinnedBc&&<div style={{background:"#1D428A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📢</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
     {bc.length>0&&sc==="home"&&!pinnedBc&&(()=>{const lt=bc[bc.length-1];return<div style={{background:"#FFF9E6",borderBottom:"1px solid #FDE68A",padding:"8px 16px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setBcSeenTs(Date.now())}><span style={{color:"#B8860B",fontSize:14}}>📌</span><p style={{color:"#92400E",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lt.msg}</p>{unbc>0&&<span style={{background:"#ef4444",color:"#fff",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:12}}>{unbc} new</span>}</div>;})()}
     <div style={{background:"#fff",padding:"8px 16px",display:"flex",borderBottom:"1px solid #e2e8f0"}}>
       {[["🪙","Toss",PTS.toss],["🏆","Win",PTS.win],["⭐","POTM",PTS.motm],["🔥","Streak",PTS.streak],["📊","Band",PTS.scoreBand],["🎁","Bonus",PTS.bonus]].map(([ic,l,p],i)=><div key={l} style={{flex:1,textAlign:"center",borderRight:i<5?"1px solid #e2e8f0":"none"}}><p style={{color:"#1D428A",fontWeight:700,fontSize:11,margin:0}}>{p}<span style={{fontSize:8,color:"#94a3b8",fontWeight:400}}> pts</span></p><p style={{color:"#64748b",fontSize:8,margin:"1px 0 0"}}>{ic} {l}</p></div>)}
