@@ -1288,6 +1288,28 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   }
   async function toggleReminder(mid){const upd={...reminders,[mid]:!reminders[mid]};setReminders(upd);await DB.set("rms",upd);toast2(upd[mid]?"🔔 Reminder set":"🔕 Reminder off");}
 
+  // Loads the SELECTED tournament's DB directly so onboarding/prop routing is
+  // correct on the FIRST selection (current-render spk/allPropBets are stale).
+  async function selectTournamentAndRoute(t){
+    setSelectedTournament(t);
+    if(t._readOnly){setSc("home");return;}
+    const emk2=ek(email);
+    const tDB=createDB(t.dbPrefix);
+    const [spRaw,pbRaw]=await Promise.all([tDB.get("sp"),tDB.get("propbets")]);
+    const sp=normalizeKeyMap(spRaw);
+    const pb=normalizeKeyMap(pbRaw);
+    const props=t.propQuestions||_PROP_QUESTIONS;
+    const hasOnboarded=!!sp[emk2];
+    const userPb=pb[emk2]||{};
+    const hasPropBets=props.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
+    if(!hasOnboarded){setSc("onboard");return;}
+    if(!hasPropBets&&email!==SUPER_ADMIN){
+      setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
+      setSc("propbets");return;
+    }
+    setSc("home");
+  }
+
   const cardProps={myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsOverride,email,allMs:ms,onReact:reactFn,
     bonusAnswers,myBonusPicks,allBonusPicks,scoreBandAnswers,
     onBonusPick:submitBonusPick,users,TC,TF,BONUS_QUESTIONS,
@@ -1331,17 +1353,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
             const live=getLiveTournaments();
             const finished=getFinishedTournaments();
             if(live.length===1&&finished.length===0){
-              setSelectedTournament(live[0]);
-              const emk2=ek(email);
-              const hasOnboarded=!!(spk[emk2]);
-              const userPb=allPropBets[emk2]||{};
-              const hasPropBets=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
-              if(!hasOnboarded)setSc("onboard");
-              else if(!hasPropBets&&email!==SUPER_ADMIN){
-                setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
-                setSc("propbets");
-              }
-              else setSc("home");
+              selectTournamentAndRoute(live[0]);
             } else {
               setSc("hub");
             }
@@ -1360,20 +1372,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       <CricketHub
         user={user}
         isAdmin={isAdmin}
-        onSelectTournament={(t)=>{
-          setSelectedTournament(t);
-          if(t._readOnly){setSc("home");return;}
-          const emk2=ek(email);
-          const hasOnboarded=!!(spk[emk2]);
-          const userPb=allPropBets[emk2]||{};
-          const hasPropBets=PROP_QUESTIONS.every((q,i)=>userPb[`q${i}`]&&userPb[`q${i}`]!=="");
-          if(!hasOnboarded)setSc("onboard");
-          else if(!hasPropBets&&email!==SUPER_ADMIN){
-            setObProps({q0:userPb.q0||"",q1:userPb.q1||"",q2:userPb.q2||"",q3:userPb.q3||"",q4:userPb.q4||""});
-            setSc("propbets");
-          }
-          else setSc("home");
-        }}
+        onSelectTournament={(t)=>selectTournamentAndRoute(t)}
         onBack={()=>setSc("sport_select")}
       />
     );
