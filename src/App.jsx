@@ -10,7 +10,6 @@ import CareerStats from"./CareerStats.jsx";
 import { createDB } from "./firebase.js";
 import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, getLiveTournaments, getFinishedTournaments, TC as _TC, TF as _TF, TEAMS as _TEAMS, BASE_MATCHES as _BASE_MATCHES, BONUS_QUESTIONS as _BONUS_QUESTIONS, PROP_QUESTIONS as _PROP_QUESTIONS, ALL_PLAYERS as _ALL_PLAYERS } from "./cricketData.js";
 const TC=_TC,TF=_TF,TEAMS=_TEAMS,BASE_MATCHES=_BASE_MATCHES,BONUS_QUESTIONS=_BONUS_QUESTIONS,PROP_QUESTIONS=_PROP_QUESTIONS,ALL_PLAYERS=_ALL_PLAYERS,SQ={};
-const TC=_TC,TF=_TF,TEAMS=_TEAMS,BASE_MATCHES=_BASE_MATCHES,BONUS_QUESTIONS=_BONUS_QUESTIONS,PROP_QUESTIONS=_PROP_QUESTIONS,ALL_PLAYERS=_ALL_PLAYERS;
 import { NR, CHAT_MAX, CHAT_CAP, ek, normalizeEmail, canonicalKey, normalizeKeyMap, normalizeAP, validateEmail, validatePassword, validateName, capChat, sha256, isNR, showVal, getP, getTeamForm, cutoff, isMatchLocked, isToday, isTBD, motmMatch, resolvePlayoffSlots, applyRmEntry, calcScore, calcBadges, calcBonusPts, calcScoreBandPts, calcPropPts } from "./cricketScoring.js";
 import { Av, Toggle, Tst, TLogo, FormDots, SBar, useCd, PotmDropdown } from "./cricketUI.jsx";
 import PickStatusPanel from "./PickStatusPanel.jsx";
