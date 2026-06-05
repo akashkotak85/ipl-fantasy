@@ -1,4 +1,4 @@
-// cricketData.js
+// cricketData.js import { WT20WC_2026 } from "./wt20wc2026Data.js";
 // All cricket DATA lives here — no logic, no React.
 //
 // Restructured so each tournament is a self-describing config object. Today
@@ -343,7 +343,7 @@ export const IPL_2026 = {
   shortName: "IPL '26",
   season: "2026",
   dbPrefix: "ipl26_", // each tournament owns its own RTDB namespace
-  status: "live",
+  status: "active",
   logo: IPL2026_LOGOS.IPL,
   teams: IPL2026_TEAMS,
   LOGOS: IPL2026_LOGOS,
@@ -358,11 +358,11 @@ export const IPL_2026 = {
 export const CRICKET_TOURNAMENTS = [
   IPL_2026,
   // IPL_2027,           // add future tournaments here
-  // T20_WORLDCUP_2026,
+  WT20WC_2026,
 ];
 
 export const getTournament = (id) => CRICKET_TOURNAMENTS.find((t) => t.id === id);
-export const getLiveTournaments = () => CRICKET_TOURNAMENTS.filter((t) => t.status === "live");
+export const getLiveTournaments = () => CRICKET_TOURNAMENTS.filter((t) => t.status === "active");
 export const getUpcomingTournaments = () =>
   CRICKET_TOURNAMENTS.filter((t) => t.status === "upcoming");
 export const getFinishedTournaments = () =>
