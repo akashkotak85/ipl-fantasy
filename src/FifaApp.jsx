@@ -615,6 +615,59 @@ const ABBR = {
   Bolivia:"BOL",Chile:"CHI",Paraguay:"PAR",Peru:"PER",Egypt:"EGY",
 };
 
+// SVG flag images (lipis CDN, ISO 3166-1 alpha-2). Rendered over the
+// abbreviation box; on load failure the abbreviation shows through.
+const FLAG_URLS = {
+  Mexico:"https://flagicons.lipis.dev/flags/4x3/mx.svg",
+  "South Africa":"https://flagicons.lipis.dev/flags/4x3/za.svg",
+  "South Korea":"https://flagicons.lipis.dev/flags/4x3/kr.svg",
+  Czechia:"https://flagicons.lipis.dev/flags/4x3/cz.svg",
+  Canada:"https://flagicons.lipis.dev/flags/4x3/ca.svg",
+  "Bosnia and Herzegovina":"https://flagicons.lipis.dev/flags/4x3/ba.svg",
+  Qatar:"https://flagicons.lipis.dev/flags/4x3/qa.svg",
+  Switzerland:"https://flagicons.lipis.dev/flags/4x3/ch.svg",
+  Brazil:"https://flagicons.lipis.dev/flags/4x3/br.svg",
+  Morocco:"https://flagicons.lipis.dev/flags/4x3/ma.svg",
+  Haiti:"https://flagicons.lipis.dev/flags/4x3/ht.svg",
+  Scotland:"https://flagicons.lipis.dev/flags/4x3/gb-sct.svg",
+  USA:"https://flagicons.lipis.dev/flags/4x3/us.svg",
+  Paraguay:"https://flagicons.lipis.dev/flags/4x3/py.svg",
+  Australia:"https://flagicons.lipis.dev/flags/4x3/au.svg",
+  Turkiye:"https://flagicons.lipis.dev/flags/4x3/tr.svg",
+  Germany:"https://flagicons.lipis.dev/flags/4x3/de.svg",
+  Curacao:"https://flagicons.lipis.dev/flags/4x3/cw.svg",
+  "Ivory Coast":"https://flagicons.lipis.dev/flags/4x3/ci.svg",
+  Ecuador:"https://flagicons.lipis.dev/flags/4x3/ec.svg",
+  Netherlands:"https://flagicons.lipis.dev/flags/4x3/nl.svg",
+  Japan:"https://flagicons.lipis.dev/flags/4x3/jp.svg",
+  Sweden:"https://flagicons.lipis.dev/flags/4x3/se.svg",
+  Tunisia:"https://flagicons.lipis.dev/flags/4x3/tn.svg",
+  Belgium:"https://flagicons.lipis.dev/flags/4x3/be.svg",
+  Egypt:"https://flagicons.lipis.dev/flags/4x3/eg.svg",
+  Iran:"https://flagicons.lipis.dev/flags/4x3/ir.svg",
+  "New Zealand":"https://flagicons.lipis.dev/flags/4x3/nz.svg",
+  Spain:"https://flagicons.lipis.dev/flags/4x3/es.svg",
+  "Cape Verde":"https://flagicons.lipis.dev/flags/4x3/cv.svg",
+  "Saudi Arabia":"https://flagicons.lipis.dev/flags/4x3/sa.svg",
+  Uruguay:"https://flagicons.lipis.dev/flags/4x3/uy.svg",
+  France:"https://flagicons.lipis.dev/flags/4x3/fr.svg",
+  Senegal:"https://flagicons.lipis.dev/flags/4x3/sn.svg",
+  Iraq:"https://flagicons.lipis.dev/flags/4x3/iq.svg",
+  Norway:"https://flagicons.lipis.dev/flags/4x3/no.svg",
+  Argentina:"https://flagicons.lipis.dev/flags/4x3/ar.svg",
+  Algeria:"https://flagicons.lipis.dev/flags/4x3/dz.svg",
+  Austria:"https://flagicons.lipis.dev/flags/4x3/at.svg",
+  Jordan:"https://flagicons.lipis.dev/flags/4x3/jo.svg",
+  Portugal:"https://flagicons.lipis.dev/flags/4x3/pt.svg",
+  "DR Congo":"https://flagicons.lipis.dev/flags/4x3/cd.svg",
+  Uzbekistan:"https://flagicons.lipis.dev/flags/4x3/uz.svg",
+  Colombia:"https://flagicons.lipis.dev/flags/4x3/co.svg",
+  England:"https://flagicons.lipis.dev/flags/4x3/gb-eng.svg",
+  Croatia:"https://flagicons.lipis.dev/flags/4x3/hr.svg",
+  Ghana:"https://flagicons.lipis.dev/flags/4x3/gh.svg",
+  Panama:"https://flagicons.lipis.dev/flags/4x3/pa.svg",
+};
+
 function TeamFlag({team,sz=40}){
   const tc = TEAM_COLORS[team]||{bg:"#94a3b8",dk:"#fff"};
   const abbr = ABBR[team]||(team||"?").slice(0,3).toUpperCase();
@@ -635,15 +688,19 @@ function TeamFlag({team,sz=40}){
 function FlagBox({team,sz=20}){
   const tc=TEAM_COLORS[team]||{bg:"#94a3b8",dk:"#fff"};
   const abbr=ABBR[team]||(team||"?").slice(0,3).toUpperCase();
+  const url=FLAG_URLS[team];
   return(
     <div style={{
       width:sz,height:sz,borderRadius:4,background:tc.bg,
       display:"inline-flex",alignItems:"center",justifyContent:"center",
       flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",
       fontWeight:900,fontSize:sz*.38,color:tc.dk||"#fff",
-      letterSpacing:.3,lineHeight:1,verticalAlign:"middle",
+      letterSpacing:.3,lineHeight:1,verticalAlign:"middle",overflow:"hidden",position:"relative",
     }}>
       {abbr}
+      {url&&<img src={url} alt={team} loading="lazy"
+        onError={e=>{e.target.style.display="none";}}
+        style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
     </div>
   );
 }
