@@ -900,7 +900,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     if(!selectedTournament||!email)return;
     setMs(buildBaseMatches());
     setMyPicks({});setAllPicks({});setSpk({});setMySp("");
-    setT4pk({});setMyT4([]);setSw(null);setRm({});
+    setT4pk({});setMyT4([]);setSw(null);
     setReadOnly(false);
     reloadShared(email);
   },[selectedTournament?.dbPrefix]);// eslint-disable-line // eslint-disable-line react-hooks/exhaustive-deps
