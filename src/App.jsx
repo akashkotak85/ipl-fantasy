@@ -12,6 +12,7 @@ const TC=_TC,TF=_TF,TEAMS=_TEAMS,BASE_MATCHES=_BASE_MATCHES,BONUS_QUESTIONS=_BON
 import { NR, CHAT_MAX, CHAT_CAP, ek, normalizeEmail, canonicalKey, normalizeKeyMap, normalizeAP, validateEmail, validatePassword, validateName, capChat, sha256, isNR, showVal, getP, getTeamForm, cutoff, isMatchLocked, isToday, isTBD, motmMatch, resolvePlayoffSlots, applyRmEntry, calcScore, calcBadges, calcBonusPts, calcScoreBandPts, calcPropPts } from "./cricketScoring.js";
 import { Av, Toggle, Tst, TLogo, FormDots, SBar, useCd, PotmDropdown, setActiveVisuals } from "./cricketUI.jsx";
 import PickStatusPanel from "./PickStatusPanel.jsx";
+import WeeklyLeaderboard from "./WeeklyLeaderboard.jsx";
 
 const SUPER_ADMIN="akashkotak@gmail.com";
 const REG_LIMIT=20;
@@ -384,7 +385,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
         </div>
       )}
 
-      {showIntel&&<MatchIntelPanel m={m}/>}
+      {showIntel&&<MatchIntelPanel m={m} allMs={allMs} allPicks={allPicks} tColors={TC}/>}
 
       {m.result&&(
         <div style={{borderTop:"1px solid #f1f5f9",paddingTop:10,marginTop:4,display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -956,6 +957,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   async function persistSession(em,remember=true){const token=Math.random().toString(36).slice(2)+Date.now().toString(36);await DB.set("token_"+ek(em),token);await DB.set("session",{email:em,token});setSessionEmail(em);if(remember){try{localStorage.setItem("ipl26_session",JSON.stringify({email:em,token}));}catch(e){}}}
 
   /* COMPUTED */
+  const[lbMode,setLbMode]=useState("overall");
   const done=useMemo(()=>ms.filter(m=>m.result),[ms]);
   const todayMs=useMemo(()=>ms.filter(isToday),[ms]);
   const upMs=useMemo(()=>ms.filter(m=>!m.result&&!isToday(m)&&!isTBD(m)),[ms]);
@@ -1684,6 +1686,9 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
 
     {sc==="lb"&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",borderRadius:14,padding:"16px",marginBottom:16,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:24,fontWeight:800,letterSpacing:2,margin:0}}>LEADERBOARD</p><p style={{color:"#bfdbfe",fontSize:12,marginTop:4}}>{done.length} matches · {getLb().length} players</p></div>
+      <div style={{display:"flex",gap:6,marginBottom:14,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:4}}>{[["overall","🏆 Overall"],["week","📅 Gameweek"]].map(([k,l])=><button key={k} onClick={()=>setLbMode(k)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"'Barlow',sans-serif",fontWeight:700,fontSize:12,background:lbMode===k?"#1D428A":"transparent",color:lbMode===k?"#fff":"#64748b"}}>{l}</button>)}</div>
+      {lbMode==="week"&&<WeeklyLeaderboard ms={ms} users={users} allPicks={allPicks} allBonusPicks={allBonusPicks} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} doubleMatch={doubleMatch} email={email}/>}
+      {lbMode==="overall"&&<>
       {done.length>0&&(()=>{const lb=getLb();const ae=Object.entries(allPicks);const totalPicks=ae.reduce((s,[,u])=>s+Object.keys(u).length,0);const totalPerfs=done.reduce((s,m)=>s+ae.filter(([,u])=>{const p=getP(u,m.id);if(!p)return false;const tA=!isNR(m.result.toss),wA=!isNR(m.result.win),mA=!isNR(m.result.motm);if(!tA||!wA||!mA)return false;return p.toss===m.result.toss&&p.win===m.result.win&&motmMatch(p.motm,m.result.motm);}).length,0);const avgAcc=lb.length?Math.round(lb.reduce((s,u)=>s+u.acc,0)/lb.length):0;return<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>{[["📊",totalPicks,"Picks"],["💎",totalPerfs,"Perfects"],["🎯",avgAcc+"%","Avg Acc"],["🔥",lb.filter(u=>u.hot).length,"On Fire"]].map(([ic,val,lbl])=><div key={lbl} style={{flex:1,minWidth:70,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 8px",textAlign:"center"}}><p style={{fontSize:16,margin:0}}>{ic}</p><p className="C" style={{color:"#1D428A",fontSize:16,fontWeight:800,margin:"2px 0 0"}}>{val}</p><p style={{color:"#64748b",fontSize:9,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p></div>)}</div>;})()}
       {getLb().map((u,i)=>(
         <div key={u.email} style={{background:u.email===email?"#EBF0FA":"#fff",border:"1px solid "+(u.email===email?"#1D428A60":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10,boxShadow:"0 1px 4px rgba(29,66,138,.06)"}}>
@@ -1733,6 +1738,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         </div>
       ))}
       {getLb().length===0&&<div style={{textAlign:"center",padding:"48px 16px"}}><p style={{fontSize:36}}>🏆</p><p style={{color:"#94a3b8",marginTop:12}}>No players yet.</p></div>}
+      </>}
     </div>}
 
     {sc==="picks"&&!am&&(()=>{

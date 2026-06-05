@@ -1,9 +1,10 @@
 import{useState,useCallback}from"react";
 import{getH2H,VENUE_INTEL}from"./matchIntel.js";
+import{getTeamForm,isNR}from"./cricketScoring.js";
 
 const TC={RCB:{bg:"#C8102E",dk:"#FFD700"},SRH:{bg:"#FF822A",dk:"#1B1B1B"},MI:{bg:"#004BA0",dk:"#fff"},KKR:{bg:"#3A225D",dk:"#FFD700"},CSK:{bg:"#F5C600",dk:"#003566"},RR:{bg:"#2D0A6B",dk:"#E91E8C"},PBKS:{bg:"#ED1B24",dk:"#fff"},GT:{bg:"#1B3A6B",dk:"#B5985A"},LSG:{bg:"#A72056",dk:"#fff"},DC:{bg:"#00008B",dk:"#fff"}};
 
-const TABS=["H2H","Toss","Venue","AI Pick"];
+const TABS=["Form","H2H","Toss","Venue","AI Pick"];
 
 const secStyle={fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#1D428A",margin:"0 0 10px",paddingBottom:6,borderBottom:"1px solid #e2e8f0"};
 
@@ -16,15 +17,18 @@ function FactItem({icon,text}){return(<div style={{display:"flex",alignItems:"fl
 function SuggestedPick({label,team,color,textColor,note}){return(<div style={{flex:1,background:"#f8faff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 6px",textAlign:"center"}}><p style={{fontSize:9,color:"#94a3b8",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 6px"}}>{label}</p><div style={{width:30,height:30,borderRadius:7,background:color,display:"flex",alignItems:"center",justifyContent:"center",color:textColor,fontSize:9,fontWeight:700,margin:"0 auto 5px",fontFamily:"'Barlow Condensed',sans-serif"}}>{team}</div><p style={{fontSize:11,fontWeight:600,color:"#1a2540",margin:"0 0 2px"}}>{team}</p><p style={{fontSize:9,color:"#22c55e",margin:0}}>{note}</p></div>);}
 
 
-export default function MatchIntelPanel({m}){
+function FormBadge({r}){const c=r==="W"?{bg:"#dcfce7",fg:"#15803d"}:r==="L"?{bg:"#fee2e2",fg:"#dc2626"}:{bg:"#f1f5f9",fg:"#94a3b8"};return <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:20,height:20,borderRadius:5,background:c.bg,color:c.fg,fontSize:10,fontWeight:800,marginRight:3}}>{r}</span>;}
+
+export default function MatchIntelPanel({m,allMs=[],allPicks={},tColors=null}){
   const[open,setOpen]=useState(false);
-  const[tab,setTab]=useState("H2H");
+  const[tab,setTab]=useState("Form");
 
 
   const h2h=getH2H(m.home,m.away);
   const venue=VENUE_INTEL[m.venue]||null;
-  const hc=TC[m.home]||{bg:"#333",dk:"#fff"};
-  const ac=TC[m.away]||{bg:"#555",dk:"#fff"};
+  const COL=tColors||TC;
+  const hc=COL[m.home]||{bg:"#333",dk:"#fff"};
+  const ac=COL[m.away]||{bg:"#555",dk:"#fff"};
 
   const h2hWinPct=h2h?h2h.homeWinPct:50;
   const confidenceLabel=h2h?Math.abs(h2h.wA-h2h.wB)<=2?"Low":Math.abs(h2h.wA-h2h.wB)<=5?"Med":"High":"Low";
@@ -55,6 +59,41 @@ export default function MatchIntelPanel({m}){
           </button>
         ))}
       </div>
+
+      {/* ── FORM TAB (live, tournament-aware) ── */}
+      {tab==="Form"&&(()=>{
+        const homeForm=getTeamForm(m.home,allMs);
+        const awayForm=getTeamForm(m.away,allMs);
+        const h2hMs=allMs.filter(x=>x.result&&!isNR(x.result.win)&&((x.home===m.home&&x.away===m.away)||(x.home===m.away&&x.away===m.home)));
+        const hW=h2hMs.filter(x=>x.result.win===m.home).length;
+        const aW=h2hMs.filter(x=>x.result.win===m.away).length;
+        const picks=Object.values(allPicks).map(up=>up?.[String(m.id)]??up?.[Number(m.id)]).filter(Boolean);
+        const lH=picks.filter(pk=>pk.win===m.home).length;
+        const lA=picks.filter(pk=>pk.win===m.away).length;
+        const lTot=lH+lA;
+        return <div>
+          <p style={secStyle}>Recent form · this tournament</p>
+          {[[m.home,homeForm,hc],[m.away,awayForm,ac]].map(([t,f,col])=>(
+            <div key={t} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
+              <span style={{fontSize:12,fontWeight:700,color:col.bg,minWidth:48}}>{t}</span>
+              <div style={{flex:1}}>{f.length?f.map((r,i)=><FormBadge key={i} r={r}/>):<span style={{fontSize:11,color:"#94a3b8"}}>No matches yet</span>}</div>
+            </div>
+          ))}
+          <p style={{...secStyle,marginTop:14}}>Head to head · this tournament</p>
+          {h2hMs.length?(
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <div style={{textAlign:"center",minWidth:44}}><p style={{fontSize:22,fontWeight:700,color:hc.bg,margin:0,fontFamily:"'Barlow Condensed',sans-serif"}}>{hW}</p><p style={{fontSize:9,color:"#94a3b8",margin:0}}>{m.home}</p></div>
+              <div style={{flex:1}}><div style={{display:"flex",height:10,borderRadius:5,overflow:"hidden",background:"#e2e8f0"}}><div style={{width:Math.round(hW/Math.max(h2hMs.length,1)*100)+"%",background:hc.bg}}/><div style={{flex:1,background:ac.bg}}/></div><p style={{textAlign:"center",fontSize:10,color:"#94a3b8",margin:"4px 0 0"}}>{h2hMs.length} met this tournament</p></div>
+              <div style={{textAlign:"center",minWidth:44}}><p style={{fontSize:22,fontWeight:700,color:ac.bg,margin:0,fontFamily:"'Barlow Condensed',sans-serif"}}>{aW}</p><p style={{fontSize:9,color:"#94a3b8",margin:0}}>{m.away}</p></div>
+            </div>
+          ):<p style={{fontSize:11,color:"#94a3b8",padding:"4px 0"}}>These teams haven't met yet this tournament.</p>}
+          <p style={{...secStyle,marginTop:14}}>How the group is leaning</p>
+          {lTot?(
+            <div><div style={{display:"flex",height:12,borderRadius:6,overflow:"hidden",background:"#e2e8f0",marginBottom:5}}><div style={{width:Math.round(lH/lTot*100)+"%",background:hc.bg}}/><div style={{flex:1,background:ac.bg}}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700}}><span style={{color:hc.bg}}>{m.home} {Math.round(lH/lTot*100)}% ({lH})</span><span style={{color:ac.bg}}>({lA}) {100-Math.round(lH/lTot*100)}% {m.away}</span></div></div>
+          ):<p style={{fontSize:11,color:"#94a3b8",padding:"4px 0"}}>No winner picks in yet.</p>}
+        </div>;
+      })()}
 
       {/* ── H2H TAB ── */}
       {tab==="H2H"&&(h2h?(
