@@ -786,13 +786,21 @@ function MotmDropdown({team1,team2,value,onChange}){
    Lets admin enter a player's prediction (winner + goals band + scorer +
    bonus) from screenshot evidence, bypassing the lock. Mirrors the cricket
    manual-pick panel but uses FIFA fields: win / gb / motm. */
-function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSave,toast2}){
+function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSave,onSaveSeasonData,spk,t4pk,wspk,gbpk,ggpk,gballpk,toast2}){
   const[selUser,setSelUser]=useState("");
   const[selMatch,setSelMatch]=useState(null);
   const[draft,setDraft]=useState({win:"",gb:"",motm:"",bqAns:null});
   const[saving,setSaving]=useState(false);
   const[userSearch,setUserSearch]=useState("");
   const[matchSearch,setMatchSearch]=useState("");
+  // Season override state
+  const[ovChamp,setOvChamp]=useState("");
+  const[ovT4,setOvT4]=useState([]);
+  const[ovWs,setOvWs]=useState("");
+  const[ovGb,setOvGb]=useState([]);
+  const[ovGg,setOvGg]=useState([]);
+  const[ovGball,setOvGball]=useState([]);
+  const[savingSeason,setSavingSeason]=useState("");
 
   const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
   const filteredUsers=approvedUsers.filter(u=>u.name.toLowerCase().includes(userSearch.toLowerCase())||u.email.toLowerCase().includes(userSearch.toLowerCase()));
@@ -805,7 +813,16 @@ function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSav
   const hasBQ=selMatch&&!!BONUS_QUESTIONS[selMatch.id];
   const allReady=!!(draft.win&&draft.gb&&draft.motm&&(!hasBQ||draft.bqAns!==null));
 
-  function selectUser(email){setSelUser(email);setSelMatch(null);setDraft({win:"",gb:"",motm:"",bqAns:null});setUserSearch("");}
+  function selectUser(email){
+    const emk=ek(email);
+    setSelUser(email);setSelMatch(null);setDraft({win:"",gb:"",motm:"",bqAns:null});setUserSearch("");
+    setOvChamp((spk||{})[emk]||"");
+    setOvT4((t4pk||{})[emk]||[]);
+    setOvWs((wspk||{})[emk]||"");
+    setOvGb((gbpk||{})[emk]||[]);
+    setOvGg((ggpk||{})[emk]||[]);
+    setOvGball((gballpk||{})[emk]||[]);
+  }
 
   async function handleSave(){
     if(!selUser||!selMatch){toast2("Select a user and match","error");return;}
@@ -815,6 +832,11 @@ function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSav
     const ok=await onSave(selUser,selMatch,{win:draft.win,gb:draft.gb,motm:draft.motm},draft.bqAns);
     if(ok){setSelMatch(null);setDraft({win:"",gb:"",motm:"",bqAns:null});}
     setSaving(false);
+  }
+
+  async function saveSeason(type,data,label){
+    if(!selUser){return;}
+    setSavingSeason(label);await onSaveSeasonData(selUser,type,data);setSavingSeason("");
   }
 
   return(
@@ -937,6 +959,48 @@ function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSav
           </button>
         </>}
       </div>
+
+      {/* -- Season Data Override -- */}
+      {selUser&&<div className="ac" style={{marginTop:14}}>
+        <p className="st" style={{marginBottom:4}}>⚙️ SEASON DATA OVERRIDE</p>
+        <p style={{fontSize:11,color:"#64748b",marginBottom:14}}>Override season picks for <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b>.</p>
+
+        {/* Champion */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🏆 World Cup Winner</p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8,maxHeight:140,overflowY:"auto"}}>
+          {TEAMS.map(t=><button key={t} onClick={()=>setOvChamp(t)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:10,background:ovChamp===t?"#004B87":"#f8faff",border:"2px solid "+(ovChamp===t?"#004B87":"#e2e8f0"),cursor:"pointer"}}><FlagBox team={t} sz={18}/><span style={{fontSize:11,fontWeight:700,color:ovChamp===t?"#fff":"#475569"}}>{ABBR[t]||t}</span></button>)}
+        </div>
+        <button className="pbtn" disabled={!ovChamp||savingSeason==="champ"} onClick={()=>saveSeason("champion",ovChamp,"champ")} style={{marginBottom:16,opacity:ovChamp?1:.4}}>{savingSeason==="champ"?"Saving…":"💾 Save Winner: "+(ovChamp||"—")}</button>
+
+        {/* Top 4 */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🏅 Top 4 (SF Teams) · {ovT4.length}/4</p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8,maxHeight:140,overflowY:"auto"}}>
+          {TEAMS.map(t=>{const sel=ovT4.includes(t);return<button key={t} onClick={()=>{if(sel)setOvT4(p=>p.filter(x=>x!==t));else if(ovT4.length<4)setOvT4(p=>[...p,t]);else toast2("Max 4 teams","error");}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:10,background:sel?"#004B87":"#f8faff",border:"2px solid "+(sel?"#004B87":"#e2e8f0"),cursor:"pointer"}}><FlagBox team={t} sz={18}/><span style={{fontSize:11,fontWeight:700,color:sel?"#fff":"#475569"}}>{ABBR[t]||t}</span>{sel&&<span style={{fontSize:9,background:"rgba(255,255,255,.25)",color:"#fff",borderRadius:4,padding:"0 4px"}}>#{ovT4.indexOf(t)+1}</span>}</button>;})}
+        </div>
+        <button className="pbtn" disabled={ovT4.length!==4||savingSeason==="t4"} onClick={()=>saveSeason("top4",ovT4,"t4")} style={{marginBottom:16,opacity:ovT4.length===4?1:.4}}>{savingSeason==="t4"?"Saving…":"💾 Save Top 4"}</button>
+
+        {/* Wooden Spoon */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🪵 Wooden Spoon (Last Place)</p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8,maxHeight:140,overflowY:"auto"}}>
+          {TEAMS.map(t=><button key={t} onClick={()=>setOvWs(t)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:10,background:ovWs===t?"#92400E":"#f8faff",border:"2px solid "+(ovWs===t?"#92400E":"#e2e8f0"),cursor:"pointer"}}><FlagBox team={t} sz={18}/><span style={{fontSize:11,fontWeight:700,color:ovWs===t?"#fff":"#475569"}}>{ABBR[t]||t}</span></button>)}
+        </div>
+        <button className="pbtn" disabled={!ovWs||savingSeason==="ws"} onClick={()=>saveSeason("woodenspoon",ovWs,"ws")} style={{marginBottom:16,opacity:ovWs?1:.4,background:"linear-gradient(135deg,#92400E,#B45309)"}}>{savingSeason==="ws"?"Saving…":"💾 Save Wooden Spoon: "+(ovWs||"—")}</button>
+
+        {/* Golden Boot */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>👟 Golden Boot Candidates · {ovGb.length}/5</p>
+        <GbSearch selected={ovGb} onToggle={p=>{const sel=ovGb.includes(p);if(sel)setOvGb(x=>x.filter(y=>y!==p));else if(ovGb.length<5)setOvGb(x=>[...x,p]);else toast2("Max 5 candidates","error");}}/>
+        <button className="pbtn" disabled={ovGb.length!==5||savingSeason==="gb"} onClick={()=>saveSeason("goldenboot",ovGb,"gb")} style={{margin:"8px 0 16px",opacity:ovGb.length===5?1:.4,background:"linear-gradient(135deg,#C5A028,#E0B848)"}}>{savingSeason==="gb"?"Saving…":"💾 Save Golden Boot (5)"}</button>
+
+        {/* Golden Glove */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🧤 Golden Glove Candidates · {ovGg.length}/3</p>
+        <GgSearch selected={ovGg} onToggle={g=>{const sel=ovGg.includes(g);if(sel)setOvGg(x=>x.filter(y=>y!==g));else if(ovGg.length<3)setOvGg(x=>[...x,g]);else toast2("Max 3 goalkeepers","error");}}/>
+        <button className="pbtn" disabled={ovGg.length!==3||savingSeason==="gg"} onClick={()=>saveSeason("goldenglove",ovGg,"gg")} style={{margin:"8px 0 16px",opacity:ovGg.length===3?1:.4}}>{savingSeason==="gg"?"Saving…":"💾 Save Golden Glove (3)"}</button>
+
+        {/* Golden Ball */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>🏅 Golden Ball Candidates · {ovGball.length}</p>
+        <GbSearch selected={ovGball} onToggle={p=>{const sel=ovGball.includes(p);if(sel)setOvGball(x=>x.filter(y=>y!==p));else setOvGball(x=>[...x,p]);}}/>
+        <button className="pbtn" disabled={ovGball.length===0||savingSeason==="gball"} onClick={()=>saveSeason("goldenball",ovGball,"gball")} style={{marginTop:8,opacity:ovGball.length>0?1:.4,background:"linear-gradient(135deg,#0f6e56,#1D9E75)"}}>{savingSeason==="gball"?"Saving…":"💾 Save Golden Ball"}</button>
+      </div>}
     </div>
   );
 }
@@ -2019,6 +2083,23 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     return true;
   }
 
+  /* Admin season-data override — writes one user's season pick slot + updates state */
+  async function adminSaveSeasonData(targetEmail,type,data){
+    const targetEmk=ek(targetEmail);
+    const targetName=Object.values(users).find(u=>u.email===targetEmail)?.name||targetEmail;
+    const map={champion:"sp",top4:"t4",woodenspoon:"ws",goldenboot:"gb",goldenglove:"gg",goldenball:"gball"};
+    const key=map[type];if(!key)return;
+    await DB.set(key+"/"+targetEmk,data);
+    const isMe=targetEmail===email;
+    if(type==="champion"){setSpk(p=>({...p,[targetEmk]:data}));if(isMe)setMySp(data);}
+    else if(type==="top4"){setT4pk(p=>({...p,[targetEmk]:data}));if(isMe)setMyT4(data);}
+    else if(type==="woodenspoon"){setWspk(p=>({...p,[targetEmk]:data}));if(isMe)setMyWs(data);}
+    else if(type==="goldenboot"){setGbpk(p=>({...p,[targetEmk]:data}));if(isMe)setMyGb(data);}
+    else if(type==="goldenglove"){setGgpk(p=>({...p,[targetEmk]:data}));if(isMe)setMyGg(data);}
+    else if(type==="goldenball"){setGballpk(p=>({...p,[targetEmk]:data}));if(isMe)setMyGball(data);}
+    toast2("✅ Saved for "+targetName,"ok");
+  }
+
   async function doneOnboard(){
     if(!obSp){toast2("Pick a champion first","error");return;}
     if(obT4.length!==4){toast2("Select exactly 4 teams for Top 4","error");return;}
@@ -2852,7 +2933,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
           ))}
         </div>}
 
-        {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} allBonusPicks={allBonusPicks} doubleMatch={doubleMatch} onSave={adminSavePick} toast2={toast2}/>}
+        {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} allBonusPicks={allBonusPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} wspk={wspk} gbpk={gbpk} ggpk={ggpk} gballpk={gballpk} toast2={toast2}/>}
 
         {admTab==="results"&&<div>
           {ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id)).map(m=>(
