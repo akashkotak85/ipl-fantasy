@@ -13,7 +13,6 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import TournamentHistory from"./TournamentHistory.jsx";
 
 /* ─── TEAMS ──────────────────────────────────────────────────── */
 const TEAMS = [
@@ -722,6 +721,165 @@ function MotmDropdown({team1,team2,value,onChange}){
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── ADMIN MANUAL PICK ENTRY (FIFA) ─────────────────────────
+   Lets admin enter a player's prediction (winner + goals band + scorer +
+   bonus) from screenshot evidence, bypassing the lock. Mirrors the cricket
+   manual-pick panel but uses FIFA fields: win / gb / motm. */
+function AdminManualPickPanel({ms,users,allPicks,allBonusPicks,doubleMatch,onSave,toast2}){
+  const[selUser,setSelUser]=useState("");
+  const[selMatch,setSelMatch]=useState(null);
+  const[draft,setDraft]=useState({win:"",gb:"",motm:"",bqAns:null});
+  const[saving,setSaving]=useState(false);
+  const[userSearch,setUserSearch]=useState("");
+  const[matchSearch,setMatchSearch]=useState("");
+
+  const approvedUsers=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
+  const filteredUsers=approvedUsers.filter(u=>u.name.toLowerCase().includes(userSearch.toLowerCase())||u.email.toLowerCase().includes(userSearch.toLowerCase()));
+  const playableMs=ms.filter(m=>!isTBD(m));
+  const filteredMs=playableMs.filter(m=>(m.mn+m.home+m.away+m.date).toLowerCase().includes(matchSearch.toLowerCase()));
+
+  const getUP=(emk,id)=>{const up=allPicks[emk]||{};return up[String(id)]??up[Number(id)]??null;};
+  const existingPick=selUser&&selMatch?getUP(ek(selUser),selMatch.id):null;
+  const existingBQ=selUser&&selMatch?(allBonusPicks[ek(selUser)]||{})[String(selMatch.id)]:undefined;
+  const hasBQ=selMatch&&!!BONUS_QUESTIONS[selMatch.id];
+  const allReady=!!(draft.win&&draft.gb&&draft.motm&&(!hasBQ||draft.bqAns!==null));
+
+  function selectUser(email){setSelUser(email);setSelMatch(null);setDraft({win:"",gb:"",motm:"",bqAns:null});setUserSearch("");}
+
+  async function handleSave(){
+    if(!selUser||!selMatch){toast2("Select a user and match","error");return;}
+    if(!draft.win||!draft.gb||!draft.motm){toast2("Fill winner, goals band and scorer","error");return;}
+    if(hasBQ&&draft.bqAns===null){toast2("Answer the bonus question","error");return;}
+    setSaving(true);
+    const ok=await onSave(selUser,selMatch,{win:draft.win,gb:draft.gb,motm:draft.motm},draft.bqAns);
+    if(ok){setSelMatch(null);setDraft({win:"",gb:"",motm:"",bqAns:null});}
+    setSaving(false);
+  }
+
+  return(
+    <div>
+      <div className="ac">
+        <p className="st" style={{marginBottom:12}}>📸 MANUAL PICK ENTRY (SCREENSHOT EVIDENCE)</p>
+        <div style={{background:"#FFF9E6",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#92400E"}}>
+          ⚠️ Use only when a player sent screenshot proof before lock time. This bypasses the lock — use responsibly.
+        </div>
+
+        {/* Step 1: User */}
+        <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Step 1 — Select Player</p>
+        <input className="inp" placeholder="Search player…" value={userSearch} onChange={e=>setUserSearch(e.target.value)} style={{marginBottom:8}}/>
+        <div style={{maxHeight:160,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+          {filteredUsers.map(u=>{
+            const emk=ek(u.email);const pickCount=Object.keys(allPicks[emk]||{}).length;
+            return(
+              <div key={u.email} onClick={()=>selectUser(u.email)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selUser===u.email?"#E6F0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:13,fontWeight:600,color:"#0a1628",margin:0}}>{u.name}</p>
+                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{u.email} · {pickCount} picks</p>
+                </div>
+                {selUser===u.email&&<span style={{color:"#004B87",fontSize:14}}>✅</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Step 2: Match */}
+        {selUser&&<>
+          <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:.5,marginBottom:6}}>Step 2 — Select Match</p>
+          <input className="inp" placeholder="Search match (M17, teams…)" value={matchSearch} onChange={e=>setMatchSearch(e.target.value)} style={{marginBottom:8}}/>
+          <div style={{maxHeight:180,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:10,marginBottom:14}}>
+            {filteredMs.map(m=>{
+              const hasPick=!!getUP(ek(selUser),m.id);
+              return(
+                <div key={m.id} onClick={()=>{setSelMatch(m);setDraft({win:"",gb:"",motm:"",bqAns:null});setMatchSearch("");}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer",background:selMatch?.id===m.id?"#E6F0FA":"#fff",borderBottom:"1px solid #f1f5f9"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#004B87"}}>{m.mn}</span>
+                      <span style={{fontSize:12,color:"#0a1628",fontWeight:600}}>{m.home} vs {m.away}</span>
+                    </div>
+                    <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time}</p>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                    {hasPick&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>Has pick</span>}
+                    {m.result&&<span style={{background:"#dbeafe",color:"#1e40af",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>Done</span>}
+                    {selMatch?.id===m.id&&<span style={{color:"#004B87",fontSize:14}}>✅</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>}
+
+        {/* Existing pick warning */}
+        {existingPick&&<div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:12,color:"#92400E"}}>
+          ℹ️ Existing pick for {selMatch?.mn}: <b>{existingPick.win}</b> winner · <b>{GOAL_BANDS.find(b=>b.id===existingPick.gb)?.short||existingPick.gb}</b> goals · MOTM: <b>{existingPick.motm}</b>. Saving will overwrite.
+          {existingBQ!==undefined&&<span> · Bonus: {existingBQ?"Yes":"No"}</span>}
+        </div>}
+
+        {/* Step 3: Pick entry */}
+        {selUser&&selMatch&&<>
+          <div style={{background:"#E6F0FA",border:"1px solid #bfdbfe",borderRadius:12,padding:"14px",marginBottom:14}}>
+            <p style={{fontSize:11,fontWeight:700,color:"#1e40af",textTransform:"uppercase",letterSpacing:.5,marginBottom:14}}>
+              Step 3 — Enter Picks · {selMatch.mn}: {selMatch.home} vs {selMatch.away}
+            </p>
+
+            {/* Winner */}
+            <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Match Winner</p>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {[selMatch.home,"Draw",selMatch.away].map(v=>(
+                <button key={v} onClick={()=>setDraft(d=>({...d,win:v}))} style={{flex:1,padding:"10px 4px",borderRadius:10,border:"2px solid "+(draft.win===v?"#004B87":"#e2e8f0"),background:draft.win===v?"#E6F0FA":"#f8faff",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                  {v!=="Draw"&&<FlagBox team={v} sz={26}/>}
+                  <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,color:draft.win===v?"#004B87":"#64748b"}}>{v==="Draw"?"🤝 Draw":v}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Goals band (scoreline) */}
+            <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>⚽ Total Goals Band</p>
+            <div style={{display:"flex",gap:6,marginBottom:14}}>
+              {GOAL_BANDS.map(band=>(
+                <button key={band.id} onClick={()=>setDraft(d=>({...d,gb:d.gb===band.id?"":band.id}))} style={{flex:1,padding:"8px 4px",borderRadius:10,border:"2px solid "+(draft.gb===band.id?"#004B87":"#e2e8f0"),background:draft.gb===band.id?"#E6F0FA":"#f8faff",cursor:"pointer",textAlign:"center"}}>
+                  <div style={{fontSize:14}}>{band.emoji}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:draft.gb===band.id?"#004B87":"#64748b"}}>{band.short}</div>
+                </button>
+              ))}
+            </div>
+            {!draft.gb&&<p style={{fontSize:10,color:"#ef4444",margin:"-8px 0 14px",fontWeight:600}}>⚠️ Required</p>}
+
+            {/* Scorer / MOTM */}
+            <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Player of the Match / Scorer</p>
+            <div style={{marginBottom:14}}>
+              <MotmDropdown team1={selMatch.home} team2={selMatch.away} value={draft.motm} onChange={v=>setDraft(d=>({...d,motm:v}))}/>
+            </div>
+
+            {/* Bonus */}
+            {hasBQ&&<>
+              <p style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4}}>Bonus Question</p>
+              <p style={{fontSize:11,color:"#475569",marginBottom:8,lineHeight:1.4,fontStyle:"italic"}}>{BONUS_QUESTIONS[selMatch.id]}</p>
+              <div style={{display:"flex",gap:8,marginBottom:draft.bqAns===null?4:10}}>
+                <button className={"bq-btn yes"+(draft.bqAns===true?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===true?null:true}))}>✅ Yes</button>
+                <button className={"bq-btn no"+(draft.bqAns===false?" on":"")} onClick={()=>setDraft(d=>({...d,bqAns:d.bqAns===false?null:false}))}>❌ No</button>
+              </div>
+              {draft.bqAns===null&&<p style={{fontSize:10,color:"#ef4444",marginBottom:10,fontWeight:600}}>⚠️ Required</p>}
+            </>}
+
+            {allReady&&<div style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginTop:4,border:"1px solid #bfdbfe",fontSize:12}}>
+              <p style={{color:"#1e40af",fontWeight:700,margin:"0 0 6px",fontSize:11,textTransform:"uppercase"}}>Will save:</p>
+              <p style={{color:"#0a1628",margin:0,lineHeight:1.6}}>
+                <b>{Object.values(users).find(u=>u.email===selUser)?.name||selUser}</b> → {selMatch.mn}:{" "}
+                <b>{draft.win}</b> winner · <b>{GOAL_BANDS.find(b=>b.id===draft.gb)?.short}</b> goals · <b>{draft.motm}</b> MOTM{hasBQ?` · Bonus: ${draft.bqAns?"Yes":"No"}`:""}
+              </p>
+            </div>}
+          </div>
+
+          <button className="pbtn" disabled={saving||!allReady} onClick={handleSave}>
+            {saving?"Saving…":"💾 Save Pick for "+(Object.values(users).find(u=>u.email===selUser)?.name||"")}
+          </button>
+        </>}
+      </div>
     </div>
   );
 }
@@ -1447,7 +1605,6 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[pinnedBc,setPinnedBc]=useState(null);
   const[maintenance,setMaintenance]=useState(false);
   const[loaded,setLoaded]=useState(false);
-  const[readOnly,setReadOnly]=useState(false);
   const[manualPtsAdj,setManualPtsAdj]=useState({});
   const[pendingUsers,setPendingUsers]=useState({});
   const[toast,setToast]=useState(null);
@@ -1475,7 +1632,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
 
   /* ─── Load shared data ─────────────────────────────────────── */
   const reloadShared=useCallback(async()=>{
-    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,at4,gball,aws,agb,agg,agball,pu,pbc,tStatus]=await Promise.all([
+    const[u,ap,rm,bc2,ch,sp2,t4,ws,gb,gg,sw2,lk,rx,mnt,pts,dm,cm,mu,bq,bans,gban,at4,gball,aws,agb,agg,agball,pu,pbc]=await Promise.all([
       DB.get("u"),DB.get("ap"),DB.get("rm"),DB.get("bc"),DB.get("ch"),
       DB.get("sp"),DB.get("t4"),DB.get("ws"),DB.get("gb"),DB.get("gg"),DB.get("sw"),
       DB.get("lockedm"),DB.get("rx"),DB.get("maintenance"),DB.get("ptsadj"),
@@ -1483,7 +1640,6 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
       DB.get("bq"),DB.get("bonusans"),DB.get("goalbanans"),
       DB.get("actualtop4"),DB.get("gball"),
       DB.get("actualws"),DB.get("actualgb"),DB.get("actualgg"),DB.get("actualgball"),DB.get("pending"),DB.get("pinnedbc"),
-      DB.get("tourneystatus"),
     ]);
 
     if(u){const nu={};Object.keys(u).forEach(k=>{const e=u[k];if(e?.email)nu[ek(e.email)]=e;});setUsers(nu);}
@@ -1542,7 +1698,6 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     if(agg&&Array.isArray(agg))setActualGg(agg);
     if(agball)setActualGball(agball);
     setPinnedBc(pbc||null);
-    if(tStatus!=null)setReadOnly(tStatus==="finished");
     setLoaded(true);
   },[myEk]);
 
@@ -1718,6 +1873,29 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
     const nc=latest.filter(m=>m.id!==id);setChat(nc);await DB.set("ch",nc);
   }
 
+  /* Admin manual pick save — bypasses lock, atomic write + re-fetch */
+  async function adminSavePick(targetEmail,match,pick,bqAns){
+    const targetEmk=ek(targetEmail);
+    const sid=String(match.id);
+    const ok=await DB.setUserPick(targetEmk,sid,{win:pick.win,gb:pick.gb,motm:pick.motm});
+    if(!ok){toast2("Save failed","error");return false;}
+    if(BONUS_QUESTIONS[match.id]&&bqAns!==null&&bqAns!==undefined){
+      await DB.set("bq/"+targetEmk+"/"+sid,bqAns);
+      const bqAll=await DB.get("bq")||{};
+      const normBQ={};Object.keys(bqAll).forEach(k=>{normBQ[ek(k)]=bqAll[k];});
+      setAllBonusPicks(normBQ);if(targetEmail===email)setMyBonusPicks(normBQ[myEk]||{});
+    }
+    const freshAP=await DB.get("ap");const normAP={};
+    if(freshAP&&typeof freshAP==="object"){
+      Object.keys(freshAP).forEach(k=>{const ck=ek(k);const up=freshAP[k];normAP[ck]={};
+        if(up&&typeof up==="object")Object.keys(up).forEach(mid=>{const p=up[mid];if(p&&(p.win||p.motm))normAP[ck][String(mid)]=p;});});
+    }
+    setAllPicks(normAP);if(targetEmail===email)setMyPicks(normAP[myEk]||{});
+    const targetName=Object.values(users).find(u=>u.email===targetEmail)?.name||targetEmail;
+    toast2("✅ Pick saved for "+targetName,"ok");
+    return true;
+  }
+
   async function doneOnboard(){
     if(!obSp){toast2("Pick a champion first","error");return;}
     if(obT4.length!==4){toast2("Select exactly 4 teams for Top 4","error");return;}
@@ -1884,8 +2062,6 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   ),[myPts,maintenance,onBack]);
 
   /* ─── MAINTENANCE ──────────────────────────────────────────── */
-  if(readOnly)return<TournamentHistory lb={getLb()} email={email} user={user} sw={sw} actualTop4={actualTop4} actualWs={actualWs} actualGb={actualGb} actualGg={actualGg} actualGball={actualGball} done={done.length} sport="football" PTS={PTS} onBack={onBack}/>;
-
   if(maintenance&&!isAdmin){
     return(
       <div className="fifa-app"><style>{CSS}</style>
@@ -2136,7 +2312,6 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   return(
     <div className="fifa-app" style={{paddingBottom:68}}><style>{CSS}</style>
       {hdr}
-      {readOnly&&<div style={{background:"#7c3aed",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:16}}>🏁</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1}}>FIFA World Cup 2026 has ended — you're viewing historical data.</p></div>}
       {pinnedBc&&<div style={{background:"#004B87",padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:14}}>📌</span><p style={{color:"#fff",fontSize:12,fontWeight:600,margin:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pinnedBc}</p></div>}
 
       {/* Points quick ref */}
@@ -2534,7 +2709,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
         </div>
 
         <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"auto"}}>
-          {[["approvals","✅ Approve"],["results","📊 Results"],["pickstatus","👁 Picks"],["users","👥 Users"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=>(
+          {[["approvals","✅ Approve"],["manpick","✍️ Pick Entry"],["results","📊 Results"],["pickstatus","👁 Picks"],["users","👥 Users"],["analytics","📈 Analytics"],["controls","🎛️ Controls"],["broadcast","📢 Broadcast"]].map(([t,l])=>(
             <button key={t} className={"at"+(admTab===t?" on":"")} onClick={()=>setAdmTab(t)}>{l}{t==="approvals"&&pendingCount>0?` (${pendingCount})`:""}</button>
           ))}
         </div>
@@ -2553,6 +2728,8 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             </div>
           ))}
         </div>}
+
+        {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} allBonusPicks={allBonusPicks} doubleMatch={doubleMatch} onSave={adminSavePick} toast2={toast2}/>}
 
         {admTab==="results"&&<div>
           {ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id)).map(m=>(
@@ -2642,6 +2819,71 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             </div>
           ))}
         </div>}
+
+        {admTab==="analytics"&&(()=>{
+          const doneMs=ms.filter(m=>m.result&&!isTBD(m)&&!isNR(m.result.win));
+          const ae=Object.entries(allPicks);
+          const getUP=(emk,id)=>{const up=allPicks[emk]||{};return up[String(id)]??up[Number(id)]??null;};
+          const matchStats=doneMs.map(m=>{
+            const picks=ae.filter(([emk])=>getUP(emk,m.id));
+            const tot=picks.length||1;
+            const winRight=picks.filter(([emk])=>getUP(emk,m.id)?.win===m.result.win).length;
+            const motmRight=picks.filter(([emk])=>motmMatch(getUP(emk,m.id)?.motm,m.result.motm)).length;
+            const perfect=picks.filter(([emk])=>{const p=getUP(emk,m.id);return p?.win===m.result.win&&motmMatch(p?.motm,m.result.motm);}).length;
+            return{m,tot:picks.length,winRight,motmRight,perfect,winAcc:Math.round(winRight/tot*100),motmAcc:Math.round(motmRight/tot*100)};
+          }).sort((a,b)=>a.winAcc-b.winAcc);
+          const upsets=matchStats.filter(s=>s.winAcc<30&&s.tot>=2);
+          const easiest=matchStats.filter(s=>s.winAcc>=70&&s.tot>=2).reverse();
+          const totalPicks=ae.reduce((s,[,up])=>s+Object.keys(up||{}).length,0);
+          const totalPerfects=doneMs.reduce((s,m)=>s+ae.filter(([emk])=>{const p=getUP(emk,m.id);return p?.win===m.result.win&&motmMatch(p?.motm,m.result.motm);}).length,0);
+          const avgWinAcc=matchStats.length?Math.round(matchStats.reduce((s,x)=>s+x.winAcc,0)/matchStats.length):0;
+          const avgMotmAcc=matchStats.length?Math.round(matchStats.reduce((s,x)=>s+x.motmAcc,0)/matchStats.length):0;
+          return<div>
+            <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+              {[["⚽",doneMs.length,"Matches Done"],["💎",totalPerfects,"Group Perfects"],["📊",totalPicks,"Total Picks"],["🏆",avgWinAcc+"%","Avg Win Acc"],["⭐",avgMotmAcc+"%","Avg MOTM Acc"]].map(([ic,val,lbl])=>(
+                <div key={lbl} style={{flex:1,minWidth:60,background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 6px",textAlign:"center"}}>
+                  <p style={{fontSize:14,margin:0}}>{ic}</p>
+                  <p className="C" style={{color:"#004B87",fontSize:15,fontWeight:800,margin:"2px 0 0"}}>{val}</p>
+                  <p style={{color:"#64748b",fontSize:8,margin:0,textTransform:"uppercase",letterSpacing:.3}}>{lbl}</p>
+                </div>
+              ))}
+            </div>
+            {upsets.length>0&&<div className="ac" style={{marginBottom:12}}>
+              <p className="st" style={{marginBottom:8}}>😱 BIGGEST UPSETS (Group mostly wrong)</p>
+              {upsets.map(s=><div key={s.m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                <div><p style={{fontSize:12,fontWeight:600,color:"#0a1628",margin:0}}>{s.m.mn}: {s.m.home} vs {s.m.away}</p><p style={{fontSize:10,color:"#94a3b8",margin:0}}>Winner: <b style={{color:"#0a1628"}}>{s.m.result.win}</b> · {s.tot} picks</p></div>
+                <span style={{background:"#fee2e2",color:"#991b1b",fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:8}}>{s.winAcc}% right</span>
+              </div>)}
+            </div>}
+            {easiest.length>0&&<div className="ac" style={{marginBottom:12}}>
+              <p className="st" style={{marginBottom:8}}>🎯 MOST PREDICTED CORRECTLY</p>
+              {easiest.map(s=><div key={s.m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                <div><p style={{fontSize:12,fontWeight:600,color:"#0a1628",margin:0}}>{s.m.mn}: {s.m.home} vs {s.m.away}</p><p style={{fontSize:10,color:"#94a3b8",margin:0}}>Winner: <b style={{color:"#0a1628"}}>{s.m.result.win}</b> · {s.tot} picks</p></div>
+                <span style={{background:"#f0fdf4",color:"#15803d",fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:8}}>{s.winAcc}% right</span>
+              </div>)}
+            </div>}
+            <div className="ac">
+              <p className="st" style={{marginBottom:8}}>📈 ALL MATCH ACCURACY</p>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead><tr style={{borderBottom:"2px solid #e2e8f0"}}>
+                    {["Match","Picks","Win%","MOTM%","Perfects"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 6px",color:"#64748b",fontWeight:700,fontSize:9,textTransform:"uppercase"}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {[...matchStats].reverse().map(s=><tr key={s.m.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"7px 6px",fontWeight:600,color:"#0a1628"}}>{s.m.mn}</td>
+                      <td style={{padding:"7px 6px",color:"#64748b"}}>{s.tot}</td>
+                      <td style={{padding:"7px 6px"}}><span style={{color:s.winAcc>=60?"#15803d":s.winAcc>=40?"#92400E":"#dc2626",fontWeight:700}}>{s.winAcc}%</span></td>
+                      <td style={{padding:"7px 6px"}}><span style={{color:s.motmAcc>=60?"#15803d":s.motmAcc>=40?"#92400E":"#dc2626",fontWeight:700}}>{s.motmAcc}%</span></td>
+                      <td style={{padding:"7px 6px",color:"#004B87",fontWeight:700}}>{s.perfect}</td>
+                    </tr>)}
+                  </tbody>
+                </table>
+                {matchStats.length===0&&<p style={{color:"#94a3b8",fontSize:12,textAlign:"center",padding:"16px 0"}}>No completed matches yet.</p>}
+              </div>
+            </div>
+          </div>;
+        })()}
 
         {admTab==="controls"&&<div>
           <div className="ac">
