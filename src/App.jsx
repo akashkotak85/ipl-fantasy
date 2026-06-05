@@ -1,7 +1,6 @@
 import * as React from "react";
 import{useState,useEffect,useRef,useCallback,useMemo}from"react";
 import MatchIntelPanel from"./MatchIntelPanel.jsx";
-const StockMarket = React.lazy(()=>import("./StockMarket.jsx"));
 import SportSelector from"./SportSelector.jsx";
 const FifaApp = React.lazy(()=>import("./FifaApp.jsx"));
 import CricketHub from"./CricketHub.jsx";
@@ -898,7 +897,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   // eslint-disable-next-line
   },[]);
 
-  useEffect(()=>{if(["home","picks","lb","wof","adm","stock"].includes(sc)&&email)reloadShared(email);},[sc,email]);
+  useEffect(()=>{if(["home","picks","lb","wof","adm"].includes(sc)&&email)reloadShared(email);},[sc,email]);
   useEffect(()=>{
     if(!selectedTournament||!email)return;
     setMs(buildBaseMatches());
@@ -1272,16 +1271,6 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   }
 
   function exportCSV(){const lb=getLb();const rows=[["Rank","Name","Email","Points","Accuracy","Champion","Top4"].join(","),...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.acc+"%",u.userSp||"",(u.userT4||[]).join("|")].join(","))];const blob=new Blob([rows.join("\n")],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="ipl26_leaderboard.csv";a.click();URL.revokeObjectURL(url);toast2("CSV exported!","ok");}
-  async function handleStockPayout(payoutPtsMap){
-    const curAdj=await DB.get("ptsadj")||{};
-    const updAdj={...curAdj};
-    Object.entries(payoutPtsMap).forEach(([emk,pts])=>{
-      updAdj[emk]=(updAdj[emk]||0)+pts;
-    });
-    await DB.set("ptsadj",updAdj);
-    setManualPtsAdj(updAdj);
-    toast2(`💰 Market payout applied to ${Object.keys(payoutPtsMap).length} players`,"ok");
-  }
   function exportPicksCSV(){
     const playableMs=ms.filter(m=>!isTBD(m)&&TEAMS.includes(m.home)&&TEAMS.includes(m.away)).sort((a,b)=>Number(a.id)-Number(b.id));
     const users2=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
@@ -1330,8 +1319,8 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   };
 
   const navItems=isAdmin
-    ?[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"],["stock","MK","Market"],["adm","AD","Admin"]]
-    :[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"],["stock","MK","Market"]];
+    ?[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"],["adm","AD","Admin"]]
+    :[["home","HM","Home"],["lb","LB","Board"],["picks","MY","My Game"],["chat","CH","Chat"],["wof","WF","Fame"],["rules","RL","Rules"]];
 
   const hdr=useMemo(()=><div style={{background:"linear-gradient(135deg,#1D428A,#2a5bbf)",padding:"13px 16px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:50}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1905,19 +1894,6 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     </div>}
 
     {/* -------- ADMIN PANEL -------- */}
-    {sc==="stock"&&(
-      <React.Suspense fallback={<div style={{padding:40,textAlign:"center",color:"#64748b",fontSize:14}}>Loading...</div>}>
-
-      <StockMarket
-        email={email}
-        users={users}
-        ms={ms}
-        isAdmin={isAdmin}
-        toast2={toast2}
-        onPayout={handleStockPayout}
-      />
-      </React.Suspense>
-    )}
 	{sc==="adm"&&isAdmin&&<div style={{padding:"16px"}}>
       <div style={{background:"linear-gradient(135deg,#1a2540,#1D428A)",borderRadius:14,padding:"14px",marginBottom:14,textAlign:"center"}}><p className="C" style={{color:"#FFE57F",fontSize:22,fontWeight:800,letterSpacing:2,margin:0}}>🏏 CRICKET ADMIN</p></div>
 
