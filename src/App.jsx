@@ -1127,6 +1127,16 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
     await reloadShared(email);
   }
 
+  // Reset a single user's pick + bonus for a match, then refresh state in place
+  // (no full page reload — keeps the admin inside the current tournament).
+  async function resetUserPick(targetEmk,matchId){
+    const sid=String(matchId);
+    await DB.set("ap/"+targetEmk+"/"+sid,null);
+    await DB.set("bq/"+targetEmk+"/"+sid,null);
+    await reloadShared(email);
+    toast2("Pick reset","ok");
+  }
+
   /*
     Admin manual pick save — called by AdminManualPickPanel.
     Uses the same atomic DB.setUserPick path to avoid any key coercion.
@@ -1932,7 +1942,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
       {admTab==="manpick"&&<AdminManualPickPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} onSave={adminSavePick} onSaveSeasonData={adminSaveSeasonData} spk={spk} t4pk={t4pk} allPropBets={allPropBets} allBonusPicks={allBonusPicks} toast2={toast2} TEAMS={TEAMS} TF={TF} BONUS_QUESTIONS={BONUS_QUESTIONS} ALL_PLAYERS={ALL_PLAYERS} PROP_QUESTIONS={PROP_QUESTIONS}/>}
 
       {/* -- PICK STATUS TAB -- */}
-      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} TEAMS={TEAMS} TC={TC} SQ={SQ} DB={DB}/>}
+      {admTab==="pickstatus"&&<PickStatusPanel ms={ms} users={users} allPicks={allPicks} doubleMatch={doubleMatch} lockedMatches={lockedMatches} adminEmail={email} scoreBandAnswers={scoreBandAnswers} bonusAnswers={bonusAnswers} allBonusPicks={allBonusPicks} TEAMS={TEAMS} TC={TC} SQ={SQ} DB={DB} onReset={resetUserPick}/>}
 
       {/* -- RESULTS TAB -- */}
       {admTab==="results"&&<div>
