@@ -20,6 +20,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { firebaseConfig } from "./firebaseConfig.js";
 
 /* ─── constants ──────────────────────────────────────────────── */
 const TEAMS  = ["RCB","SRH","MI","KKR","CSK","RR","PBKS","GT","LSG","DC"];
@@ -42,7 +43,6 @@ const ek  = e => (e||"").trim().toLowerCase().replace(/\./g,"_dot_").replace(/@/
 const isNR = v => !v || v === NR;
 
 /* ─── Firebase ───────────────────────────────────────────────── */
-const firebaseConfig = { apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",projectId:"ipl2026-fantasy-20c9b",storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",messagingSenderId:"973930153403",appId:"1:973930153403:web:872ce26072b07e1adf309e" };
 const firebaseReady = (async()=>{
   const [app,db] = await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")]);
   const _app = app.getApps().length ? app.getApp() : app.initializeApp(firebaseConfig);

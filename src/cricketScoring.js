@@ -314,9 +314,12 @@ export function calcScoreBandPts(uPicks, scoreBandAnswers, ms, dbl = null) {
 
 // Season-long props are NOT per-match, so no multiplier (intentional).
 export function calcPropPts(userProps, propAnswers) {
-  return PROP_QUESTIONS.reduce((s, q, i) => {
-    const ans = propAnswers?.[`q${i}`];
-    const my = userProps?.[`q${i}`];
+  // Iterate over the answers that actually exist (q0, q1, …) rather than a fixed
+  // count, so tournaments with a different number of prop questions score correctly.
+  if (!userProps || !propAnswers) return 0;
+  return Object.keys(propAnswers).reduce((s, k) => {
+    const ans = propAnswers[k];
+    const my = userProps[k];
     if (!ans || my == null || my === "") return s;
     return s + (String(my) === String(ans) ? PTS.prop : 0);
   }, 0);

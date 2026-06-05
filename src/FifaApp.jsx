@@ -13,6 +13,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { firebaseConfig } from "./firebaseConfig.js";
 
 /* ─── TEAMS ──────────────────────────────────────────────────── */
 const TEAMS = [
@@ -483,15 +484,6 @@ const motmMatch = (a,b) => {
 };
 
 /* ─── FIREBASE ───────────────────────────────────────────────── */
-const firebaseConfig = {
-  apiKey:"AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",
-  authDomain:"ipl2026-fantasy-20c9b.firebaseapp.com",
-  databaseURL:"https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",
-  projectId:"ipl2026-fantasy-20c9b",
-  storageBucket:"ipl2026-fantasy-20c9b.firebasestorage.app",
-  messagingSenderId:"973930153403",
-  appId:"1:973930153403:web:872ce26072b07e1adf309e"
-};
 
 const firebaseReady = (async()=>{
   const [app,db] = await Promise.all([

@@ -158,7 +158,7 @@ function LeaderboardTab({ lb, email, sw, actualTop4, sport, PTS, accentColor }) 
 /* ─── awards tab ───────────────────────────────────────────── */
 function AwardsTab({ sw, actualTop4, actualWs, actualGb, actualGg, actualGball, sport, PTS, done }) {
   const cricketAwards = [
-    sw && { icon: "🏆", label: "IPL Champion", value: sw },
+    sw && { icon: "🏆", label: "Champion", value: sw },
     actualTop4?.length > 0 && { icon: "🏅", label: "Playoff Teams", value: actualTop4.join(", ") },
   ].filter(Boolean);
 

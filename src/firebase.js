@@ -7,15 +7,8 @@
 
 import { deepEncodeKeys, normalizeAP } from "./cricketScoring.js";
 
-export const firebaseConfig = {
-  apiKey: "AIzaSyCzDq7yWYOTfVp5kfs_BPsnLzc5ka6HyKQ",
-  authDomain: "ipl2026-fantasy-20c9b.firebaseapp.com",
-  databaseURL: "https://ipl2026-fantasy-20c9b-default-rtdb.firebaseio.com",
-  projectId: "ipl2026-fantasy-20c9b",
-  storageBucket: "ipl2026-fantasy-20c9b.firebasestorage.app",
-  messagingSenderId: "973930153403",
-  appId: "1:973930153403:web:872ce26072b07e1adf309e",
-};
+import { firebaseConfig } from "./firebaseConfig.js";
+export { firebaseConfig };
 
 // Memoised module loader — initialises the app exactly once.
 let _readyCache = null;
