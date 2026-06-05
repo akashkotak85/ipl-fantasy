@@ -7,7 +7,7 @@ import FifaApp from"./FifaApp.jsx";
 import CricketHub from"./CricketHub.jsx";
 import TournamentHistory from"./TournamentHistory.jsx";
 import CareerStats from"./CareerStats.jsx";
-import { DB } from "./firebase.js";
+import { createDB } from "./firebase.js";
 import { PTS, SCORE_BANDS, EMOJIK, EMOJIV, TRASH_TALK, getLiveTournaments, getFinishedTournaments, TC as _TC, TF as _TF, TEAMS as _TEAMS, BASE_MATCHES as _BASE_MATCHES, BONUS_QUESTIONS as _BONUS_QUESTIONS, PROP_QUESTIONS as _PROP_QUESTIONS, ALL_PLAYERS as _ALL_PLAYERS } from "./cricketData.js";
 import { NR, CHAT_MAX, CHAT_CAP, ek, normalizeEmail, canonicalKey, normalizeKeyMap, normalizeAP, validateEmail, validatePassword, validateName, capChat, sha256, isNR, showVal, getP, getTeamForm, cutoff, isMatchLocked, isToday, isTBD, motmMatch, resolvePlayoffSlots, applyRmEntry, calcScore, calcBadges, calcBonusPts, calcScoreBandPts, calcPropPts } from "./cricketScoring.js";
 import { Av, Toggle, Tst, TLogo, FormDots, SBar, useCd, PotmDropdown } from "./cricketUI.jsx";
@@ -715,6 +715,7 @@ const[activeSport,setActiveSport]=useState(null);
 const[sportsConfig,setSportsConfig]=useState({ipl:true,fifa:false});
 const[sportConfigLoaded,setSportConfigLoaded]=useState(false);
 const[selectedTournament,setSelectedTournament]=useState(null);
+  const DB=createDB(selectedTournament?.dbPrefix||"ipl26_");
 const[showCareer,setShowCareer]=useState(false);
 // Tournament-specific data — falls back to IPL 2026 defaults when no tournament selected
 const TC=selectedTournament?.TC||_TC;
@@ -860,7 +861,7 @@ const[actualTop4,setActualTop4]=useState([]);
     const userPropBets=em?(normPB[emk]||{}):null;
     const hasPropBets=!!(em&&userPropBets&&PROP_QUESTIONS.every((q,i)=>userPropBets[`q${i}`]&&userPropBets[`q${i}`]!==""));
     return{freshAP,hasOnboarded:!!(nsp[emk]),hasPropBets,userPropBets:userPropBets||{}};
-  },[buildBaseMatches]);
+  },[buildBaseMatches,selectedTournament?.dbPrefix]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -894,7 +895,15 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   // eslint-disable-next-line
   },[]);
 
-  useEffect(()=>{if(["home","picks","lb","wof","adm","stock"].includes(sc)&&email)reloadShared(email);},[sc,email]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(["home","picks","lb","wof","adm","stock"].includes(sc)&&email)reloadShared(email);},[sc,email]);
+  useEffect(()=>{
+    if(!selectedTournament||!email)return;
+    setMs(buildBaseMatches());
+    setMyPicks({});setAllPicks({});setSpk({});setMySp("");
+    setT4pk({});setMyT4([]);setSw(null);setRm({});
+    setReadOnly(false);
+    reloadShared(email);
+  },[selectedTournament?.dbPrefix]);// eslint-disable-line // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enforce prop bets: whenever user arrives at home screen, check if props filled
   const propBetsSkipped=useRef(false);
