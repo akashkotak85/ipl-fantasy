@@ -1654,6 +1654,7 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
   const[sw,setSw]=useState(null);const[actualTop4,setActualTop4]=useState([]);
   const[actualWs,setActualWs]=useState("");const[actualGb,setActualGb]=useState("");const[actualGg,setActualGg]=useState([]);const[actualGball,setActualGball]=useState("");
   const[lockedMatches,setLockedMatches]=useState({});
+  const[repairLoading,setRepairLoading]=useState(false);
   const[doubleMatch,setDoubleMatch]=useState(null);
   const[rxns,setRxns]=useState({});
   const[chat,setChat]=useState([]);const[chatIn,setChatIn]=useState("");
@@ -3040,6 +3041,54 @@ export default function FifaApp({user,email,isAdmin,onBack,onLogout}){
             <MotmDropdown team1="" team2="" value={actualGball} onChange={async v=>{setActualGball(v);await DB.set("actualgball",v);toast2("🏅 Golden Ball: "+v,"ok");}}/>
             {actualGball&&<p style={{fontSize:11,color:"#15803d",fontWeight:700,marginTop:8}}>✓ Set: {actualGball}</p>}
             {actualGball&&<button onClick={async()=>{setActualGball("");await DB.set("actualgball",null);toast2("Cleared");}} style={{marginTop:8,padding:"6px 14px",borderRadius:8,background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",cursor:"pointer",fontSize:11,fontWeight:700}}>✕ Clear</button>}
+          </div>
+
+          <div className="ac">
+            <p className="st">EXPORT DATA</p>
+            <div style={{display:"flex",gap:8,flexDirection:"column"}}>
+              <button className="pbtn" onClick={()=>{
+                const lb=getLb();
+                const rows=[["Rank","Name","Email","Points","Winner","Top4"].join(","),
+                  ...lb.map((u,i)=>[i+1,'"'+u.name+'"',u.email,u.pts,u.userSp||"",(u.userT4||[]).join("|")].join(","))];
+                const blob=new Blob([rows.join("\n")],{type:"text/csv"});
+                const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fifa26_leaderboard.csv";a.click();URL.revokeObjectURL(url);
+                toast2("Leaderboard exported!","ok");
+              }}>📥 Export Leaderboard CSV</button>
+              <button className="pbtn" style={{background:"linear-gradient(135deg,#0f6e56,#1D9E75)"}} onClick={()=>{
+                const playableMs=ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id));
+                const users2=Object.values(users).filter(u=>u?.email&&u.approved!==false).sort((a,b)=>a.name.localeCompare(b.name));
+                const hdr=["Name","Email",...playableMs.flatMap(m=>[m.mn+"_win",m.mn+"_goals",m.mn+"_motm"])];
+                const rows=[hdr.join(","),...users2.map(u=>{
+                  const emk=ek(u.email);const up=allPicks[emk]||{};
+                  const cells=playableMs.flatMap(m=>{const p=up[String(m.id)]??up[Number(m.id)];return[p?.win||"",p?.gb||"",p?.motm||""];});
+                  return['"'+u.name+'"',u.email,...cells].join(",");
+                })];
+                const blob=new Blob([rows.join("\n")],{type:"text/csv"});
+                const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fifa26_all_picks.csv";a.click();URL.revokeObjectURL(url);
+                toast2("All picks exported!","ok");
+              }}>📥 Export All Picks CSV</button>
+            </div>
+          </div>
+
+          <div className="ac" style={{background:"#E6F0FA",border:"2px solid #004B87"}}>
+            <p className="st">🔧 DB REPAIR</p>
+            <p style={{fontSize:12,color:"#64748b",marginBottom:10}}>Re-normalises all pick keys (email encoding + string match IDs). Run if picks look wrong after a double-header day.</p>
+            <button className="pbtn" disabled={repairLoading} onClick={async()=>{
+              if(repairLoading)return;
+              setRepairLoading(true);
+              try{
+                const ap=await DB.get("ap")||{};
+                const fixed={};
+                Object.keys(ap).forEach(k=>{
+                  const ck=ek(k);const up=ap[k]||{};fixed[ck]=fixed[ck]||{};
+                  Object.keys(up).forEach(mid=>{const p=up[mid];if(p&&(p.win||p.motm))fixed[ck][String(mid)]=p;});
+                });
+                await DB.set("ap",fixed);
+                await reloadShared(email);
+                toast2("✅ DB repaired & reloaded","ok");
+              }catch(e){console.error("repair",e);toast2("Repair failed — check console","error");}
+              setRepairLoading(false);
+            }}>{repairLoading?"Repairing…":"🔧 Repair & Reload All Picks"}</button>
           </div>
         </div>}
 
