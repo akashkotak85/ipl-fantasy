@@ -65,6 +65,25 @@ export function createDB(prefix) {
         return false;
       }
     },
+    // Real-time listener on a node. Calls cb(value) on every change.
+    // Returns an unsubscribe function. Safe to call before firebase is ready.
+    subscribe: (k, cb) => {
+      let off = null,
+        cancelled = false;
+      firebaseReady()
+        .then(({ db, dbMod }) => {
+          if (cancelled) return;
+          const r = dbMod.ref(db, prefix + k);
+          const handler = (snap) => cb(snap.exists() ? snap.val() : null);
+          dbMod.onValue(r, handler);
+          off = () => dbMod.off(r, "value", handler);
+        })
+        .catch((e) => console.error("DB.subscribe", k, e));
+      return () => {
+        cancelled = true;
+        if (off) off();
+      };
+    },
     // Full re-normalisation of the ap subtree. Idempotent.
     repairAllPicks: async () => {
       try {
