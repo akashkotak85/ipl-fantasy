@@ -223,7 +223,7 @@ function MCard({m,pred,myPicks,allPicks,rxns,doubleMatch,lockedMatches,matchPtsO
       <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"linear-gradient(135deg,"+hc.bg+"10,transparent 50%,"+ac.bg+"10)",pointerEvents:"none",borderRadius:14}}/>
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+        <span style={{color:"#64748b",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time} IST</span>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           {isDouble&&<span style={{background:"linear-gradient(135deg,#FF822A,#D4AF37)",color:"#fff",fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:800}}>⚡ 2×</span>}
           {isWashout&&<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🌧️ Washout</span>}
@@ -541,7 +541,7 @@ function AdminManualPickPanel({ms,users,allPicks,doubleMatch,onSave,onSaveSeason
                     <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:"#1D428A"}}>{m.mn}</span>
                     <span style={{fontSize:12,color:"#1a2540",fontWeight:600}}>{m.home} vs {m.away}</span>
                   </div>
-                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time}</p>
+                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time} IST</p>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
                   {hasPick&&<span style={{background:"#f0fdf4",color:"#15803d",fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:700}}>Has pick</span>}
@@ -899,6 +899,27 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
   },[]);
 
   useEffect(()=>{if(["home","picks","lb","wof","adm"].includes(sc)&&email)reloadShared(email);},[sc,email]);
+  // Real-time: keep shared data + chat live while on a data screen.
+  // Chat streams instantly; other node changes debounce-trigger reloadShared
+  // (reuses all the existing normalisation). Additive — complements the
+  // tab-change reload above rather than replacing it.
+  useEffect(()=>{
+    if(!email||!["home","picks","lb","wof","adm","chat"].includes(sc))return;
+    let t=null;
+    const bump=()=>{clearTimeout(t);t=setTimeout(()=>{reloadShared(email);},250);};
+    const subs=[
+      DB.subscribe("ap",bump),
+      DB.subscribe("rm",bump),
+      DB.subscribe("u",bump),
+      DB.subscribe("sw",bump),
+      DB.subscribe("bonusans",bump),
+      DB.subscribe("propanswers",bump),
+      DB.subscribe("sbans",bump),
+      DB.subscribe("actualtop4",bump),
+      DB.subscribe("ch",(v)=>{if(Array.isArray(v))setChat(v);}),
+    ];
+    return ()=>{clearTimeout(t);subs.forEach(u=>u&&u());};
+  },[sc,email,selectedTournament?.dbPrefix,reloadShared]);// eslint-disable-line
   useEffect(()=>{
     if(!selectedTournament||!email)return;
     setMs(buildBaseMatches());
@@ -1651,7 +1672,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         {htab==="up"&&(upMs.length===0?<div style={{textAlign:"center",padding:"48px 16px"}}><p className="C" style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>ALL MATCHES DONE</p></div>:upMs.map(m=>{
           const hasPick=!!getP(myPicks,m.id);
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:14,padding:"14px",marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span>}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time} IST</span>{hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>✅ Predicted</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>Upcoming</span>}</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><TLogo t={m.home} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.home}</p></div><p className="C" style={{color:"#e2e8f0",fontSize:16,fontWeight:800,padding:"0 8px",margin:0}}>VS</p><div style={{display:"flex",alignItems:"center",gap:8,flex:1,justifyContent:"flex-end",flexDirection:"row-reverse"}}><TLogo t={m.away} sz={34}/><p className="C" style={{color:"#475569",fontSize:13,fontWeight:700,margin:0}}>{m.away}</p></div></div>
             <p style={{color:"#cbd5e1",fontSize:11,marginTop:10,borderTop:"1px solid #f1f5f9",paddingTop:8}}>📍 {m.venue}</p>
           </div>;
@@ -1790,7 +1811,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         <div style={{display:"flex",gap:0,background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,overflow:"hidden"}}>
           {[["pending","Pending ("+pending.length+")"],["played","Results ("+played.length+")"],["upcoming","Schedule"]].map(([t,l])=><button key={t} className={"tbtn"+(ptab===t?" on":"")} onClick={()=>setPtab(t)}>{l}</button>)}
         </div>
-        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>📭</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🔒 Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
+        {ptab==="pending"&&(pending.length===0?<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:36}}>📭</p><p style={{color:"#94a3b8",marginTop:8,fontSize:13}}>No pending predictions.</p></div>:pending.map(m=>{const p=getP(myPicks,m.id);return<div key={m.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"14px",marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time} IST</span><span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 9px",borderRadius:20,fontWeight:600}}>🔒 Locked</span></div><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><TLogo t={m.home} sz={32}/><span className="C" style={{color:"#94a3b8",fontSize:14,fontWeight:700}}>VS</span><TLogo t={m.away} sz={32}/></div><div style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#15803d"}}>
                   <p style={{fontSize:10,fontWeight:700,color:"#15803d",textTransform:"uppercase",letterSpacing:.5,margin:"0 0 8px"}}>Your Predictions</p>           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>             {[["🪙 Toss",p?.toss],["🏆 Winner",p?.win],["⭐ POTM",p?.motm?.split(" ").slice(-1)[0]||"—"],["📊 1st Innings",p?.sb?SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb:"—"]].map(([l,v])=>(               <div key={l} style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px"}}>                 <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>{l}</p>                 <p style={{fontSize:12,fontWeight:700,color:"#1a2540",margin:"2px 0 0"}}>{v||"—"}</p>               </div>             ))}           </div>           {(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null             ?<div style={{background:"rgba(255,255,255,.7)",borderRadius:8,padding:"6px 8px",marginTop:6}}>                 <p style={{fontSize:9,color:"#64748b",fontWeight:600,margin:0}}>🎁 Bonus Q</p>                 <p style={{fontSize:12,fontWeight:700,color:"#1a2540",margin:"2px 0 0"}}>{myBQ?"Yes":"No"}</p>               </div>             :null;})()}
                   {p?.sb&&<span> · 📊 {SCORE_BANDS.find(b=>b.id===p.sb)?.short||p.sb}</span>}
                   {(()=>{const myBQ=myBonusPicks[String(m.id)];return myBQ!=null?<span> · ? {myBQ?"Yes":"No"}</span>:null;})()}
@@ -1799,7 +1820,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
           const hasPick=!!getP(myPicks,m.id);const lk=isMatchLocked(m,lockedMatches);const hasRem=!!reminders[m.id];
           return<div key={m.id} style={{background:"#fff",border:"1px solid "+(hasPick?"#bbf7d0":"#e2e8f0"),borderRadius:12,padding:"12px 14px",marginBottom:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time}</span>
+              <span style={{color:"#94a3b8",fontSize:11,fontWeight:600}}>{m.mn} · {m.date} · {m.time} IST</span>
               <div style={{display:"flex",gap:5,alignItems:"center"}}>
                 {!lk&&<button onClick={()=>toggleReminder(m.id)} title={hasRem?"Cancel reminder":"Set 30-min reminder"} style={{background:hasRem?"#EBF0FA":"#f8faff",border:"1px solid "+(hasRem?"#1D428A":"#e2e8f0"),borderRadius:8,padding:"3px 8px",cursor:"pointer",fontSize:12,color:hasRem?"#1D428A":"#94a3b8"}}>{hasRem?"🔔":"🔕"}</button>}
                 {hasPick?<span style={{background:"#f0fdf4",color:"#15803d",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>✅</span>:lk?<span style={{background:"#fee2e2",color:"#991b1b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>🔒</span>:<span style={{background:"#f1f5f9",color:"#64748b",fontSize:10,padding:"3px 8px",borderRadius:12,fontWeight:600}}>Pending</span>}
@@ -1945,7 +1966,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
         {ms.filter(m=>!isTBD(m)).sort((a,b)=>Number(a.id)-Number(b.id)).map(m=>(
           <div key={m.id} className="ac">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div><p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{m.date} · {m.time}</p></div>
+              <div><p style={{fontWeight:700,fontSize:13,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p><p style={{color:"#94a3b8",fontSize:11,margin:0}}>{m.date} · {m.time} IST</p></div>
               <div style={{display:"flex",gap:6}}>
               </div>
             </div>
@@ -2164,7 +2185,7 @@ try{localStorage.removeItem("ipl26_session");}catch(e){}if(!cancelled)setSc("log
               return<div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderBottom:"1px solid #f1f5f9"}}>
                 <div style={{flex:1}}>
                   <p style={{fontSize:12,fontWeight:600,color:"#1a2540",margin:0}}>{m.mn}: {m.home} vs {m.away}</p>
-                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time}</p>
+                  <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{m.date} · {m.time} IST</p>
                 </div>
                 <button onClick={()=>toggleMatchLock(m.id)} style={{padding:"4px 10px",borderRadius:8,background:st==="locked"?"#fee2e2":st==="unlocked"?"#f0fdf4":"#f1f5f9",color:st==="locked"?"#991b1b":st==="unlocked"?"#15803d":"#475569",border:"1px solid "+(st==="locked"?"#fecaca":st==="unlocked"?"#bbf7d0":"#e2e8f0"),cursor:"pointer",fontSize:11,fontWeight:600}}>
                   {st==="locked"?"🔒 Locked":st==="unlocked"?"🔓 Unlocked":"⏱️ Auto"}
